@@ -126,7 +126,8 @@ def get_atombasis(clusterdata):
         gaudata = ccread(clusterdata)
     else:
         gaudata = clusterdata
-    basisbyatom = np.array(gaudata.atombasis)
+    # basisbyatom = np.array(gaudata.atombasis)
+    basisbyatom = gaudata.atombasis
     symbols_list = list(element_labels[gaudata.atomnos])
     for idx, rangeslist in enumerate(basisbyatom):
         rgs.append({'label': {symbols_list[idx]}, 'range': [rangeslist[0], rangeslist[-1] + 1]})
