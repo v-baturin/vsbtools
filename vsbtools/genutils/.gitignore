@@ -1,0 +1,9 @@
+*.txt
+*.pkl
+log
+RECALC*
+__pycache__
+*.pyc
+.idea
+abInitio_io_parse/__pycache__
+
