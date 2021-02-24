@@ -58,11 +58,25 @@ def xyzfile2poscars(xyz_fname, box, poscars_fname):
         ats.pbc = [True, True, True]
         ase_write(poscars_fname, ats, format='vasp', append=True, direct=True, vasp5=True)
 
+
+def vacuum_dress(ats, vacuum_sizes):
+    """
+    @param ats: ase.Atoms object
+    @param vacuum_sizes: ordered container of vacuum distances along cartesian coordinates
+    @return:  new cell parameters
+    """
+    circum_box = np.max(ats.positions) - np.min(ats.positions)
+    ats.set_cell(circum_box + vacuum_sizes)
+    ats.pbc = [True, True, True]
+    ats.center()
+    return ats.cell
+
+
 def dict2gauformat(dct_param: dict, gau_route=False):
     txt = ''
     dct = dct_param.copy()
     if gau_route:
-        txt = txt + '#p ' + dct['approach_basis']
+        txt += '#p ' + dct['approach_basis']
         del dct['approach_basis']
     for upper_key, upper_val in dct.items():
         txt += (' ' + upper_key)
