@@ -9,12 +9,16 @@ from cclib.parser.utils import PeriodicTable as pt
 ptable = pt()
 element_labels = np.array(ptable.element[:])
 
+def path_or_ccobject(f):
+    def wrapped(*args, **kwargs):
+        if isinstance(args[0], str):
+            args = list(args)
+            args[0] = ccread(args[0])
+        return f(*args, **kwargs)
+    return wrapped
 
-def get_kohn_sham(clusterdata):
-    if isinstance(clusterdata, str):
-        gaudata = ccread(clusterdata)
-    else:
-        gaudata = clusterdata
+@path_or_ccobject
+def get_kohn_sham(gaudata):
 
     homo_idx = gaudata.homos[0]
     up_states = gaudata.moenergies[0]
@@ -23,19 +27,14 @@ def get_kohn_sham(clusterdata):
 
     return up_states, dn_states, fermi
 
-
-def get_formula(clusterdata, extended_out=False):
+@path_or_ccobject
+def get_formula(gaudata, extended_out=False):
     """
 
     @param clusterdata: name of out file or a ccData object containing cclib data attributes
     @param extended_out: if True returns not only formula but lists of atomic symbols and number of atoms in a dict
     @return:
     """
-    if isinstance(clusterdata, str):
-        gaudata = ccread(clusterdata)
-    else:
-        gaudata = clusterdata
-
     symbols_list = list(element_labels[gaudata.atomnos])
 
     # Now get different symbols and numbers of atoms with preserving order
@@ -56,76 +55,16 @@ def get_formula(clusterdata, extended_out=False):
     else:
         return formula
 
-
-def get_orbital_coefficients(clusterdata):
-    if isinstance(clusterdata, str):
-        gaudata = ccread(clusterdata)
-    else:
-        gaudata = clusterdata
+@path_or_ccobject
+def get_orbital_coefficients(gaudata):
     coeffs = gaudata.mocoeffs[0]
-    # # Returns the mtrx coeffs(2X2) of expansion coefficients over atomic orbitals
-    # # coeffs[2] is the array of expansion coefficients for the 3-rd MO
-    # ext_formula = get_formula(log_filename, extended_out=True)
-    # symbols = ext_formula['symbols']
-    # symbols_set = set(symbols)
-    # coeff_block = my_parse.getblock(log_filename, 'Molecular Orbital Coefficients:', 'Density Matrix:')
-    # try:
-    #     n_orbitals = int(coeff_block[-1].split()[0])
-    # except:
-    #     print('i am here')
-    # del coeff_block[0::n_orbitals + 3]  # Deletes all strings with numbers of molecular orbitals like '1   2   3   4   5' and so on
-    # del coeff_block[0::n_orbitals + 2]  # Deletes all occupancy flags like 'O   O   O   V   V' and so on
-    # del coeff_block[0::n_orbitals + 1]  # Deletes all 'Eigenvalues --' strings
-    #
-    # i_atom = 0
-    # atom_0_label = set(coeff_block[0].split()) & symbols_set
-    # if len(atom_0_label) == 1:
-    #     raw_coeffs = ' '.join(coeff_block[0::n_orbitals])
-    #     raw_coeffs_split = raw_coeffs.split()
-    #     for x in range(9, 5, -1):
-    #         del raw_coeffs_split[::x]
-    #     coeffs = [[float(x) for x in raw_coeffs_split]]
-    # else:
-    #     raise IOError("Unexpected file format")
-    #
-    # ranges = [{'label': atom_0_label, 'range': [0]}, ]
-    #
-    # for line_no in range(1, n_orbitals):
-    #     curr_line_split = coeff_block[line_no].split()
-    #     curr_line_split_set = set(curr_line_split)
-    #     new_atom_label = curr_line_split_set & symbols_set
-    #     # print(line_no)
-    #     if len(new_atom_label) == 1:
-    #         i_atom += 1
-    #         ranges[-1]['range'].extend([line_no])
-    #         ranges.extend([{'label': new_atom_label, 'range': [line_no]}])
-    #         raw_coeffs = ' '.join(coeff_block[line_no::n_orbitals])
-    #         raw_coeffs_split = raw_coeffs.split()
-    #         for x in range(9, 5, -1):
-    #             del raw_coeffs_split[::x]
-    #         coeffs.append([float(x) for x in raw_coeffs_split])
-    #     else:
-    #         raw_coeffs = ' '.join(coeff_block[line_no::n_orbitals])
-    #         raw_coeffs_split = raw_coeffs.split()
-    #         # print(raw_coeffs_split[0:20])
-    #         for x in range(len(curr_line_split), 5, -1):
-    #             del raw_coeffs_split[::x]
-    #         coeffs.append([float(x) for x in raw_coeffs_split])
-    # ranges[-1]['range'].extend([line_no + 1])
-    #
-    # coeffs = np.array(coeffs).transpose()
-
     return coeffs
 
-
-def get_atombasis(clusterdata):
+@path_or_ccobject
+def get_atombasis(gaudata):
     # [{'label': {'Cd'}, 'range': [0, 24]},
     #  {'label': {'Cd'}, 'range': [24, 48]},...]
     rgs = []
-    if isinstance(clusterdata, str):
-        gaudata = ccread(clusterdata)
-    else:
-        gaudata = clusterdata
     # basisbyatom = np.array(gaudata.atombasis)
     basisbyatom = gaudata.atombasis
     symbols_list = list(element_labels[gaudata.atomnos])
@@ -133,12 +72,8 @@ def get_atombasis(clusterdata):
         rgs.append({'label': {symbols_list[idx]}, 'range': [rangeslist[0], rangeslist[-1] + 1]})
     return rgs
 
-
-def get_mullik_contributions(clusterdata):
-    if isinstance(clusterdata, str):
-        gaudata = ccread(clusterdata)
-    else:
-        gaudata = clusterdata
+@path_or_ccobject
+def get_mullik_contributions(gaudata):
     m = MPA(gaudata)
     m.calculate()
     return np.array(m.aoresults)
@@ -161,16 +96,12 @@ def get_pdos_on_atoms(log_filename, atomic_numbers, method='coeff'):
 
     return pdos_coeff
 
-
-def getcontribs(clusterdata):
+@path_or_ccobject
+def getcontribs(parseddata):
     # Returns atomic contributions to orbitals (Mulliken charges)
-    if isinstance(clusterdata, str):
-        parseddata = ccread(clusterdata)
-    else:
-        parseddata = clusterdata
 
-    mulliken = get_mullik_contributions(clusterdata)
-    rgs = get_atombasis(clusterdata)
+    mulliken = get_mullik_contributions(parseddata)
+    rgs = get_atombasis(parseddata)
     norb = parseddata.nmo
     natom = parseddata.natom
     contribs = np.zeros((norb, natom))
@@ -226,18 +157,32 @@ def getpdos_general(gaudata, flags_list, method='mulliken'):
 
     return pdos_coeff, gaudata.moenergies  # , orbrange, gaudata
 
-def get_total_energy(clusterdata):
-    if isinstance(clusterdata, str):
-        clname = clusterdata.split('/')[0]
-        parseddata = ccread(clusterdata)
-    else:
-        parseddata = clusterdata
-        clname = get_formula(clusterdata)
+@path_or_ccobject
+def get_total_energy(parseddata):
+    # if isinstance(clusterdata, str):
+    #     clname = clusterdata.split('/')[0]
+    #     parseddata = ccread(clusterdata)
+    # else:
+    #     parseddata = clusterdata
+    clname = get_formula(parseddata)
     try:
         return parseddata.scfenergies[-1]
     except Exception as e:
         print('No scf done: ' + e.__class__ + ' ' + clname)
         return None
+
+@path_or_ccobject
+def get_gap(clusterdata):
+    homo_indices = clusterdata.homos
+    if len(homo_indices) == 2:
+        gap = np.min([clusterdata.moenergies[0][homo_indices[0] + 1],
+                      clusterdata.moenergies[1][homo_indices[1] + 1]]) - \
+              np.max([clusterdata.moenergies[0][homo_indices[0]],
+                      clusterdata.moenergies[1][homo_indices[1]]])
+    else:
+        gap = clusterdata.moenergies[0][homo_indices[0] + 1] - \
+              clusterdata.moenergies[0][homo_indices[0]]
+    return gap
     
 
 # def deprecated_get_kohn_sham(log_filename):
