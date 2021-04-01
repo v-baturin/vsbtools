@@ -4,7 +4,7 @@ import numpy as np
 from ase import Atoms
 from ase.io import read as ase_read
 from ase.io import write as ase_write
-from cclib.io import ccread, ccwrite
+from cclib.io import ccread
 from genutils.filesystem_tools import add_index
 # from .common_tools import recursive_map_to_keys, recursively_map_to_vals, try_numerize_string
 
@@ -57,19 +57,6 @@ def xyzfile2poscars(xyz_fname, box, poscars_fname):
         ats.cell = box
         ats.pbc = [True, True, True]
         ase_write(poscars_fname, ats, format='vasp', append=True, direct=True, vasp5=True)
-
-
-def vacuum_dress(ats, vacuum_sizes):
-    """
-    @param ats: ase.Atoms object
-    @param vacuum_sizes: ordered container of vacuum distances along cartesian coordinates
-    @return:  new cell parameters
-    """
-    circum_box = np.max(ats.positions) - np.min(ats.positions)
-    ats.set_cell(circum_box + vacuum_sizes)
-    ats.pbc = [True, True, True]
-    ats.center()
-    return ats.cell
 
 
 def dict2gauformat(dct_param: dict, gau_route=False):
