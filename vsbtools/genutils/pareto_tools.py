@@ -11,11 +11,13 @@ def pareto_gen(costs, return_mask=False):
         If return_mask is True, this will be an (n_points, ) boolean array
         Otherwise it will be a (n_efficient_points, ) integer array of indices.
     """
+    i_front= 0
     init_cost = np.arange(costs.shape[0])
     n_points = costs.shape[0]
-    next_point_index = 0  # Next index in the is_efficient array to search for
+     # Next index in the is_efficient array to search for
     residue = costs
     while len(residue) > 0:
+        next_point_index = 0
         residue = []
         non_efficient = []
         is_efficient = init_cost
@@ -31,11 +33,16 @@ def pareto_gen(costs, return_mask=False):
             is_efficient_mask = np.zeros(n_points, dtype=bool)
             is_efficient_mask[is_efficient] = True
             yield is_efficient_mask
+            if i_front == 57:
+                pass
         else:
             yield is_efficient
+            if i_front == 57:
+                pass
         if residue:
             costs = np.concatenate(residue)
             init_cost = np.hstack(non_efficient)
+            i_front += 1
 
 
 if __name__ == '__main__':
