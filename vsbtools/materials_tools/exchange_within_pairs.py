@@ -25,8 +25,9 @@ def min_d2e_2d(energies_table, diags=False, shift=False):
     return min_d2E
 
 
-def min_d2e_nd(energies_fmt, ref_energies=None, diags=False, shift=1, astable=False):
+def min_d2e_nd(energies_fmt, ref_energies=None, for_CNH=False, shifts=None, astable=False, return_mask=None):
     """
+    Second derivative for systems of any dimensionality
     Turns formatted list with elements of format [i_0, i_1, i_2, ..., i_n, E(i_0, i_1, i_2, ..., i_n)]
     into a list of [j_0, j_1, j_2, ..., j_n, d2E(j_0, j_1, j_2, ..., j_n)] for all j_k which allow calculation of
     second derivatives
@@ -39,33 +40,54 @@ def min_d2e_nd(energies_fmt, ref_energies=None, diags=False, shift=1, astable=Fa
     """
     if ref_energies is None:
         ref_energies = energies_fmt
+    if return_mask:
+        has_d2e_mask = np.zeros(len(energies_fmt), dtype=bool)
 
     all_comps = ref_energies[:, :-1]
     ndims = energies_fmt.shape[1] - 1
+
     d2e = []
-    comp_shifts = np.eye(ndims)
-    for element in energies_fmt:
-        d2e_components = np.zeros(ndims)
+
+    if shifts is None:
+        shifts = np.eye(ndims)
+
+    n_shifts = shifts.shape[0]
+
+    for el_i, element in enumerate(energies_fmt):
+        d2e_components = np.empty(n_shifts)
+        d2e_components[:] = np.nan
         composition = element[:-1]
-        for i in range(ndims):
-            comp_plus   = composition + comp_shifts[i]
-            comp_minus  = composition - comp_shifts[i]
-            where_plus  = np.where((all_comps == comp_plus).all(axis=1))[0]
+        for i in range(n_shifts):
+            comp_plus = composition + shifts[i]
+            comp_minus = composition - shifts[i]
+            where_plus = np.where((all_comps == comp_plus).all(axis=1))[0]
             where_minus = np.where((all_comps == comp_minus).all(axis=1))[0]
             if where_plus and where_minus:
                 d2e_components[i] = ref_energies[where_plus, -1] + ref_energies[where_minus, -1] - 2 * element[-1]
-        if np.all(d2e_components):
-            d2e.append(list(composition) + [np.min(d2e_components)])
+
+        if not np.any(np.isnan(d2e_components)):
+            if for_CNH:
+                where_compos = np.where((all_comps == composition).all(axis=1))[0]
+                ref_energy_compos = ref_energies[where_compos, -1]
+                below_ground = ref_energy_compos - element[-1]
+                d2e.append(list(composition) + [np.min(np.hstack((0.5 * d2e_components, below_ground)))])
+            else:
+                d2e.append(list(composition) + [np.min(d2e_components)])
+            if return_mask:
+                has_d2e_mask[el_i] = True
 
     d2e_np = np.array(d2e)
+
     if astable:
-        return list_fmt2table(d2e_np)[0]
+        assert ndims == 2, "For table representation a system must be binary"
+        outp = list_fmt2table(d2e_np)[0]
     else:
-        return d2e_np
+        outp = d2e_np
 
+    if return_mask:
+        outp = (outp, has_d2e_mask)
 
-
-
+    return outp
 
 
 def min_exch_en(fmt_data, atomlabels, outfile):
