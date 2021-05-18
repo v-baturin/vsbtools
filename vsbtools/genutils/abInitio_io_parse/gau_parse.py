@@ -173,7 +173,10 @@ def get_total_energy(parseddata):
 
 @path_or_ccobject
 def get_gap(clusterdata):
-    homo_indices = clusterdata.homos
+    try:
+        homo_indices = clusterdata.homos
+    except AttributeError:
+        return np.nan
     if len(homo_indices) == 2:
         gap = np.min([clusterdata.moenergies[0][homo_indices[0] + 1],
                       clusterdata.moenergies[1][homo_indices[1] + 1]]) - \
