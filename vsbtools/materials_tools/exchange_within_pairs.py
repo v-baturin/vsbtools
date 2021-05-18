@@ -25,7 +25,8 @@ def min_d2e_2d(energies_table, diags=False, shift=False):
     return min_d2E
 
 
-def min_d2e_nd(energies_fmt, ref_energies=None, for_CNH=False, shifts=None, astable=False, return_mask=None):
+def min_d2e_nd(energies_fmt, ref_energies=None, for_CNH=False, shifts=None, astable=False, return_mask=None,
+               check_all_shifts=True):
     """
     Second derivative for systems of any dimensionality
     Turns formatted list with elements of format [i_0, i_1, i_2, ..., i_n, E(i_0, i_1, i_2, ..., i_n)]
@@ -65,14 +66,19 @@ def min_d2e_nd(energies_fmt, ref_energies=None, for_CNH=False, shifts=None, asta
             if where_plus and where_minus:
                 d2e_components[i] = ref_energies[where_plus, -1] + ref_energies[where_minus, -1] - 2 * element[-1]
 
-        if not np.any(np.isnan(d2e_components)):
+        if check_all_shifts:
+            to_include = not np.any(np.isnan(d2e_components))
+        else:
+            to_include = not np.all(np.isnan(d2e_components))
+
+        if to_include:
             if for_CNH:
                 where_compos = np.where((all_comps == composition).all(axis=1))[0]
                 ref_energy_compos = ref_energies[where_compos, -1]
                 below_ground = ref_energy_compos - element[-1]
-                d2e.append(list(composition) + [np.min(np.hstack((0.5 * d2e_components, below_ground)))])
+                d2e.append(list(composition) + [np.nanmin(np.hstack((0.5 * d2e_components, below_ground)))])
             else:
-                d2e.append(list(composition) + [np.min(d2e_components)])
+                d2e.append(list(composition) + [np.nanmin(d2e_components)])
             if return_mask:
                 has_d2e_mask[el_i] = True
 
