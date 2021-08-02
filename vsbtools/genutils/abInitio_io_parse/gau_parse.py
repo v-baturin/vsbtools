@@ -1,3 +1,4 @@
+import os
 import sys
 import numpy as np
 import re
@@ -5,6 +6,7 @@ from .. import my_io
 from cclib.method import MPA
 from cclib.io import ccread
 from cclib.parser.utils import PeriodicTable as pt
+from ..filesystem_tools import add_index
 
 ptable = pt()
 element_labels = np.array(ptable.element[:])
@@ -16,6 +18,15 @@ def path_or_ccobject(f):
             args[0] = ccread(args[0])
         return f(*args, **kwargs)
     return wrapped
+
+@path_or_ccobject
+def trace_relaxation(gaudata, outfolder, fname_root=None):
+    os.makedirs(outfolder, exist_ok=True)
+    gaudata.metadata['comments'] = []
+    for k in range(len(gaudata.atomcoords)):
+        gaudata.metadata['comments'].append('E_tot = {:6.5f}'.format(gaudata.scfenergies[k]))
+        gaudata.writexyz(add_index(outfolder + '/' + fname_root.split('/')[-1].split('.')[0] + '.xyz', zerobased=True,
+                                       respect_file_extension=True), indices=k)
 
 @path_or_ccobject
 def get_kohn_sham(gaudata):
