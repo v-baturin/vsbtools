@@ -15,7 +15,7 @@ def min_d2e_2d(energies_table, diags=False, shift=False):
     h_d2E = energies_table[1:-1, 0:-2] + energies_table[1:-1, 2:] - 2 * core_energies
     min_d2E = np.minimum(h_d2E, v_d2E)
     if shift:
-        h_offset2_d2E = 100 * np.ones(h_d2E.shape)
+        h_offset2_d2E = 100 * np.ones(h_d2E.shape)  # TODO: Needs to change. Currently a very bad practice
         h_offset2_d2E[:, 1:-1] = energies_table[1:-1, 0:-4] + energies_table[1:-1, 4:] - 2 * core_energies[:, 1:-1]
         min_d2E = np.minimum(min_d2E, h_offset2_d2E)
     if diags is True:
@@ -25,14 +25,14 @@ def min_d2e_2d(energies_table, diags=False, shift=False):
     return min_d2E
 
 
-def min_d2e_nd(energies_fmt, ref_energies=None, for_CNH=False, shifts=None, astable=False, return_mask=None,
-               check_all_shifts=True):
+def min_d2e_nd(energies_fmt, ref_energies=None, for_CNH=False, shifts=None, out_astable=False, return_mask=None,
+               ignore_nonexistent_shifts=True):
     """
     Second derivative for systems of any dimensionality
     Turns formatted list with elements of format [i_0, i_1, i_2, ..., i_n, E(i_0, i_1, i_2, ..., i_n)]
     into a list of [j_0, j_1, j_2, ..., j_n, d2E(j_0, j_1, j_2, ..., j_n)] for all j_k which allow calculation of
     second derivatives
-    @param astable:
+    @param out_astable:
     @param ref_energies:
     @param energies_fmt: List
     @param diags:
@@ -63,13 +63,14 @@ def min_d2e_nd(energies_fmt, ref_energies=None, for_CNH=False, shifts=None, asta
             comp_minus = composition - shifts[i]
             where_plus = np.where((all_comps == comp_plus).all(axis=1))[0]
             where_minus = np.where((all_comps == comp_minus).all(axis=1))[0]
-            if where_plus and where_minus:
+            if len(where_plus and where_minus):
                 d2e_components[i] = ref_energies[where_plus, -1] + ref_energies[where_minus, -1] - 2 * element[-1]
 
-        if check_all_shifts:
-            to_include = not np.any(np.isnan(d2e_components))
-        else:
+        if ignore_nonexistent_shifts:
             to_include = not np.all(np.isnan(d2e_components))
+        else:
+            to_include = not np.any(np.isnan(d2e_components))
+
 
         if to_include:
             if for_CNH:
@@ -84,7 +85,7 @@ def min_d2e_nd(energies_fmt, ref_energies=None, for_CNH=False, shifts=None, asta
 
     d2e_np = np.array(d2e)
 
-    if astable:
+    if out_astable:
         assert ndims == 2, "For table representation a system must be binary"
         outp = list_fmt2table(d2e_np)[0]
     else:
