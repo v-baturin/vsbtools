@@ -80,6 +80,8 @@ def min_d2e_nd(energies_fmt, ref_energies=None, for_CNH=False, shifts=None, out_
                 d2e.append(list(composition) + [np.nanmin(np.hstack((0.5 * d2e_components, below_ground)))])
             else:
                 d2e.append(list(composition) + [np.nanmin(d2e_components)])
+                if d2e[-1][-1] > 1000:
+                    print('!')
             if return_mask:
                 has_d2e_mask[el_i] = True
 
