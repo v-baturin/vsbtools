@@ -69,7 +69,8 @@ def get_formula(gaudata, extended_out=False):
 @path_or_ccobject
 def get_orbital_coefficients(gaudata):
     coeffs = gaudata.mocoeffs[0]
-    return coeffs
+    basis_ranges = get_atombasis(gaudata)
+    return coeffs, basis_ranges
 
 @path_or_ccobject
 def get_atombasis(gaudata):
@@ -90,7 +91,7 @@ def get_mullik_contributions(gaudata):
     return np.array(m.aoresults)
 
 
-def get_pdos_on_atoms(log_filename, atomic_numbers, method='coeff'):
+def get_pdos_on_atoms(log_filename, atomic_numbers, method='mulliken'):
     atomic_numbers = np.array(atomic_numbers)
     coef, rgs = get_orbital_coefficients(log_filename)  # Here rgs (ranges) are important for both methods
     print("Attention! Atomic numbers will be interpreted as 1-based")
@@ -107,27 +108,27 @@ def get_pdos_on_atoms(log_filename, atomic_numbers, method='coeff'):
 
     return pdos_coeff
 
-@path_or_ccobject
-def getcontribs(parseddata):
-    # Returns atomic contributions to orbitals (Mulliken charges)
-
-    mulliken = get_mullik_contributions(parseddata)
-    rgs = get_atombasis(parseddata)
-    norb = parseddata.nmo
-    natom = parseddata.natom
-    contribs = np.zeros((norb, natom))
-    for k_atom in range(natom):
-        orbs_of_k_atom = range(rgs[k_atom]['range'][0], rgs[k_atom]['range'][1])
-        for i_orbital in range(norb):
-            contribs[i_orbital, k_atom] = np.sum(mulliken[0][i_orbital][orbs_of_k_atom])
-    ipr = np.sum(contribs ** 2, 1)  # $\sum_i{c_i^4}$
-    return ipr, contribs, parseddata.moenergies, parseddata.homos
+# @path_or_ccobject
+# def getcontribs(parseddata):
+#     # Returns atomic contributions to orbitals (Mulliken charges)
+#
+#     mulliken = get_mullik_contributions(parseddata)
+#     rgs = get_atombasis(parseddata)
+#     norb = parseddata.nmo
+#     natom = parseddata.natom
+#     contribs = np.zeros((norb, natom))
+#     for k_atom in range(natom):
+#         orbs_of_k_atom = range(rgs[k_atom]['range'][0], rgs[k_atom]['range'][1])
+#         for i_orbital in range(norb):
+#             contribs[i_orbital, k_atom] = np.sum(mulliken[0][i_orbital][orbs_of_k_atom])
+#     ipr = np.sum(contribs ** 2, 1)  # $\sum_i{c_i^4}$
+#     return ipr, contribs, parseddata.moenergies, parseddata.homos
 
 
 def getpdos_general(gaudata, flags_list, method='mulliken'):
     # flaglist is a string of type '1Cd,S;Se,P'
     # Meaning - contribution of S-orbitals of atom Cd1 AND all P-orbitals of all Se-atoms
-    # Nomeration is 1-based
+    # Numeration is 1-based
     # 1Cd is equivalent to Cd1
 
     orbs = list(enumerate(gaudata.aonames))  # List of tuples (orbital_no, orbital_type_str)
@@ -160,12 +161,10 @@ def getpdos_general(gaudata, flags_list, method='mulliken'):
     #     for at_no in atomic_numbers:
     #         pdos_coeff += np.sum(coef[rgs[at_no]['range'][0]: rgs[at_no]['range'][1]] ** 2, 0)
     if method == 'mulliken':
-        mc = MPA(gaudata)
-        mc.calculate()
-        mull_contrib = np.array(mc.aoresults)
+        mull_contrib = get_mullik_contributions(gaudata)
         up_mull_contrib = mull_contrib[0]
         pdos_coeff = np.sum(up_mull_contrib[:, orbrange], 1)
-
+    print(np.sum(up_mull_contrib))
     return pdos_coeff, gaudata.moenergies  # , orbrange, gaudata
 
 @path_or_ccobject
