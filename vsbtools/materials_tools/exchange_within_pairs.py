@@ -81,7 +81,7 @@ def min_d2e_nd(energies_fmt, ref_energies=None, for_CNH=False, shifts=None, out_
             else:
                 d2e.append(list(composition) + [np.nanmin(d2e_components)])
                 if d2e[-1][-1] > 1000:
-                    print('!')
+                    print('Suspicious value of d2E at [-1][-1]!')
             if return_mask:
                 has_d2e_mask[el_i] = True
 
