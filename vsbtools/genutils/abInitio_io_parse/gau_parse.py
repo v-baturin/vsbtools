@@ -34,7 +34,7 @@ def get_kohn_sham(gaudata):
     homo_idx = gaudata.homos[0]
     up_states = gaudata.moenergies[0]
     dn_states = gaudata.moenergies[-1]
-    fermi = 0.9 * up_states[homo_idx] + 0.1 * up_states[homo_idx + 1]
+    fermi = 0.5 * up_states[homo_idx] + 0.5 * up_states[homo_idx + 1]
 
     return up_states, dn_states, fermi
 
