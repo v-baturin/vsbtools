@@ -1,4 +1,10 @@
 import numpy as np
+import functools
+
+def rgetattr(obj, attr, *args):
+    def _getattr(obj, attr):
+        return getattr(obj, attr, *args)
+    return functools.reduce(_getattr, [obj] + attr.split('.'))
 
 def odometer(maxcounts, mincounts=None):
     maxcounts = np.array(maxcounts)
