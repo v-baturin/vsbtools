@@ -1,10 +1,20 @@
 import numpy as np
 import functools
 
-def rgetattr(obj, attr, *args):
-    def _getattr(obj, attr):
-        return getattr(obj, attr, *args)
-    return functools.reduce(_getattr, [obj] + attr.split('.'))
+def rgetattr(obj, attr, default=None):
+    try: left, right = attr.split('.', 1)
+    except: return getattr(obj, attr, default)
+    return rgetattr(getattr(obj, left), right, default)
+
+def rsetattr(obj, attr, val):
+    try: left, right = attr.split('.', 1)
+    except: return setattr(obj, attr, val)
+    return rsetattr(getattr(obj, left), right, val)
+
+def rhasattr(obj, attr):
+    try: left, right = attr.split('.', 1)
+    except: return hasattr(obj, attr)
+    return rhasattr(getattr(obj, left), right)
 
 def odometer(maxcounts, mincounts=None):
     maxcounts = np.array(maxcounts)
