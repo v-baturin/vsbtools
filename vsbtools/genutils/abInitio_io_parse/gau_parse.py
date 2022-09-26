@@ -7,11 +7,13 @@ from cclib.method import MPA
 from cclib.io import ccread
 from cclib.parser.utils import PeriodicTable as pt
 from ..filesystem_tools import add_index
+from functools import wraps
 
 ptable = pt()
 element_labels = np.array(ptable.element[:])
 
 def path_or_ccobject(f):
+    @wraps(f)
     def wrapped(*args, **kwargs):
         if isinstance(args[0], str):
             args = list(args)
