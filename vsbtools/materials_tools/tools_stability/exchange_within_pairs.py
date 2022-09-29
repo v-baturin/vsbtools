@@ -1,7 +1,7 @@
 import numpy as np
 import sys
 
-sys.path.append("..")
+sys.path.append("../..")
 from genutils.format_tools import stoich2formula
 from .aux_routines import bin_paths, list_fmt2table
 
