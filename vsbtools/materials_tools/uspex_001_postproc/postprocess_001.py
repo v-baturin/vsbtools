@@ -1,6 +1,6 @@
 import os
-from gather_best import parse_001_results
-from tools_stability.aux_routines import list_fmt2table
+from .gather_best import parse_001_results
+from ..tools_stability.aux_routines import list_fmt2table
 from genutils.misc import get_sorted_compositions
 from genutils.filesystem_tools import add_index
 from ase.io import write
@@ -22,11 +22,11 @@ def write_best_n_isom(all_gathered_data, format='xyz', n_best=1, out_dir='gather
             for k in range(max(len(v['atoms']), n_best)):
                 write(poscar_fname, v['atoms'][k], format='vasp', vasp5=True, append=True)
 
-def get_energy_table(all_gathered_data, outfile='en_table.txt'):
+def get_energy_table(all_gathered_data, outfile='en_table.txt', **kwargs):
     if isinstance(all_gathered_data, str):
         all_gathered_data = parse_001_results(all_gathered_data)
     energytable_formatted = []
-    for k, v in all_struct_ordered_dict.items():
+    for k, v in all_gathered_data.items():
         energytable_formatted.append(list(k) + [v['Enthalpies'][0]])
-    en_matrix_nopure = list_fmt2table(energytable_formatted, outfile=out_dir + 'en_table.txt', placeholder=0.0)
+    en_matrix_nopure = list_fmt2table(energytable_formatted, outfile=out_dir + 'en_table.txt', **kwargs)
     return en_matrix_nopure
