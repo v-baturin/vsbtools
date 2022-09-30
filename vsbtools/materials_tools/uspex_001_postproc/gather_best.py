@@ -2,7 +2,7 @@ from pathlib import Path
 from ase.io import read, write
 import re
 import numpy as np
-from ab_initio_postprocessing.abInitio_io_parse.ext_software_io import read_coords_g
+from ..abInitio_io_parse.ext_software_io import read_coords_g
 
 # res_folder = Path("/home/vsbat/SYNC/00__WORK/PtAu_PROJECT/gathered_results")
 #
@@ -13,7 +13,6 @@ def parse_001_results(res_folder):
             if 'POSCARS' in str(indivs):
                 continue
             poscar_file = str(indivs) + '_POSCARS'
-            all_data_dict = {}
             all_data_dict = add_results_data(all_data_dict, indivs, poscar_file)
     for k, v in all_data_dict.items():
         indices = np.array(v['Enthalpies']).argsort()
@@ -56,15 +55,16 @@ def add_results_data(all_data_dict, indivs_fpath, poscars_fpath):
 
 if __name__ == '__main__':
     #  test1
-    # composition_fpath = "/home/vsbat/SYNC/00__WORK/PtAu_PROJECT/gathered_results/Pt1-4_Au1-4/results2/__goodStructures/composition_1_1"
-    # all_data_dict = {}
-    # all_data_dict = add_results_data(all_data_dict, composition_fpath, composition_fpath + '_POSCARS')
-    # print(all_data_dict)
+    composition_fpath = "/home/vsbat/SYNC/00__WORK/PtAu_PROJECT/gathered_uspex_results/Pt1-4_Au1-4/results2/__goodStructures/composition_1_1"
+    all_data_dict = {}
+    all_data_dict = add_results_data(all_data_dict, composition_fpath, composition_fpath + '_POSCARS')
+    print(all_data_dict)
+
     #  test2
 
-    res_dir_test = "/home/vsbat/SYNC/00__WORK/PtAu_PROJECT/gathered_results"
-    all_data_dict = parse_001_results(res_dir_test)
-    # print(all_data_dict)
+    # res_dir_test = "/gathered_uspex_results/gathered_results"
+    # all_data_dict = parse_001_results(res_dir_test)
+    # # print(all_data_dict)
 
 
 
