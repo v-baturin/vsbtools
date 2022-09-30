@@ -35,3 +35,17 @@ def odometer(maxcounts, mincounts=None):
             q, p = divmod(p, moduli[i])
             r.append(q)
         yield np.array(r) + mincounts
+
+def get_sorted_compositions(master_dict):
+    """
+    Utility for getting sorted list of compositions, where the latest index is sorted first
+    Example: dictionary consists of compositions [1,3], [2,4], [1,2], [2,1]
+    Output: [[1,2], [1,3], [2,1], [2,4]]
+    @param master_dict: master-dictionary extracted from database(s)
+    @return: list of lists
+    """
+    composition_array = np.array([list(key) for key in master_dict.keys()])
+    composition_array = composition_array[composition_array[:, -1].argsort()]
+    for ind in range(-2, -composition_array.shape[1] - 1, -1):
+        composition_array = composition_array[composition_array[:, ind].argsort(kind='mergesort')]
+    return composition_array

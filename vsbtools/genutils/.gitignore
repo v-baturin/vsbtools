@@ -5,5 +5,5 @@ RECALC*
 __pycache__
 *.pyc
 .idea
-abInitio_io_parse/__pycache__
+../ab_initio_postprocessing/abInitio_io_parse/__pycache__
 
