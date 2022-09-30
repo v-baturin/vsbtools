@@ -11,7 +11,7 @@ def write_best_n_isom(all_gathered_data, format='xyz', n_best=1, out_dir='gather
         all_gathered_data = parse_001_results(all_gathered_data)
     if format == 'xyz':
         for k, v in all_gathered_data.items():
-            for i in range(max(len(v['atoms']), n_best)):
+            for i in range(min(len(v['atoms']), n_best)):
                 xyz_fname = out_dir + v['atoms'][i].get_chemical_formula(mode='reduce') + f'_{i}.xyz'
                 write(xyz_fname, v['atoms'][i], format='xyz')
     elif format.casefold() in ['poscar', 'vasp']:
