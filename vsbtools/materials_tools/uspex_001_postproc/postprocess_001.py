@@ -11,16 +11,18 @@ def write_best_n_isom(all_gathered_data, format='xyz', n_best=1, out_dir='gather
         all_gathered_data = parse_001_results(all_gathered_data)
     if format == 'xyz':
         for k, v in all_gathered_data.items():
-            for k in range(max(len(v['atoms']), n_best)):
-                xyz_fname = out_dir + v['atoms'][k].get_chemical_formula(mode='reduce') + f'_{k}.xyz'
-                write(xyz_fname, v['atoms'][k], format='xyz')
+            for i in range(max(len(v['atoms']), n_best)):
+                xyz_fname = out_dir + v['atoms'][i].get_chemical_formula(mode='reduce') + f'_{i}.xyz'
+                write(xyz_fname, v['atoms'][i], format='xyz')
     elif format.casefold() in ['poscar', 'vasp']:
         sorted_cmp_array = get_sorted_compositions(all_gathered_data)
         poscar_fname = add_index(out_dir + '/POSCARS')
         for cmp in sorted_cmp_array:
             cmp = tuple(cmp)
-            for k in range(max(len(v['atoms']), n_best)):
-                write(poscar_fname, v['atoms'][k], format='vasp', vasp5=True, append=True)
+            v = all_gathered_data[cmp]
+            for i in range(min(len(v['atoms']), n_best)):
+                write(poscar_fname, v['atoms'][i], format='vasp', vasp5=True, append=True)
+
 
 def get_energy_table(all_gathered_data, outfile='en_table.txt', **kwargs):
     if isinstance(all_gathered_data, str):
@@ -28,5 +30,5 @@ def get_energy_table(all_gathered_data, outfile='en_table.txt', **kwargs):
     energytable_formatted = []
     for k, v in all_gathered_data.items():
         energytable_formatted.append(list(k) + [v['Enthalpies'][0]])
-    en_matrix_nopure = list_fmt2table(energytable_formatted, outfile=out_dir + 'en_table.txt', **kwargs)
+    en_matrix_nopure = list_fmt2table(energytable_formatted, outfile=outfile, **kwargs)
     return en_matrix_nopure
