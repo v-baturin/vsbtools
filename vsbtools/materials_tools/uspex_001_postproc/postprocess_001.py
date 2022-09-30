@@ -24,7 +24,7 @@ def write_best_n_isom(all_gathered_data, format='xyz', n_best=1, out_dir='gather
                 write(poscar_fname, v['atoms'][i], format='vasp', vasp5=True, append=True)
 
 
-def get_energy_table(all_gathered_data, outfile='en_table.txt', **kwargs):
+def get_energy_matrix(all_gathered_data, outfile='en_table.txt', **kwargs):
     if isinstance(all_gathered_data, str):
         all_gathered_data = parse_001_results(all_gathered_data)
     energytable_formatted = []
