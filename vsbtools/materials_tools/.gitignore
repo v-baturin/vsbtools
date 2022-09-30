@@ -6,4 +6,5 @@ RECALC*
 __pycache__
 *.pyc
 src/__pycache__
+*/test_dir
 
