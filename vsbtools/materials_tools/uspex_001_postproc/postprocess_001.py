@@ -1,4 +1,5 @@
 import os
+import numpy as np
 from .gather_best import parse_001_results
 from ..tools_stability.aux_routines import list_fmt2table
 from genutils.misc import get_sorted_compositions
@@ -33,7 +34,7 @@ def get_energy_matrix(all_gathered_data, outfile='en_matrix.txt', **kwargs):
     en_matrix_nopure = list_fmt2table(energytable_formatted, outfile=outfile, **kwargs)
     return en_matrix_nopure
 
-def get_energy_table(all_gathered_data, outfile='en_table.txt', **kwargs):
+def get_energy_table(all_gathered_data):
     if isinstance(all_gathered_data, str):
         all_gathered_data = parse_001_results(all_gathered_data)
     energytable_sorted = []
@@ -41,4 +42,4 @@ def get_energy_table(all_gathered_data, outfile='en_table.txt', **kwargs):
     for cmp in sorted_cmp_array:
         cmp = tuple(cmp)
         energytable_sorted.append(list(cmp) + [all_gathered_data[cmp]['Enthalpies'][0]])
-    return energytable_sorted
+    return np.array(energytable_sorted)
