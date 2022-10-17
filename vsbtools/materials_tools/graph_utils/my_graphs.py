@@ -4,9 +4,8 @@ from scipy import interpolate
 from matplotlib.cm import get_cmap
 import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize, TwoSlopeNorm
-from .aux_routines import smeared_spectrum, heatmap, annotate_heatmap, MidpointNormalize
+from .aux_routines import smeared_spectrum, heatmap, annotate_heatmap
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-import numbers
 
 
 # Spectra and spectral characteristics plots:
@@ -379,7 +378,7 @@ def prop_map(v_array, h_array, values_array, contours=None, cmap='jet',
     if contours is not None:
         if contours_kwargs is None:
             contours_kwargs = {'colors': 'k', 'linewidths': 0.5}
-        CS = plt.contour(fine_h_array, fine_v_array, interp_values, contours, **contours_kwargs)
+        CS = plt.contour(fine_h_array, fine_v_array, interp_values, contours, zorder=1.2, **contours_kwargs)
         if 'clabel' in kwargs and kwargs['clabel'] is not None:
             if kwargs['clabel'] is True:
                 kwargs['clabel'] = {'inline': 1, 'fontsize': 7, 'fmt': '%1.2g'}
