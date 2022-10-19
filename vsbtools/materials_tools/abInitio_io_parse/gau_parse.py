@@ -110,10 +110,10 @@ def get_atomic_contribs(gaudata):
     # Returns atomic contributions to orbitals (Mulliken charges)
     mulliken = get_mullik_contributions(gaudata)
     rgs = get_atombasis(gaudata)
-    n_MO = parseddata.nmo
-    n_atom = parseddata.natom
-    atomic_contribs = np.zeros((n_MO, natom))
-    for k_atom in range(natom):
+    n_MO = gaudata.nmo
+    n_atom = gaudata.natom
+    atomic_contribs = np.zeros((n_MO, n_atom))
+    for k_atom in range(n_atom):
         orbs_of_k_atom = range(rgs[k_atom]['range'][0], rgs[k_atom]['range'][1])
         for i_orbital in range(n_MO):
             atomic_contribs[i_orbital, k_atom] = np.sum(mulliken[0][i_orbital][orbs_of_k_atom])
