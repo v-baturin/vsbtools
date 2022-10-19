@@ -221,7 +221,7 @@ def draw_spectrum(span,
 
 def draw_ipr(span, eaxup, iprup, eaxdn=None, eFermi=0, units='eV',
              currFigNo=None, totalAxs=1, currAxNo=1, shareax=None, fmtarg='r'):
-    if eaxdn == None:
+    if eaxdn is None:
         eaxdn = np.array([])
 
     if units not in ['ev', 'eV', 'EV']:
