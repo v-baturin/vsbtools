@@ -2,7 +2,7 @@
 import numpy as np
 from ab_initio_postprocessing.abInitio_io_parse import gau_parse
 from ab_initio_postprocessing.graph_utils import my_graphs
-from ab_initio_postprocessing.graph_utils import set_subplots_pos_cm
+from ab_initio_postprocessing.graph_utils.formatting import set_subplots_pos_cm
 import matplotlib.pyplot as plt
 from cclib.io import ccread
 import os
@@ -47,7 +47,7 @@ def draw_dos_ipr(list_of_gau, span=(-5.5, 5), ax_per_fig=3, spectra_dir='spectra
         print(file)
         gaudata = ccread(file)
         up_states, dn_states, fermi = gau_parse.get_kohn_sham(gaudata)
-        ipr, _, _, _ = gau_parse.getcontribs(gaudata)
+        ipr = gau_parse.get_ipr(gaudata)
         n_atoms = gaudata.natom
         # ipr_redef = 1 - 1 / (ipr * n_atoms)
         clname = gau_parse.get_formula(gaudata)
@@ -67,7 +67,7 @@ def draw_dos_ipr(list_of_gau, span=(-5.5, 5), ax_per_fig=3, spectra_dir='spectra
             curr_shareax = axs
 
         my_graphs.draw_spectrum(span, up_states, specdn=None, e_fermi=fermi, sigma=0.1, units='eV',
-                                curr_fig_no=curr_fig_no, shareax=curr_shareax,  # total_axes=ax_per_fig, curr_ax_no=curr_ax_no,
+                                shareax=curr_shareax,  # total_axes=ax_per_fig, curr_ax_no=curr_ax_no,
                                 dos_area_fill=True, dos_area_kwargs={'color': 'k', 'alpha': 0.2, 'lw': 0},
                                 dos_line_kwargs=None,
                                 pdosup_area_kwargs=None, pdosup_clr='k',
