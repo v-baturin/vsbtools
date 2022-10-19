@@ -32,6 +32,10 @@ def trace_relaxation(gaudata, outfolder, fname_root=None):
         gaudata.writexyz(add_index(outfolder + '/' + fname_root.split('/')[-1].split('.')[0] + '.xyz', zerobased=True,
                                    respect_file_extension=True), indices=k)
 
+@path_or_ccobject
+def get_atom_symbols(gaudata):
+    return element_labels[gaudata.atomnos]
+
 
 @path_or_ccobject
 def get_kohn_sham(gaudata):
@@ -51,7 +55,7 @@ def get_formula(gaudata, extended_out=False):
     @param extended_out: if True returns not only formula but lists of atomic symbols and number of atoms in a dict
     @return:
     """
-    symbols_list = list(element_labels[gaudata.atomnos])
+    symbols_list = list(get_atom_symbols(gaudata))
 
     # Now get different symbols and numbers of atoms with preserving order
     diff_symbols = []
@@ -86,7 +90,7 @@ def get_atombasis(gaudata):
     ranges = []
     # basisbyatom = np.array(gaudata.atombasis)
     basisbyatom = gaudata.atombasis
-    symbols_list = list(element_labels[gaudata.atomnos])
+    symbols_list = list(get_atom_symbols(gaudata))
     for idx, rangeslist in enumerate(basisbyatom):
         ranges.append({'label': {symbols_list[idx]}, 'range': [rangeslist[0], rangeslist[-1] + 1]})
     return ranges
