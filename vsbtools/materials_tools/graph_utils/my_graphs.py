@@ -373,7 +373,7 @@ def prop_map(v_array, h_array, values_array, contours=None, cmap='jet',
     if titlestr is not None:
         plt.title(titlestr)
 
-    plt.grid(linestyle='--', zorder=10)
+    plt.grid(linestyle='--', linewidth=0.5, zorder=10)
 
     if contours is not None:
         if contours_kwargs is None:
