@@ -7,7 +7,7 @@ from matplotlib.colors import Normalize, TwoSlopeNorm
 from .aux_routines import smeared_spectrum, heatmap, annotate_heatmap
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-
+HARTREE_in_eV = 27.21138505
 # Spectra and spectral characteristics plots:
 
 def smeared_dos(limits,
@@ -156,9 +156,9 @@ def draw_spectrum(span,
 
     if units not in ['ev', 'eV', 'EV']:
         if units in ['ha', 'Ha', 'HA']:
-            specup_local = specup * 27.2114
-            specdn_local = specdn * 27.2114
-            e_fermi *= 27.2114
+            specup_local = specup * HARTREE_in_eV
+            specdn_local = specdn * HARTREE_in_eV
+            e_fermi *= HARTREE_in_eV
         elif units in ['Ry', 'ry', 'RY']:
             specup_local = specup * 13.6057
             specdn_local = specdn * 13.6057
@@ -226,9 +226,9 @@ def draw_ipr(span, eaxup, iprup, eaxdn=None, eFermi=0, units='eV',
 
     if units not in ['ev', 'eV', 'EV']:
         if units in ['ha', 'Ha', 'HA']:
-            eaxup *= 27.2114
-            eaxdn *= 27.2114
-            eFermi *= 27.2114
+            eaxup *= HARTREE_in_eV
+            eaxdn *= HARTREE_in_eV
+            eFermi *= HARTREE_in_eV
         elif units in ['Ry', 'ry', 'RY']:
             eaxup *= 13.6057
             eaxdn *= 13.6057
