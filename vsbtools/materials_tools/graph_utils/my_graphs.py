@@ -214,7 +214,7 @@ def draw_spectrum(span,
         o_plot(orientation, shareax, *fermiline_args, '--', color='gray')
 
     if label_kwargs is None:
-        label_kwargs = {'x': 0.1, 'y': 0.7, 'fontsize': 9}
+        label_kwargs = {'x': 0.1, 'y': 0.1, 'fontsize': 7}
     shareax.text(s=label, **label_kwargs)
     return shareax, dos_handle, pdos_handle
 

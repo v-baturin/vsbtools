@@ -38,11 +38,11 @@ def get_atom_symbols(gaudata):
 
 
 @path_or_ccobject
-def get_kohn_sham(gaudata):
+def get_kohn_sham(gaudata, x_homo_fermi = 0.5):
     homo_idx = gaudata.homos[0]
     up_states = gaudata.moenergies[0]
     dn_states = gaudata.moenergies[-1]
-    fermi = 0.5 * up_states[homo_idx] + 0.5 * up_states[homo_idx + 1]
+    fermi = x_homo_fermi * up_states[homo_idx] + (1 - x_homo_fermi) * up_states[homo_idx + 1]
 
     return up_states, dn_states, fermi
 
@@ -159,7 +159,7 @@ def getpdos_general(gaudata, flags_list, method='mulliken'):
     for orgroup in orgroups:
         if len(orgroup) == 0:
             continue
-        andgroup = orgroup.split(',')
+        andgroup = [x.strip() for x in orgroup.split(',')]
         target_element = re.findall('[A-Z][a-z]*', andgroup[0])
         target_at_no = re.findall('\d+', andgroup[0])
         if len(target_element) == 0:
@@ -176,7 +176,13 @@ def getpdos_general(gaudata, flags_list, method='mulliken'):
                 orbrange.append(orb[0])
     mull_contrib = get_mullik_contributions(gaudata)
     up_mull_contrib = mull_contrib[0]
-    pdos_coeff = np.sum(up_mull_contrib[:, orbrange], 1)
+    if len(mull_contrib) == 2:
+        dn_mull_contrib = mull_contrib[1]
+        pdos_coeff = (np.sum(up_mull_contrib[:, orbrange], 1), np.sum(dn_mull_contrib[:, orbrange], 1))
+    else:
+        dn_mull_contrib = None
+        pdos_coeff = (np.sum(up_mull_contrib[:, orbrange], 1), None)
+
     print(np.sum(up_mull_contrib))
     return pdos_coeff, gaudata.moenergies  # , orbrange, gaudata
 
