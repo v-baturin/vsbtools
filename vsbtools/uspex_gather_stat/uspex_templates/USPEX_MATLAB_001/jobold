@@ -1,0 +1,2 @@
+date >> log
+matlab < USPEX.m >> log

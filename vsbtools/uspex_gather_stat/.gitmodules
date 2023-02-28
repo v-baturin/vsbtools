@@ -1,0 +1,3 @@
+[submodule "src/ext_submodules/genutils"]
+	path = src/ext_submodules/genutils
+	url = https://github.com/v-baturin/genutils.git

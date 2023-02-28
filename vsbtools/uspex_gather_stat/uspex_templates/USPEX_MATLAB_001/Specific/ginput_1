@@ -1,0 +1,9 @@
+time 300
+space
+1
+species
+Mo  0.0
+lennard epsilon
+Mo Mo 1.000 3.000 0.0 7.0
+maxcyc 850
+
