@@ -24,7 +24,7 @@
     stages: [gulp1 gulp2 gulp3 gulp4 gulp5]
     numParallelCalcs: 20
     numGenerations: 200
-    stopCrit: 20
+    stopCrit: 100
     stopFitness: -161.826
     outputRefreshDelay: 5
 }
