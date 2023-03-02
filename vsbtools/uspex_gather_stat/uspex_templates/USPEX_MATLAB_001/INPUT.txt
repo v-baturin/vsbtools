@@ -28,7 +28,7 @@ Mo
 40     : initialPopSize
 200    : numGenerations (how many generations shall be calculated)
 20    : stopCrit 
-
+-161.825 : stopFitness
 ******************************************
 *          VARIATION OPERATORS           *
 ******************************************
