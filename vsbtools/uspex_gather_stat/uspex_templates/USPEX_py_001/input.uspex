@@ -1,5 +1,6 @@
 {
     optimizer: {
+        stopFitness: -161.826
         type: GlobalOptimizer
         target: {
             type: Atomistic
