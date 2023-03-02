@@ -126,10 +126,10 @@ class UspexCalcDB(list):
                     continue
                 # Update energy and geometry info if at least one SCF is done
                 if isfile(join(task.path, 'USPEX_IS_DONE')):
-                        print(task.name + ': DONE')
-                        task.status = 'D'
-                        # sh_execute('rm ' + task.path + '/*.rwf')
-                        continue
+                    print(task.name + ': DONE')
+                    task.status = 'D'
+                    sh_execute('cd ' + task.path + ' && ./clean')
+                    continue
 
     def submit_jobs(self, n_par_calcs=3):
         submitted = new = 0

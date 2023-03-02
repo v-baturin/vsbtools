@@ -10,6 +10,11 @@ __init__.py
 *.pyc
 src/__pycache__
 results*
+uspex_templates/USPEX_MATLAB_001/AntiSeeds
+uspex_templates/USPEX_MATLAB_001/FunctionFolder
+uspex_templates/USPEX_MATLAB_001/reference
+uspex_templates/USPEX_MATLAB_001/Seeds
+uspex_templates/USPEX_MATLAB_001/Submission
 DONE
 STOP
 
