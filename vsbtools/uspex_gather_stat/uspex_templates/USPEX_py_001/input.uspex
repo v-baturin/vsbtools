@@ -25,6 +25,7 @@
     numGenerations: 200
     stopCrit: 20
     stopFitness: -161.826
+    outputRefreshDelay: 5
 }
 
 #define gulp1
