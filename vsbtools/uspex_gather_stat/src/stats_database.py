@@ -192,7 +192,7 @@ class UspexCalcDB(list):
             en_fid.write('task_name\tlast_generation\tbest_energy:\n')
             for task in self:
                 if isfile(join(task.path, 'results1', 'BESTIndividuals')):
-                    best_en = sh_execute('cd ' + task.path + ' && ./get_bestenergy.sh')
+                    best_en = sh_execute('cd ' + task.path + ' && ./bestenergy.sh')
                     str = '%-10s' % task.name + ': ' + best_en
                     en_fid.write(str + '\n')
                 elif task.status == 'D':
