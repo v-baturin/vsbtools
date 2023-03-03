@@ -25,7 +25,6 @@
     numParallelCalcs: 20
     numGenerations: 200
     stopCrit: 100
-    stopFitness: -161.826
     outputRefreshDelay: 5
 }
 
