@@ -10,6 +10,17 @@ import time
 from src.common_tools import cjson_load, add_index, mk_new_dir
 from src.stats_database import UspexCalcDB
 
+ap = argparse.ArgumentParser()
+ap.add_argument("-f", "--recalc_folder", required=False, help='Calc folder')
+ap.add_argument("-t", "--uspex_template", required=True, help="USPEX Template", default='uspex_templates/USPEX_py_001')
+ap.add_argument("-n", "--total_calcs", required=False, help='Total calcs', default='2')
+ap.add_argument("-p", "--max_parallel_calcs", required=False, help='Maximum parallel calcs', default='1')
+ap.add_argument("-o", "--outfile_pattern", required=False, help='Output file pattern', default='log')
+ap.add_argument("-s", "--sleep", required=False, help='Sleep time, in minutes', default='5')
+ap.add_argument("--maxiter", required=False, help='Maximum number of iteration', default='5')
+
+
+
 cwd = os.getcwd()
 template = 'USPEX_MATLAB_001'
 template_path = pj(cwd, 'uspex_templates', template)
