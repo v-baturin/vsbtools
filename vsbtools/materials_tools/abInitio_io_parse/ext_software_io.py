@@ -6,6 +6,8 @@ from ase.io import read as ase_read
 from ase.io import write as ase_write
 from cclib.io import ccread
 from genutils.filesystem_tools import add_index
+from pymatgen.io.cif import CifParser
+from pymatgen.io.vasp import Poscar
 # from .common_tools import recursive_map_to_keys, recursively_map_to_vals, try_numerize_string
 
 
@@ -165,6 +167,11 @@ def parse_gout(logfile):
         return None, None
     numbers = ccdata.atomnos
     return ccdata, Atoms(positions=last_positions, numbers=numbers)
+
+def cif2poscar(in_cif_fname, out_poscar_fname):
+    structure = CifParser(in_cif_fname).get_structures()[0]
+    p = Poscar(structure)
+    p.write_file(out_poscar_fname)
 
 # def get_options(string, option):
 #     """
