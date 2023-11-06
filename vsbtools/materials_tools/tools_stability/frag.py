@@ -30,6 +30,9 @@ def fragmentation(fmt_data, atomlabels, outfile):
                 l_formula = stoich2formula(reactives[min_idx]['l'], atomlabels)
                 r_formula = stoich2formula(reactives[min_idx]['r'], atomlabels)
                 out_fid.write('%s -> %s + %s, E_frag = %6.3f\n'%(current_formula, l_formula, r_formula, e_frag_min) )
+                # out_fid.write(f'Li{int(current_stoich[0])}P{int(current_stoich[1])} '
+                #               f'Li{int(reactives[min_idx]["l"][0])}P{int(reactives[min_idx]["l"][1])} '
+                #               f'Li{int(reactives[min_idx]["r"][0])}P{int(reactives[min_idx]["r"][1])}\n')
                 fmt_frag.append(list(current_stoich) + [e_frag_min])
     return np.array(fmt_frag)
 
