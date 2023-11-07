@@ -2,6 +2,7 @@ import os
 import re
 import shutil
 from pathlib import Path
+from typing import Dict, Union, Callable
 from genutils.filesystem_tools import sh_execute
 import numpy as np
 from USPEX.Atomistic.RadialDistributionUtility import RadialDistributionUtility
@@ -81,7 +82,8 @@ def create_uspexfold(dest_folder,
                      uspex_common_source,
                      template_path=None,
                      seeds_pool_entries=None,
-                     varied_calc_components=None,
+                     components_to_copy=None,
+                     callbacks: Dict[Callable, Dict] = None,  # {f1 : {args: [], kwargs = {kw1:v1,...}}, f2 : ...}
                      open_input=True,
                      **kwargs):
     if template_path is None:
@@ -90,14 +92,16 @@ def create_uspexfold(dest_folder,
         shutil.copytree(template_path, dest_folder, dirs_exist_ok=True)
     sh_execute(f'ln -s {uspex_common_source} {dest_folder}/Common ')
 
-    if varied_calc_components is not None:
-        for component, path in varied_calc_components.items():
+    if components_to_copy is not None:
+        for component, path in components_to_copy.items():
             if os.path.isfile(path):
                 shutil.copy(path, dest_folder / component)
             elif os.path.isdir(path):
                 shutil.copytree(path, dest_folder / component, dirs_exist_ok=True)
 
-    input_path = dest_folder / 'input.uspex'
+    if callbacks:
+        for f, argdict in callbacks.items():
+            f(*argdict['args'], **argdict['kwargs'])
 
     if seeds_pool_entries is not None:
         seeds_path = dest_folder / 'Seeds/1'
@@ -105,9 +109,10 @@ def create_uspexfold(dest_folder,
         AtomisticRepresentation.writeAtomicStructures(seeds_path / 'POSCARSeeds', seeds_pool_entries)
 
     if open_input:
-        sh_execute(f'gedit {input_path}')
+        sh_execute(f'gedit {dest_folder}/input.uspex')
 
 def calc_time_from_pool_entries(pool_entries, std_time, time_limit):
+    maxtime = std_time
     for seeds_pool_entry in pool_entries:
         natoms = len(seeds_pool_entry.getAtomicStructure())
         newtime = std_time + 0.01 * natoms ** 3
@@ -115,12 +120,61 @@ def calc_time_from_pool_entries(pool_entries, std_time, time_limit):
         maxtime = min(maxtime, time_limit)
     return maxtime
 
+def prepare_potcars(specific_path, element_symbols, potcars_source, potcars_spec: Union[None, Dict[str, str]] = None):
+    if potcars_spec is None:
+        potcars_spec = {k: k for k in element_symbols}
+    for symbol in element_symbols:
+        shutil.copy(potcars_source / potcars_spec[symbol] / 'POTCAR', specific_path / f"POTCAR_{symbol}")
+
+
+def input_corrector(input_source_path, corrector_dict, input_result_path=None, custom_patterns=None):
+    """
+    Modifyer of input.uspex
+    @param input_source_path: original input path
+    @param corrector_dict: dict of the following format: {keyword: newvalue}
+                           Example: {'blocks': [2, 1, 1]}
+    @param input_result_path: modified input path
+    @param custom_patterns: regex pattern for replacement input parameters
+                            Example: r'heredity: \( *((?:[\d\.]+ *)+) *\)'
+                            MIND that only the captured group is replaced
+    @return: None
+    """
+
+    if input_result_path is None:
+        input_result_path = input_source_path
+
+    infile_patterns = {'symbols': r'symbols:\s+\[ *((?:\w+ *)+) *\]',
+                      'blocks': r'blocks:\s+\[\[((?:\d+\s*)+)]\]',
+                      'range': r'range: \[\(((?:\d+\s*)+)\)\]'}
+
+    if custom_patterns is not None:
+        infile_patterns.update(custom_patterns)
+
+    with open(input_source_path) as in_fid:
+        replaced_text = in_fid.read()
+
+    for k, v in corrector_dict.items():
+        m = re.search(infile_patterns[k], replaced_text)
+        if m:
+            newdatastr = ' '.join([str(i) for i in v])
+            replacement = re.sub(m.group(1), newdatastr, m.group(0))
+            replaced_text = replaced_text.replace(m.group(0), replacement)
+        else:
+            print(f'Pattern for {k} not found')
+
+    with open(input_result_path, 'w') as in_fid:
+        in_fid.write(replaced_text)
+
 if __name__ == '__main__':
     # file = '/20230414_Borohydrures/case_studies/fingerprint_choice/resCa/results2/goodStructures'
     # output = read_Individuals_uspexPY(file)
     # print('.')
     # file = '/home/vsbat/Downloads/Telegram_downloads/composition_5_5'
     # outp = read_Individuals_uspexML(file)
-    path = Path('/home/vsbat/SYNC/00__WORK/20220324_LiP_PROJECT/02_LiP_clusters/filter_by_FP/5_5')
-    outp = readResFolders_uspexML(path)
-    print('x')
+    # path = Path('/home/vsbat/SYNC/00__WORK/20220324_LiP_PROJECT/02_LiP_clusters/filter_by_FP/5_5')
+    # outp = readResFolders_uspexML(path)
+    # print('x')
+    input_example = Path('/home/vsbat/SYNC/00__WORK/20231018_ALANATES/03_USPEX_calc_management/01_USPEX_debug/templates/template_1gen_seeds_local/input.uspex')
+    input_res = Path(
+        '/home/vsbat/SYNC/00__WORK/20231018_ALANATES/03_USPEX_calc_management/01_USPEX_debug/templates/template_1gen_seeds_local/input.uspex_m')
+    input_corrector(input_example, {'symbols': 'Li molmol'}, input_res)
