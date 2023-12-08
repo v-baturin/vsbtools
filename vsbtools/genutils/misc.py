@@ -49,3 +49,18 @@ def get_sorted_compositions(master_dict):
     for ind in range(-2, -composition_array.shape[1] - 1, -1):
         composition_array = composition_array[composition_array[:, ind].argsort(kind='mergesort')]
     return composition_array
+
+def merge(a: dict, b: dict, path=[]):
+    for key in b:
+        if key in a:
+            if isinstance(a[key], dict) and isinstance(b[key], dict):
+                merge(a[key], b[key], path + [str(key)])
+            elif a[key] != b[key]:
+                raise Exception('Conflict at ' + '.'.join(path + [str(key)]))
+        else:
+            a[key] = b[key]
+    return a
+
+if __name__ == '__main__':
+    for o in odometer((2,2,2), (-1,-1,-1)):
+        print(o)
