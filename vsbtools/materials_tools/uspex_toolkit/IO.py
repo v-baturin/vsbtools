@@ -79,7 +79,7 @@ def readResFolders_uspexML(path, individuals_fname_pattern: str = 'composition_*
     return out_dict
 
 def create_uspexfold(dest_folder,
-                     uspex_common_source,
+                     uspex_common_source=None,
                      template_path=None,
                      seeds_pool_entries=None,
                      components_to_copy=None,
@@ -90,7 +90,9 @@ def create_uspexfold(dest_folder,
         os.makedirs(dest_folder, exist_ok=True)
     else:
         shutil.copytree(template_path, dest_folder, dirs_exist_ok=True)
-    sh_execute(f'ln -s {uspex_common_source} {dest_folder}/Common ')
+
+    if uspex_common_source is not None:
+        sh_execute(f'ln -s {uspex_common_source} {dest_folder}/Common ')
 
     if components_to_copy is not None:
         for component, path in components_to_copy.items():
@@ -145,7 +147,8 @@ def input_corrector(input_source_path, corrector_dict, input_result_path=None, c
 
     infile_patterns = {'symbols': r'symbols:\s+\[ *((?:\w+ *)+) *\]',
                       'blocks': r'blocks:\s+\[\[((?:\d+\s*)+)]\]',
-                      'range': r'range: \[\(((?:\d+\s*)+)\)\]'}
+                      'range': r'range: \[\(((?:\d+\s*)+)\)\]',
+                      'ionDistances': r'ionDistances *: *\{((?:\'\D+\' *: *[\d\.]+ *)+)\}'}
 
     if custom_patterns is not None:
         infile_patterns.update(custom_patterns)
