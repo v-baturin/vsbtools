@@ -280,12 +280,11 @@ def interp_matrix(v_array, h_array, values_array, grid_res=0.02, interp_type='in
 # 2D data plts
 def prop_map(v_array, h_array, values_array, contours=None, cmap='jet',
              vcenter=None, vmin=None, vmax=None, low_cutoff=None, high_cutoff=None, bad_color_low='k', titlestr=None,
-             x_ticks=None, y_ticks=None, plot_cbar=True, cbar_label=None, cbar_ticklabels=None,
-             pcolormesh_kwargs=None, cbar_kwargs=None, contours_kwargs=None, shallowlevel=None, grid_res=0.02, **kwargs):
+             x_ticks=None, y_ticks=None, plot_cbar=True, cbar_label=None, cbar_kwargs=None,
+             pcolormesh_kwargs=None, contours_kwargs=None, shallowlevel=None, grid_res=0.02, **kwargs):
     """
     Draws 2D map of given data VALUES ARRAY(V_ARRAY, H_ARRAY)
 
-    @type high_cutoff: object
     @param v_array:[1xN ndarray] y-axis array (vertical)
     @param h_array:[1xM ndarray] x-axis array (horizontal)
     @param values_array:[NxM ndarray] mtrx of values values_array[i,j], i in v_array, j in h_array
@@ -297,6 +296,8 @@ def prop_map(v_array, h_array, values_array, contours=None, cmap='jet',
     @param vmax: setting value for "highest" color. Default is values_array.max()
     @param low_cutoff: setting value, below which the values are considered "bad" (masked)
     @param bad_color_low: color for masked elements - the values below max_badvalue
+    @param high_cutoff: setting value, below which the values are considered "bad" (masked)
+    @param bad_color_high: color for masked elements - the values below max_badvalue
     @param titlestr: title of figure
     @param cbar_label: title of colorbar
     @param cbar_ticklabels: tick labels of colorbar
@@ -368,6 +369,15 @@ def prop_map(v_array, h_array, values_array, contours=None, cmap='jet',
     else:
         ax.set_yticks(y_ticks)
 
+    if x_ticks is None:
+        ax.set_xticks(h_array)
+    else:
+        ax.set_xticks(x_ticks)
+    if y_ticks is None:
+        ax.set_yticks(v_array)
+    else:
+        ax.set_yticks(y_ticks)
+
     ax.set_aspect(1)
 
     if titlestr is not None:
@@ -390,6 +400,9 @@ def prop_map(v_array, h_array, values_array, contours=None, cmap='jet',
         divider = make_axes_locatable(ax)
         cax = divider.append_axes("right", size="5%", pad=0.1)
         cbar = plt.colorbar(mesh_obj, cax=cax, **cbar_kwargs)
+        cbar.ax.set_yscale('linear')
+        if 'ticks' in cbar_kwargs:
+            cbar.ax.set_yticks(cbar_kwargs['ticks'])
         if cbar_label is not None:
             cbar.set_label(cbar_label)
 
