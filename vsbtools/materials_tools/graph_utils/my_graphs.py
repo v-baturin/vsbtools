@@ -77,19 +77,19 @@ def smeared_dos(limits,
     return eaxis, {'updos': updos, 'dndos': dndos}, {'pdos_up': pdos_up, 'pdos_dn': pdos_dn}
 
 
-def draw_spectrum(span,
-                  specup, specdn=None,
-                  weights_up=None, weights_dn=None,
-                  e_fermi=0, units='eV',
-                  sigma=0.5, smear_type='Gaussian',
-                  partial_up=None, partial_dn=None,
-                  shareax=None,  # total_axes=1, curr_ax_no=1, curr_fig_no=None,
-                  normalization=True,
-                  dos_line_kwargs=None,
-                  dos_area_fill=False, dos_area_kwargs=None,
-                  pdosup_area_kwargs=None, pdosup_clr='r', pdosdn_area_kwargs=None, pdosdn_clr='b',
-                  orientation='h',
-                  label='', label_kwargs=None):
+def draw_DOS(span,
+             specup, specdn=None,
+             weights_up=None, weights_dn=None,
+             e_fermi=0, units='eV',
+             sigma=0.5, smear_type='Gaussian',
+             partial_up=None, partial_dn=None,
+             shareax=None,  # total_axes=1, curr_ax_no=1, curr_fig_no=None,
+             normalization=True,
+             dos_line_kwargs=None,
+             dos_area_fill=False, dos_area_kwargs=None,
+             pdosup_area_kwargs=None, pdosup_clr='r', pdosdn_area_kwargs=None, pdosdn_clr='b',
+             orientation='h',
+             label='', label_kwargs=None):
     """
 
     @param span: range of plot (e_min, e_max)

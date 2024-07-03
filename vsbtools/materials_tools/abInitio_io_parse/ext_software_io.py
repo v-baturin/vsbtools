@@ -52,7 +52,11 @@ def poscars2xyz_files(poscars_fname, folder_name=None):
         ase_write(filename, ats, format='xyz')
 
 
-def xyzfile2poscars(xyz_fname, box, poscars_fname):
+def xyzfile2poscars(xyz_fname, box=None, poscars_fname=None):
+    if poscars_fname is None:
+        poscars_fname = f'{xyz_fname.split(".")[0]}_POSCARS'
+    if box is None:
+        box = np.array([20., 20., 20])
     ats_all = ase_read(xyz_fname, index=':', format='xyz')
     for k, ats in enumerate(ats_all):
         ats.positions = ats.positions - sum(ats.positions)/len(ats) + box/2

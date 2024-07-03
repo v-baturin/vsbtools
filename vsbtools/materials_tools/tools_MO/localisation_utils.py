@@ -66,12 +66,12 @@ def draw_dos_ipr(list_of_gau, span=(-5.5, 5), ax_per_fig=3, spectra_dir='spectra
         except TypeError:
             curr_shareax = axs
 
-        my_graphs.draw_spectrum(span, up_states, specdn=None, e_fermi=fermi, sigma=0.1, units='eV',
-                                shareax=curr_shareax,  # total_axes=ax_per_fig, curr_ax_no=curr_ax_no,
-                                dos_area_fill=True, dos_area_kwargs={'color': 'k', 'alpha': 0.2, 'lw': 0},
-                                dos_line_kwargs=None,
-                                pdosup_area_kwargs=None, pdosup_clr='k',
-                                label=label, label_kwargs={'x': 0.1, 'y': 0.7, 'size': 8})
+        my_graphs.draw_DOS(span, up_states, specdn=None, e_fermi=fermi, sigma=0.1, units='eV',
+                           shareax=curr_shareax,  # total_axes=ax_per_fig, curr_ax_no=curr_ax_no,
+                           dos_area_fill=True, dos_area_kwargs={'color': 'k', 'alpha': 0.2, 'lw': 0},
+                           dos_line_kwargs=None,
+                           pdosup_area_kwargs=None, pdosup_clr='k',
+                           label=label, label_kwargs={'x': 0.1, 'y': 0.7, 'size': 8})
         # (span, up_states, specdn=None, e_fermi=fermi, sigma=0.03, units='ev',
         #                         curr_fig_no=curr_fig_no, total_axes=n_ax, curr_ax_no=curr_ax_no, label=label,
         #                         shareax=curr_shareax, ticksarg={})
