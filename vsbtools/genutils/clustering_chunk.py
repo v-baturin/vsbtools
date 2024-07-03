@@ -1,8 +1,9 @@
 import numpy as np
 from collections import deque
+import pickle as pkl
 
 
-def make_dist_matrix(points, dist_fun):
+def make_dist_matrix(points, dist_fun, dist_matrix_out_file=None):
     matrix_dim = len(points)
     dist_mat = np.zeros((matrix_dim, matrix_dim), dtype=float)
     adj_mat = np.zeros((matrix_dim, matrix_dim), dtype=bool)  # Boolean adjacency mtrx in FP-space
@@ -10,6 +11,10 @@ def make_dist_matrix(points, dist_fun):
         for j in range(i, matrix_dim):
             print(f"i = {i}, j = {j}")
             dist_mat[i, j] = dist_mat[j, i] = dist_fun(points[i], points[j])
+    if dist_matrix_out_file is not None:
+        with open(dist_matrix_out_file, 'wb') as dm_file:
+            pkl.dump(dist_mat, dm_file)
+            print('dist matrix saved')
     return dist_mat
 
 def adj_matrix_from_dist(dist_matrix, delta):
