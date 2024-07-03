@@ -1,4 +1,0 @@
-#!/bin/sh
-#tail -1 CONVERGENCE | awk '{print $2}'
-#take average of the last 10 free energies 
-tail -10 CONVERGENCE | awk '{ sum += $2 } END {  print sum / NR }'
