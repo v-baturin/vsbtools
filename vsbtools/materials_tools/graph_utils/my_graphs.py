@@ -4,11 +4,10 @@ from scipy import interpolate
 from matplotlib.cm import get_cmap
 import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize, TwoSlopeNorm
-from .aux_routines import smeared_spectrum, heatmap, annotate_heatmap, MidpointNormalize
+from .aux_routines import smeared_spectrum, heatmap, annotate_heatmap
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-import numbers
 
-
+HARTREE_in_eV = 27.21138505
 # Spectra and spectral characteristics plots:
 
 def smeared_dos(limits,
@@ -78,19 +77,19 @@ def smeared_dos(limits,
     return eaxis, {'updos': updos, 'dndos': dndos}, {'pdos_up': pdos_up, 'pdos_dn': pdos_dn}
 
 
-def draw_spectrum(span,
-                  specup, specdn=None,
-                  weights_up=None, weights_dn=None,
-                  e_fermi=0, units='eV',
-                  sigma=0.5, smear_type='Gaussian',
-                  partial_up=None, partial_dn=None,
-                  shareax=None,  # total_axes=1, curr_ax_no=1, curr_fig_no=None,
-                  normalization=True,
-                  dos_line_kwargs=None,
-                  dos_area_fill=False, dos_area_kwargs=None,
-                  pdosup_area_kwargs=None, pdosup_clr='r', pdosdn_area_kwargs=None, pdosdn_clr='b',
-                  orientation='h',
-                  label='', label_kwargs=None):
+def draw_DOS(span,
+             specup, specdn=None,
+             weights_up=None, weights_dn=None,
+             e_fermi=0, units='eV',
+             sigma=0.5, smear_type='Gaussian',
+             partial_up=None, partial_dn=None,
+             shareax=None,  # total_axes=1, curr_ax_no=1, curr_fig_no=None,
+             normalization=True,
+             dos_line_kwargs=None,
+             dos_area_fill=False, dos_area_kwargs=None,
+             pdosup_area_kwargs=None, pdosup_clr='r', pdosdn_area_kwargs=None, pdosdn_clr='b',
+             orientation='h',
+             label='', label_kwargs=None):
     """
 
     @param span: range of plot (e_min, e_max)
@@ -157,9 +156,9 @@ def draw_spectrum(span,
 
     if units not in ['ev', 'eV', 'EV']:
         if units in ['ha', 'Ha', 'HA']:
-            specup_local = specup * 27.2114
-            specdn_local = specdn * 27.2114
-            e_fermi *= 27.2114
+            specup_local = specup * HARTREE_in_eV
+            specdn_local = specdn * HARTREE_in_eV
+            e_fermi *= HARTREE_in_eV
         elif units in ['Ry', 'ry', 'RY']:
             specup_local = specup * 13.6057
             specdn_local = specdn * 13.6057
@@ -215,21 +214,21 @@ def draw_spectrum(span,
         o_plot(orientation, shareax, *fermiline_args, '--', color='gray')
 
     if label_kwargs is None:
-        label_kwargs = {'x': 0.1, 'y': 0.7, 'fontsize': 9}
+        label_kwargs = {'x': 0.1, 'y': 0.1, 'fontsize': 7}
     shareax.text(s=label, **label_kwargs)
     return shareax, dos_handle, pdos_handle
 
 
 def draw_ipr(span, eaxup, iprup, eaxdn=None, eFermi=0, units='eV',
              currFigNo=None, totalAxs=1, currAxNo=1, shareax=None, fmtarg='r'):
-    if eaxdn == None:
+    if eaxdn is None:
         eaxdn = np.array([])
 
     if units not in ['ev', 'eV', 'EV']:
         if units in ['ha', 'Ha', 'HA']:
-            eaxup *= 27.2114
-            eaxdn *= 27.2114
-            eFermi *= 27.2114
+            eaxup *= HARTREE_in_eV
+            eaxdn *= HARTREE_in_eV
+            eFermi *= HARTREE_in_eV
         elif units in ['Ry', 'ry', 'RY']:
             eaxup *= 13.6057
             eaxdn *= 13.6057
@@ -281,12 +280,11 @@ def interp_matrix(v_array, h_array, values_array, grid_res=0.02, interp_type='in
 # 2D data plts
 def prop_map(v_array, h_array, values_array, contours=None, cmap='jet',
              vcenter=None, vmin=None, vmax=None, low_cutoff=None, high_cutoff=None, bad_color_low='k', titlestr=None,
-             x_ticks=None, y_ticks=None, plot_cbar=True, cbar_label=None, cbar_ticklabels=None,
-             pcolormesh_kwargs=None, cbar_kwargs=None, contours_kwargs=None, shallowlevel=None, grid_res=0.02, **kwargs):
+             x_ticks=None, y_ticks=None, plot_cbar=True, cbar_label=None, cbar_kwargs=None,
+             pcolormesh_kwargs=None, contours_kwargs=None, shallowlevel=None, grid_res=0.02, **kwargs):
     """
     Draws 2D map of given data VALUES ARRAY(V_ARRAY, H_ARRAY)
 
-    @type high_cutoff: object
     @param v_array:[1xN ndarray] y-axis array (vertical)
     @param h_array:[1xM ndarray] x-axis array (horizontal)
     @param values_array:[NxM ndarray] mtrx of values values_array[i,j], i in v_array, j in h_array
@@ -298,6 +296,8 @@ def prop_map(v_array, h_array, values_array, contours=None, cmap='jet',
     @param vmax: setting value for "highest" color. Default is values_array.max()
     @param low_cutoff: setting value, below which the values are considered "bad" (masked)
     @param bad_color_low: color for masked elements - the values below max_badvalue
+    @param high_cutoff: setting value, below which the values are considered "bad" (masked)
+    @param bad_color_high: color for masked elements - the values below max_badvalue
     @param titlestr: title of figure
     @param cbar_label: title of colorbar
     @param cbar_ticklabels: tick labels of colorbar
@@ -369,17 +369,26 @@ def prop_map(v_array, h_array, values_array, contours=None, cmap='jet',
     else:
         ax.set_yticks(y_ticks)
 
+    if x_ticks is None:
+        ax.set_xticks(h_array)
+    else:
+        ax.set_xticks(x_ticks)
+    if y_ticks is None:
+        ax.set_yticks(v_array)
+    else:
+        ax.set_yticks(y_ticks)
+
     ax.set_aspect(1)
 
     if titlestr is not None:
         plt.title(titlestr)
 
-    plt.grid(linestyle='--', zorder=10)
+    plt.grid(linestyle='--', linewidth=0.5, zorder=10)
 
     if contours is not None:
         if contours_kwargs is None:
             contours_kwargs = {'colors': 'k', 'linewidths': 0.5}
-        CS = plt.contour(fine_h_array, fine_v_array, interp_values, contours, **contours_kwargs)
+        CS = plt.contour(fine_h_array, fine_v_array, interp_values, contours, zorder=1.2, **contours_kwargs)
         if 'clabel' in kwargs and kwargs['clabel'] is not None:
             if kwargs['clabel'] is True:
                 kwargs['clabel'] = {'inline': 1, 'fontsize': 7, 'fmt': '%1.2g'}
@@ -391,6 +400,9 @@ def prop_map(v_array, h_array, values_array, contours=None, cmap='jet',
         divider = make_axes_locatable(ax)
         cax = divider.append_axes("right", size="5%", pad=0.1)
         cbar = plt.colorbar(mesh_obj, cax=cax, **cbar_kwargs)
+        cbar.ax.set_yscale('linear')
+        if 'ticks' in cbar_kwargs:
+            cbar.ax.set_yticks(cbar_kwargs['ticks'])
         if cbar_label is not None:
             cbar.set_label(cbar_label)
 

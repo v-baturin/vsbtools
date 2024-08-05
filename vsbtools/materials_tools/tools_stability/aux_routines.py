@@ -59,7 +59,7 @@ def table2list_fmt(v_array, h_array, en_table):
     return np.array(list_fmt_out)
 
 
-def list_fmt2table(list_fmt_data, outfile='', placeholder=0.0):
+def list_fmt2table(list_fmt_data, outfile='', placeholder=0.0, **kwargs):
     '''
     Turns list-formatted data to table. List-formatted data here is the data, represented as
     [[i0, j0, val(i0, j0)],
@@ -85,7 +85,7 @@ def list_fmt2table(list_fmt_data, outfile='', placeholder=0.0):
         h_idx = int(entry[1] - min_h)
         out_table[v_idx, h_idx] = float(entry[2])
     if len(outfile) > 0:
-        np.savetxt(outfile, out_table, fmt='%.6e')
+        np.savetxt(outfile, out_table, **kwargs)
     outv = np.array([int(x) for x in np.unique(v_array)])
     outh = np.array([int(x) for x in np.unique(h_array)])
     return out_table, outv, outh
