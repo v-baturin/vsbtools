@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 import pickle as pkl
 from typing import Union
-from my_packages.ab_initio_postprocessing.uspex_toolkit.IO import readAtomicStructuresToPoolEntries, \
+from my_packages.materials_tools.uspex_toolkit.IO import readAtomicStructuresToPoolEntries, \
     read_Individuals_uspexPY
 from my_packages.genutils.clustering_chunk import clustering_by_dist, make_dist_matrix, get_clusters_from_adj_mat
 from USPEX.Atomistic.RadialDistributionUtility import RadialDistributionUtility

@@ -4,8 +4,6 @@ from ase.build import make_supercell, stack
 from ase import Atoms
 
 
-
-
 def stack_poscars(in_atoms, multipliers=None, inversions=None, centering_atoms=None, write2file=None):
     """
 

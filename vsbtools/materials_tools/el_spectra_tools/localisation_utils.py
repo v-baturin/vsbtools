@@ -1,8 +1,8 @@
 # sys.path.append("..")  # Makes genutils package visible
 import numpy as np
-from ab_initio_postprocessing.abInitio_io_parse import gau_parse
-from ab_initio_postprocessing.graph_utils import my_graphs
-from ab_initio_postprocessing.graph_utils.formatting import set_subplots_pos_cm
+from materials_tools.abInitio_io_parse import gau_parse
+from materials_tools.graph_utils import my_graphs
+from materials_tools.graph_utils.formatting import set_subplots_pos_cm
 import matplotlib.pyplot as plt
 from cclib.io import ccread
 import os

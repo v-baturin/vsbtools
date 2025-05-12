@@ -61,6 +61,12 @@ def set_subplots_pos_cm(axdims_cm: list, figsize_cm=None, fig=None, subpl_shape=
 
 
 def set_ax_position_cm(ax, dims_cm):
+    """
+
+    :param ax: axes
+    :param dims_cm: (left offset, low_offset, width, height)
+    :return:
+    """
     fig_obj = ax.figure
     figsize_in = fig_obj.get_size_inches()
     dims_in = cm2inch(dims_cm)

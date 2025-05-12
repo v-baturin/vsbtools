@@ -45,7 +45,7 @@ def read_Individuals_uspexPY(fname, out_dict=None):
 
 def readAtomicStructuresToPoolEntries(struc_file_path):
     Engine.createEngine(':memory:')
-    extensions = dict(atomistic=atomistic.propertyExtension())
+    extensions = dict(atomistic = (atomistic, atomistic.propertyExtension.propertyTable))  #.propertyExtension())
     systems = []
     for i, s in enumerate(Atomistic.readAtomicStructures(struc_file_path)):
         print(f"reading {i}")

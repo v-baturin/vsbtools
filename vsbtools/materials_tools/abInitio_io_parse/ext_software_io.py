@@ -1,11 +1,13 @@
 import re
 import os
+from pathlib import Path
 import numpy as np
 from ase import Atoms
 from ase.io import read as ase_read
 from ase.io import write as ase_write
 from cclib.io import ccread
 from genutils.filesystem_tools import add_index
+from pymatgen.core import Structure
 from pymatgen.io.cif import CifParser
 from pymatgen.io.vasp import Poscar
 # from .common_tools import recursive_map_to_keys, recursively_map_to_vals, try_numerize_string
@@ -41,7 +43,6 @@ def read_coords_g(poscars_fname, format='vasp', slc=None):
             except IndexError:
                 break
 
-
 def poscars2xyz_files(poscars_fname, folder_name=None):
     if folder_name is None:
         folder_name = poscars_fname + '_XYZ'
@@ -50,7 +51,6 @@ def poscars2xyz_files(poscars_fname, folder_name=None):
         chem_formula = ats.get_chemical_formula()
         filename = add_index(folder_name + '/' + chem_formula + '.xyz')
         ase_write(filename, ats, format='xyz')
-
 
 def xyzfile2poscars(xyz_fname, box=None, poscars_fname=None):
     if poscars_fname is None:
@@ -63,7 +63,6 @@ def xyzfile2poscars(xyz_fname, box=None, poscars_fname=None):
         ats.cell = box
         ats.pbc = [True, True, True]
         ase_write(poscars_fname, ats, format='vasp', append=True, direct=True, vasp5=True)
-
 
 def dict2gauformat(dct_param: dict, gau_route=False):
     txt = ''
@@ -83,7 +82,6 @@ def dict2gauformat(dct_param: dict, gau_route=False):
         elif bool(upper_val):
             txt += ('=' + upper_val)
     return txt.replace(',)', ')')
-
 
 def recursive_print(dct: dict):
     txt1 = ''
@@ -155,13 +153,11 @@ def gaussian_in_2_Atoms(fd):
             atoms = Atoms(symbols, positions, pbc=pbc, cell=cell)
             return atoms
 
-
 def atoms_2_str(atms):
     output = []
     for at in atms:
         output.append('{:<10s}{:20.10f}{:20.10f}{:20.10f}'.format(at.symbol, *at.position))
     return '\n'.join(output)
-
 
 def parse_gout(logfile):
     ccdata = ccread(logfile)
@@ -176,6 +172,28 @@ def cif2poscar(in_cif_fname, out_poscar_fname):
     structure = CifParser(in_cif_fname).get_structures()[0]
     p = Poscar(structure)
     p.write_file(out_poscar_fname)
+
+def cif_dir2poscars_dir(cif_dir, poscars_dir=None, sort_by_comp=False):
+    if poscars_dir is None:
+        if "cif" in cif_dir.casefold():
+            poscars_dir = re.sub('cif', 'POSCAR', cif_dir, flags=re.I)
+        else:
+            poscars_dir = cif_dir + "_poscars"
+    cif_dir = Path(cif_dir)
+    for cif_path in cif_dir.glob("*.cif"):
+        print(f"Trying to convert {cif_path.name}.")
+        try:
+            struct = Structure.from_file(cif_path)
+            if sort_by_comp:
+                comp = struct.composition.get_integer_formula_and_factor()[0]
+                target_dir = Path(poscars_dir) / comp
+            else:
+                target_dir = Path(poscars_dir)
+            target_dir.mkdir(parents=True, exist_ok=True)
+            poscar_path = target_dir / f'{cif_path.name.replace(".cif","_POSCAR")}'
+            struct.to(fmt="poscar", filename=str(poscar_path))
+        except ValueError:
+            print(f"Bad structure detected. Check {cif_path.name}!")
 
 # def get_options(string, option):
 #     """
@@ -241,7 +259,9 @@ def cif2poscar(in_cif_fname, out_poscar_fname):
 #     # poscar_atoms = ase_read(poscar_fname)
 
 if __name__ == "__main__":
-    xyz_batch_fname = '/home/vsbat/SYNC/00__WORK/20201013_PdBi/restartPd1015/xyz_all.xyz'
-    poscars_fname = '/home/vsbat/SYNC/00__WORK/20201013_PdBi/restartPd1015/POSCARS_1'
-    xyzfile2poscars(xyz_batch_fname, np.array([20, 20, 20]), poscars_fname)
+    # xyz_batch_fname = '/home/vsbat/SYNC/00__WORK/20201013_PdBi/restartPd1015/xyz_all.xyz'
+    # poscars_fname = '/home/vsbat/SYNC/00__WORK/20201013_PdBi/restartPd1015/POSCARS_1'
+    # xyzfile2poscars(xyz_batch_fname, np.array([20, 20, 20]), poscars_fname)
+    cif_dir_mopb = "/home/vsbat/SYNC/00__WORK/2025-2026_MOLTEN_SALTS/STRUCTURE_GENERATION/gen_results/20250403_MoPB_SG140/CIF_Mo2B1P1_140"
+    cif_dir2poscars_dir(cif_dir_mopb)
 

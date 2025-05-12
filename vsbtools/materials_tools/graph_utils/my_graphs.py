@@ -259,21 +259,17 @@ def draw_ipr(span, eaxup, iprup, eaxdn=None, eFermi=0, units='eV',
     return shareax, ipr_handle
 
 
-def interp_matrix(v_array, h_array, values_array, grid_res=0.02, interp_type='interp2d', interp_kwargs=None):
+def interp_matrix(v_array, h_array, values_array, grid_res=0.02, interp_type='RectBivariateSpline', **kwargs):
     v_array = np.array(v_array)
     h_array = np.array(h_array)
     values_array = np.array(values_array)
     fine_v_array = np.arange(v_array.min(), v_array.max() + grid_res, grid_res)
     fine_h_array = np.arange(h_array.min(), h_array.max() + grid_res, grid_res)
     if interp_type == 'RectBivariateSpline':
-        if interp_kwargs is None:
-            interp_kwargs = {'s': 0}
-        interp_fun = interpolate.RectBivariateSpline(h_array, v_array, values_array.T, **interp_kwargs)
+        interp_fun = interpolate.RectBivariateSpline(h_array, v_array, values_array.T, **kwargs)
         return fine_v_array, fine_h_array, interp_fun(fine_h_array, fine_v_array).T
     else:
-        if interp_kwargs is None:
-            interp_kwargs = {'kind': 'linear'}
-        interp_fun = interpolate.interp2d(h_array, v_array, values_array, **interp_kwargs)
+        interp_fun = interpolate.interp2d(h_array, v_array, values_array, **kwargs)
         return fine_v_array, fine_h_array, interp_fun(fine_h_array, fine_v_array)
 
 
@@ -281,7 +277,7 @@ def interp_matrix(v_array, h_array, values_array, grid_res=0.02, interp_type='in
 def prop_map(v_array, h_array, values_array, contours=None, cmap='jet',
              vcenter=None, vmin=None, vmax=None, low_cutoff=None, high_cutoff=None, bad_color_low='k', titlestr=None,
              x_ticks=None, y_ticks=None, plot_cbar=True, cbar_label=None, cbar_kwargs=None,
-             pcolormesh_kwargs=None, contours_kwargs=None, shallowlevel=None, grid_res=0.02, **kwargs):
+             pcolormesh_kwargs=None, contours_kwargs=None, interpolation_kwargs=None, shallowlevel=None, grid_res=0.02, **kwargs):
     """
     Draws 2D map of given data VALUES ARRAY(V_ARRAY, H_ARRAY)
 
@@ -325,7 +321,10 @@ def prop_map(v_array, h_array, values_array, contours=None, cmap='jet',
         fine_h_array, fine_v_array, interp_values = h_array, v_array, values_array
     else:
         assert 0 < grid_res <= 1.0
-        fine_v_array, fine_h_array, interp_values = interp_matrix(v_array, h_array, values_array, grid_res=grid_res)
+        if interpolation_kwargs is None:
+            interpolation_kwargs = {'kx': 1, 'ky': 1}
+        fine_v_array, fine_h_array, interp_values = interp_matrix(v_array, h_array, values_array,
+                                                                  grid_res=grid_res, **interpolation_kwargs)
 
     if vmax is None:
         vmax = maxval
