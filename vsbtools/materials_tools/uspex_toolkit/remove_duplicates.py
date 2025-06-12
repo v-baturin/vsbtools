@@ -1,13 +1,16 @@
+import warnings
+
 import numpy as np
 import os
 from pathlib import Path
 import pickle as pkl
 from typing import Union
 from my_packages.materials_tools.uspex_toolkit.IO import readAtomicStructuresToPoolEntries, \
-    read_Individuals_uspexPY
+    read_Individuals_uspexPY, atomsListToPoolEntries
 from my_packages.genutils.clustering_chunk import clustering_by_dist, make_dist_matrix, get_clusters_from_adj_mat
 from USPEX.Atomistic.RadialDistributionUtility import RadialDistributionUtility
 from USPEX.components import AtomisticRepresentation, Atomistic
+from USPEX.DataModel import Entry
 from datetime import datetime
 
 tdy = datetime.today().strftime('%Y%m%d')
@@ -15,8 +18,79 @@ from my_packages.hydrures_tools.various_tools import fix_wrap_and_check_tetrahed
 
 atomistic = Atomistic()
 
+def remove_duplicates(entries: list, fitness_list=None, threshold=np.inf, data_path: Path|None = None,
+                                      out_path: Path| None = None,
+                                      clusters_file=None, dist_matrix_file=None,
+                                      check_clusters_file=True, check_dist_matrix_file=True,
+                                      legacy=True, tolFp=0.08):
 
-def remove_duplicates_from_files(struct_file: os.PathLike, individuals_file: os.PathLike|None =None, out_path=None,
+    data_path = data_path or Path(os.getcwd())
+    clusters_file = clusters_file or data_path / f"clusters_{tdy}.pkl"
+    dist_matrix_file = dist_matrix_file or data_path / f"dist_mat_{tdy}.pkl"
+    out_path = out_path or data_path / "deduplicated_POSCARS"
+
+    if check_clusters_file and Path(clusters_file).is_file():
+        with open(clusters_file, 'rb') as clusters_fid:
+            clusters = pkl.load(clusters_fid)
+            warnings.warn(f"Clusters are loaded from {clusters_file}. tolFP is ignored")
+    else:
+        if check_dist_matrix_file and Path(dist_matrix_file).is_file():
+            with open(dist_matrix_file, 'rb') as dist_mat_fid:
+                dist_matrix = pkl.load(dist_mat_fid)
+                warnings.warn(f"Distance matrix is loaded from {dist_matrix_file}.")
+        else:
+            rho = prepare_dist_function(entries, legacy=legacy)
+            dist_matrix = make_dist_matrix(entries, rho, dist_matrix_file)
+        clusters = clusterizePoolEntries(dist_matrix, clusters_out_file=clusters_file, tolFP=tolFp)
+    best_representatives, best_idc = select_best_representatives(clusters, entries, fitness_list, threshold)
+    atomistic.writeAtomicStructures(Path(out_path), [sb.getFlavour('origin') for sb in best_representatives])
+    return best_representatives, clusters, best_idc
+
+
+def remove_duplicates_from_atoms_list(atoms_list, fitness_list, threshold=np.inf,
+                                      data_path: Path|None = None,
+                                      out_path: Path| None = None,
+                                      clusters_file=None, dist_matrix_file=None,
+                                      check_clusters_file=True, check_dist_matrix_file=True,
+                                      legacy=True, tolFp=0.08):
+    """
+    :param atoms_list:
+    :param fitness_list:
+    :param threshold:
+    :param data_path:
+    :param clusters_file:
+    :param dist_matrix_file:
+    :param check_clusters_file:
+    :param check_dist_matrix_file:
+    :param legacy:
+    :param tolFp:
+    :return:
+    """
+    data_path = data_path or Path(os.getcwd())
+    systems = atomsListToPoolEntries(atoms_list)
+    clusters_file = clusters_file or data_path / f"clusters_{tdy}.pkl"
+    dist_matrix_file = dist_matrix_file or data_path / f"dist_mat_{tdy}.pkl"
+    out_path = out_path or data_path / f"POSCARS_filtered"
+
+    if check_clusters_file and Path(clusters_file).is_file():
+        with open(clusters_file, 'rb') as clusters_fid:
+            clusters = pkl.load(clusters_fid)
+    else:
+        if check_dist_matrix_file and Path(dist_matrix_file).is_file():
+            with open(dist_matrix_file, 'rb') as dist_mat_fid:
+                dist_matrix = pkl.load(dist_mat_fid)
+        else:
+            rho = prepare_dist_function(systems, legacy=legacy)
+            dist_matrix = make_dist_matrix(systems, rho, dist_matrix_file)
+        clusters = clusterizePoolEntries(dist_matrix, clusters_out_file=clusters_file, tolFP=tolFp)
+    best_representatives, _ = select_best_representatives(clusters, systems, fitness_list, threshold)
+    atomistic.writeAtomicStructures(Path(out_path), [sb.getFlavour('origin') for sb in best_representatives])
+
+
+
+def remove_duplicates_from_files(struct_file: Path,
+                                 individuals_file: Path | None =None,
+                                 out_path=None,
                                  individuals_header='', threshold=np.inf,
                                  clusters_file=None, dist_matrix_file=None,
                                  check_clusters_file=True, check_dist_matrix_file=True,
@@ -33,16 +107,16 @@ def remove_duplicates_from_files(struct_file: os.PathLike, individuals_file: os.
     """
     systems = readAtomicStructuresToPoolEntries(struct_file)
     if individuals_file is not None:
-        fitnesses = np.array(read_Individuals_uspexPY(individuals_file)[individuals_header])
-        fitnesses = fitnesses[fitnesses != 'None'].astype(float).flatten()
-        systems = systems[:len(fitnesses)]
+        fitness_list = np.array(read_Individuals_uspexPY(individuals_file)[individuals_header])
+        fitness_list = fitness_list[fitness_list != 'None'].astype(float).flatten()
+        systems = systems[:len(fitness_list)]
     else:
-        fitnesses = None
+        fitness_list = None
 
     data_path = struct_file.parent
-    clusters_file = data_path / f"clusters_{tdy}.pkl" if clusters_file is None else clusters_file
-    dist_matrix_file = data_path / f"dist_mat_{tdy}.pkl" if dist_matrix_file is None else dist_matrix_file
-    out_path = data_path / f"{struct_file.name.replace('.uspex', '')}_filtered" if out_path is None else out_path
+    clusters_file = clusters_file or data_path / f"clusters_{tdy}.pkl"
+    dist_matrix_file = dist_matrix_file or data_path / f"dist_mat_{tdy}.pkl"
+    out_path = out_path or data_path / f"{struct_file.name.replace('.uspex', '')}_filtered"
 
     if check_clusters_file and Path(clusters_file).is_file():
         with open(clusters_file, 'rb') as clusters_fid:
@@ -55,8 +129,7 @@ def remove_duplicates_from_files(struct_file: os.PathLike, individuals_file: os.
             rho = prepare_dist_function(systems, legacy=legacy)
             dist_matrix = make_dist_matrix(systems, rho, dist_matrix_file)
         clusters = clusterizePoolEntries(dist_matrix, clusters_out_file=clusters_file, tolFP=tolFp)
-    best_representatives = select_best_representatives(clusters, systems, fitnesses, threshold)
-
+    best_representatives, _ = select_best_representatives(clusters, systems, fitness_list, threshold)
     atomistic.writeAtomicStructures(Path(out_path), [sb.getFlavour('origin') for sb in best_representatives])
         
     #     # clusterizePoolEntries(dist_matrix=None, clusters_out_file=None, tolFP=0.16, **kwargs):
@@ -84,23 +157,26 @@ def prepare_dist_function(systems, legacy=False):
         elements |= set(system['atomistic.structure.origin'].getAtomTypes().astype(str))
     rdu = RadialDistributionUtility(symbols=elements, suffix='origin', legacy=legacy)
     for system in systems:
-        system.flavours['origin'].extensions.update({'radialDistributionUtility': rdu.propertyExtension()})
+        system.flavours['origin'].extensions.update({'radialDistributionUtility': (rdu, rdu.propertyExtension.propertyTable)})
+        # system.flavours['origin'].extensions.update({'radialDistributionUtility': rdu.propertyExtension()})
     rho = rdu.dist
     return rho
 
 
-def select_best_representatives(clusters, systems, fitnesses = None, threshold = 0.1, **kwargs):
+def select_best_representatives(clusters, systems, fitness_list = None, threshold = 0.1, **kwargs):
     print(f"Processing {len(clusters)} clusters")
-    if fitnesses is not None:
-        ref_fitness = np.min(fitnesses)
+    if fitness_list is not None:
+        fitness_list = np.array(fitness_list)
+        ref_fitness = np.min(fitness_list)
     else:
-        fitnesses = np.zeros(len(systems), dtype=float)
+        fitness_list = np.zeros(len(systems), dtype=float)
         ref_fitness = 0.
     good_fitnesses = []
     i = 0
     best_of_each = []
+    global_indices_of_best = []
     for cluster in clusters:
-        cl_en = fitnesses[cluster]
+        cl_en = fitness_list[cluster]
         min_en = np.min(cl_en)
         idx_min = cluster[np.where(cl_en == np.min(cl_en))[0][0]]
         struct = systems[idx_min]
@@ -110,13 +186,14 @@ def select_best_representatives(clusters, systems, fitnesses = None, threshold =
         good_fitnesses.append(min_en)
         best_of_each.append(struct)
         i += 1
+        global_indices_of_best.append(idx_min)
     print(f"{len(best_of_each)} good ones. Writing")
 
     sorting_idx = np.argsort(good_fitnesses)
     sorted_best = []
     for i in sorting_idx:
         sorted_best.append(best_of_each[i])
-    return sorted_best
+    return sorted_best, global_indices_of_best
 
 
 def clusterizePoolEntries(dist_matrix=None, clusters_out_file=None, tolFP=0.16, **kwargs):

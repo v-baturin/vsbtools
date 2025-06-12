@@ -24,7 +24,7 @@ def read_poscars(poscars_fname):
         while True:
             try:
                 poscars_list.append(ase_read(poscars_fid, format='vasp'))
-            except IndexError:
+            except (IndexError, StopIteration):
                 break
     return poscars_list
 
@@ -136,6 +136,7 @@ def gaussian_in_2_Atoms(fd):
     cell = np.zeros((3, 3))
     npbc = 0
     # We're looking for charge and multiplicity
+    atoms = None
     for line in fd:
         if re_chgmult.match(line) is not None:
             tokens = fd.readline().split()
@@ -151,7 +152,7 @@ def gaussian_in_2_Atoms(fd):
                     positions.append(pos)
                 tokens = fd.readline().split()
             atoms = Atoms(symbols, positions, pbc=pbc, cell=cell)
-            return atoms
+    return atoms
 
 def atoms_2_str(atms):
     output = []

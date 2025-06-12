@@ -3,7 +3,7 @@ import re
 import shutil
 from pathlib import Path
 from typing import Dict, Union, Callable
-from genutils.filesystem_tools import sh_execute
+from my_packages.genutils.filesystem_tools import sh_execute
 import numpy as np
 from USPEX.Atomistic.RadialDistributionUtility import RadialDistributionUtility
 from USPEX.components import AtomisticRepresentation, Atomistic
@@ -53,7 +53,16 @@ def readAtomicStructuresToPoolEntries(struc_file_path):
                                                        **{'.howCome': 'Seeds', '.parent': None, '.label': f"EA{i}"},
                                                        **s)))
     return systems
-    
+
+def atomsListToPoolEntries(atoms_list: list) -> list:
+    Engine.createEngine(':memory:')
+    extensions = dict(atomistic=(atomistic, atomistic.propertyExtension.propertyTable))  # .propertyExtension())
+    systems = []
+    for i, s in enumerate(Atomistic.atomsListToSystems(atoms_list)):
+        systems.append(Entry.newEntry(Flavour(extensions=extensions,
+                                              **{'.howCome': 'Seeds', '.parent': None, '.label': f"EA{i}"},
+                                              **s)))
+    return systems
 
 def readResFolders_uspexPY(path, individuals_kind: str = 'Individuals'):
     out_dict = None
