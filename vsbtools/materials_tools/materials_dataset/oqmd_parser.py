@@ -8,7 +8,7 @@ import pandas as pd
 
 # ---------------- INPUT ---------------------------------
 elements   = {'Al', 'Fe', 'Ni'}             # нужный набор
-out_folder = pathlib.Path('poscars')
+out_folder = pathlib.Path('unittests/poscars')
 out_folder.mkdir(exist_ok=True)
 
 # ---------------- DB CONNECT ----------------------------

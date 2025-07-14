@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Set, Optional
+from typing import Set, Optional, Iterable
 
 import re
 import pandas as pd
@@ -15,7 +15,7 @@ class USPEXOutputClient:
     mode: str = 'goodStructures' # or 'calcFolds'
     stage: int | None = None
 
-    def query(self, elements: Set[str]) -> pd.DataFrame:
+    def query(self, elements: Iterable[str]) -> pd.DataFrame:
         if self.mode == 'goodStructures':
             df = self.parse_goodStructures(elements)
         elif self.mode == 'calcFolds':
@@ -107,8 +107,8 @@ class USPEXOutputClient:
 
     def parse_calcFolders(
             self,
-            elements,
-            stage: Optional[int] = None) -> pd.DataFrame:
+            stage: Optional[int] = None,
+            entries_order_file: Optional[Path] = None) -> pd.DataFrame:
         """
         Scan `base_folder` for subdirs named CalcFold<X>_<Y>.  For each unique X:
           – if y_choice is given, pick the folder with Y == y_choice (skip X if absent)
@@ -116,7 +116,12 @@ class USPEXOutputClient:
         Any folder where CONTCAR or vasprun.xml fails to load is skipped.
         Returns a DataFrame with columns ["id","formula","e_total","natoms","structure","source"].
         """
+        if entries_order_file:
+            # If entries_order_file is provided, read it to get the order of entries
+            entries_order = pd.read_csv(entries_order_file, header=None).squeeze().tolist()
         pattern = re.compile(r'^CalcFold(\d+)_([0-9]+)$')
+        oszicar_F_pattern = re.compile(r"F=\s*([-\d.]+)")
+
         grouping: dict[int, list[tuple[int, Path]]] = {}
         for sub in self.path.iterdir():
             if not sub.is_dir():
@@ -155,10 +160,23 @@ class USPEXOutputClient:
             try:
                 vr = Vasprun(str(folder / "vasprun.xml"), parse_potcar_file=False)
                 e_total = vr.final_energy
+                print(f"{folder.name}: Energy read from vasprun.xml")
             except Exception as e:
-                print(f"Skipping {folder.name}: failed to read vasprun.xml ({e})")
-                continue
-
+                oszicar = folder / "OSZICAR"
+                if not oszicar.exists():
+                    print(f"{folder.name}: Couldn't read energy from Vasprun.xml. OSZICAR is missing. Skipping")
+                    continue
+                with open(oszicar, "r") as oszicar_fid:
+                    for line in reversed(oszicar_fid.readlines()):
+                        m = oszicar_F_pattern.search(line)
+                        if m:
+                            print(f"{folder.name}: Last energy read from OSZICAR. Failed to read vasprun.xml ({e}) ")
+                            e_total = m[1]
+                            break
+                    else:
+                        print(f"{folder.name}: Couldn't read energy from either Vasprun.xml and OSZICAR. Skipping")
+                        continue
+            id = x if entries_order_file is None else entries_order[x]
             records.append({
                 "id": x,
                 "formula": formula,

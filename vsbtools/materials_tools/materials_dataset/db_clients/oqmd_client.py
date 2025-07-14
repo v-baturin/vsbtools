@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, Set
+from typing import Any, Set, Iterable
 
 import numpy as np
 import pandas as pd
@@ -42,8 +42,8 @@ class OQMDClient:
     # Public API                                                         #
     # ------------------------------------------------------------------ #
 
-    def query(self, elements: Set[str]) -> pd.DataFrame:
-        elem_rgx = "|".join(sorted(elements))
+    def query(self, elements: Iterable[str]) -> pd.DataFrame:
+        elem_rgx = "|".join(sorted(set(elements)))
         list_rgx = rf"^({elem_rgx})_(?:({elem_rgx})_)*$"
 
         sql = f'''
@@ -97,6 +97,7 @@ class OQMDClient:
         # final column set expected by ThermoEntry.from_row
         df = df.rename(columns={"entry_id": "id"})
         df["source"] = "oqmd"
+        df["id"] = "oqmd_" + df["id"].astype(str)
         return df[["id", "formula", "e_total", "natoms", "structure", "source"]]
 
     # Legacy alias kept for old scripts

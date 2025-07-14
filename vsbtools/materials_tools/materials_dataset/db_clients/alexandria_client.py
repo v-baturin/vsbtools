@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Set
+from typing import List, Set, Iterable
 
 import pandas as pd
 from pymatgen.core import Structure
@@ -32,12 +32,13 @@ class AlexandriaClient:
     # Public API                                                         #
     # ------------------------------------------------------------------ #
 
-    def query(self, elements: Set[str]) -> pd.DataFrame:
+    def query(self, elements: Iterable[str]) -> pd.DataFrame:
         """Return rows that contain *only* the requested elements."""
         wanted = set(elements)
         rows: list[dict] = []
 
         for file in self._files():
+            print(f"Parsing {file} ...")
             with file.open() as fh:
                 for ent in ijson.items(fh, "entries.item"):
                     data = ent.get("data", {})

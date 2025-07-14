@@ -6,7 +6,7 @@ from ase import Atoms
 from ase.io import read as ase_read
 from ase.io import write as ase_write
 from cclib.io import ccread
-from genutils.filesystem_tools import add_index
+from my_packages.genutils.filesystem_tools import add_index
 from pymatgen.core import Structure
 from pymatgen.io.cif import CifParser
 from pymatgen.io.vasp import Poscar

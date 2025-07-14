@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from itertools import combinations
-from typing import Any, List, Set
+from typing import Any, List, Set, Iterable
 import os
 
 import pandas as pd
@@ -41,7 +41,7 @@ class MPClient:
     # Public API                                                         #
     # ------------------------------------------------------------------ #
 
-    def query(self, elements: Set[str]) -> pd.DataFrame:
+    def query(self, elements: Iterable[str]) -> pd.DataFrame:
         """
         Return every calculation that contains *elements*.
 
@@ -50,7 +50,7 @@ class MPClient:
         rester = self._connect()
 
         thermo_docs = []
-        for space in self._subspaces(elements):
+        for space in self._subspaces(set(elements)):
             thermo_docs.extend(
                 rester.thermo.search(
                     chemsys=space,

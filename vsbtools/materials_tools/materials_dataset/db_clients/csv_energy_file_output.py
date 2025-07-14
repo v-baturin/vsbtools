@@ -5,18 +5,23 @@ from pymatgen.core import Structure
 
 
 @dataclass
-class ALIGNN_output:
+class CSV_energy_file_output:
     results_dir_path: str | Path | None = None  # csv file or folder containing (only) alignn format csv
     results_csv: str | Path | None = None
+    poscars_parent_path: str | Path | None = None
+    source: str = "ALIGNN"
+    poscars_parent_path = "" if poscars_parent_path is None else poscars_parent_path
+    per_atom_energy = ["ALIGNN"]
 
     def append_info(self, df, csv):
         df_temp = pd.read_csv(csv, dtype={'Energy': float})
         current_path = csv.parent
         df_temp["id"] = df_temp["File"].apply(lambda x: f"{current_path.relative_to(csv.parent)}/{x}")
-        df_temp["structure"] = df_temp["File"].apply(lambda x: Structure.from_file(current_path / x))
+        df_temp["structure"] = df_temp["File"].apply(lambda x: Structure.from_file(current_path /
+                                                                                   self.poscars_parent_path / x))
         df_temp["formula"] = df_temp["structure"].apply(lambda x: x.composition.formula)
         df_temp["natoms"] = df_temp["structure"].apply(lambda x: len(x))
-        df_temp["e_total"] = df_temp["Energy"] * df_temp["natoms"]
+        df_temp["e_total"] = df_temp["Energy"] * (df_temp["natoms"] if self.source in self.per_atom_energy else 1)
         df = pd.concat([df, df_temp], ignore_index=True)
         return df
 
