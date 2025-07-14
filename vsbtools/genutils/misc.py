@@ -1,5 +1,6 @@
 import numpy as np
 import functools
+import textwrap, inspect, ast
 
 def rgetattr(obj, attr, default=None):
     try: left, right = attr.split('.', 1)
@@ -60,6 +61,26 @@ def merge(a: dict, b: dict, path=[]):
         else:
             a[key] = b[key]
     return a
+
+def describe_predicate(fn):
+    """Return a clean string like  'lambda x: x % 2 == 0'."""
+    try:
+        src = textwrap.dedent(inspect.getsource(fn))
+        tree = ast.parse(src)
+
+        # find the first (and usually only) Lambda node
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Lambda):
+                # Python ≥3.8: returns the exact slice of source for *node*
+                expr = ast.get_source_segment(src, node)
+                return expr.strip()
+        # fallback: maybe it was a normal def
+        first_line = src.strip().splitlines()[0]
+        return first_line
+    except (OSError, TypeError, SyntaxError):
+        # interactive / C-level / no source
+        qname = getattr(fn, "__qualname__", None)
+        return qname if qname and "<lambda>" not in qname else repr(fn)
 
 if __name__ == '__main__':
     for o in odometer((2,2,2), (-1,-1,-1)):
