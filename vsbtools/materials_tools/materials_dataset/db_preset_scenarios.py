@@ -1,4 +1,4 @@
-import pickle as pkl
+from datetime import datetime
 import numpy as np
 from my_packages.materials_tools.materials_dataset.crystalDataset import CrystalDataset
 from my_packages.materials_tools.materials_dataset.db_clients.alexandria_client import AlexandriaClient
@@ -9,8 +9,7 @@ elements = ["Mo", "Si", "B", "P"]
 do_ehull_filtering = True  # Whether to filter entries based on energy above hull
 do_deduplication = True  # Whether to deduplicate entries based on composition and structure
 MAX_EHULL = 0.02  # Maximum energy above hull in eV/atom for filtering
-def CLIENTS(**kwargs):
-    return {"al": AlexandriaClient(**kwargs), "oq": OQMDClient(), "mp": MPClient(), "ma": MPClient()}  # List of database clients to fetch data from
+CLIENTS = {"al": AlexandriaClient(), "oq": OQMDClient(), "mp": MPClient(), "ma": MPClient()}  # List of database clients to fetch data from
 # ------------------------------------------------------------------ #
 
 def gather_entries_from_databases(elements,
@@ -20,13 +19,13 @@ def gather_entries_from_databases(elements,
                                   max_ehull=None, **kwargs):
     """Fetch data from Alexandria, OQMD, and Materials Project databases."""
     database_names = database_names or ['alexandria', 'oqmd', 'MatProj']  # Default databases to fetch data from
-
+    if 'pattern' in kwargs:
+        CLIENTS['al'] = AlexandriaClient(pattern=kwargs['pattern'])
     for db in database_names:
         assert isinstance(db, str), "Database names must be strings."
         assert db[:2].lower() in CLIENTS, f"Database '{db}' is not recognized. Available databases: {list(CLIENTS.keys())}."
 
-    database_names = [db[:2].lower() for db in database_names]  # Normalize database names to lowercase
-    clients = [CLIENTS(**kwargs)[db[:2].lower()] for db in database_names]
+    clients = [CLIENTS[db[:2].lower()] for db in database_names]
     if not do_ehull_filtering:
         max_ehull = np.inf
     else:
