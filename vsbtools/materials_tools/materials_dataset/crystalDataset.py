@@ -58,7 +58,7 @@ class CrystalEntry:
                  calc_settings: Mapping[str, Any] | None = None,
                  parent_set: CrystalDataset | None = None,
                  symprec: float = None, **kwargs):
-        self.origin_id = origin_id
+        self.id = origin_id
         self.structure = structure               # in‑memory structure
         self.composition = composition or getattr(structure,'composition', None)
         self.energy_total = energy_total         # eV per formula unit
@@ -134,7 +134,7 @@ class CrystalEntry:
         # debug-------------
         sg_after = self.sym_group_no
         if sg_before != sg_after:
-            print(f"{self.origin_id}: sg_before {sg_before} != sg_after {sg_after}")
+            print(f"{self.id}: sg_before {sg_before} != sg_after {sg_after}")
         # end debug---------
         if primitive:
             return sga.get_primitive_standard_structure()
@@ -148,7 +148,7 @@ class CrystalEntry:
     def as_pd_entry(self) -> PDEntry | None:
         """Return a PhaseDiagram-compatible entry (total energy)."""
         if self.energy_total is not None:
-            return PDEntry(self.composition, self.energy_total, attribute=self.origin_id)
+            return PDEntry(self.composition, self.energy_total, attribute=self.id)
         else:
             warnings.warn("No energy provided, thermodynamic properties unavailable")
             return None
@@ -157,19 +157,19 @@ class CrystalEntry:
         atoms = AseAtomsAdaptor.get_atoms(self.structure)
         uspex_structure = atomistic.AtomicStructureRepresentation.fromAtoms(atoms)
         return Entry.newEntry(Flavour(extensions=uspex_entry_extensions,
-                              **{'.howCome': 'Seeds', '.parent': None, '.label': self.origin_id},
-                              **atomistic.atomicDisassemblerType(np.arange(len(uspex_structure)).reshape((-1, 1))).disassemble(uspex_structure)))
+                                      **{'.howCome': 'Seeds', '.parent': None, '.label': self.id},
+                                      **atomistic.atomicDisassemblerType(np.arange(len(uspex_structure)).reshape((-1, 1))).disassemble(uspex_structure)))
     # ------------------------------------------------------------------
     # Hash / equality
     # ------------------------------------------------------------------
     def __hash__(self):  # noqa: D401
-        return hash((self.origin, self.origin_id))
+        return hash((self.origin, self.id))
     def __eq__(self, other: object):  # noqa: D401
         if not isinstance(other, CrystalEntry):
             return NotImplemented
         return (
-            self.origin == other.origin
-            and self.origin_id == other.origin_id
+                self.origin == other.origin
+                and self.id == other.id
         )
 
     # ------------------------------------------------------------------
@@ -337,7 +337,7 @@ class CrystalDataset(list[CrystalEntry]):
                 logger.info(f"Checking entry {i+1}/{len(other.uspex_entry_list)} of added dataset for duplicates...")
                 for j, e2 in enumerate(self.uspex_entry_list):
                     if rho(e, e2) <= tol_FP:
-                        logger.info(f"{other[i].origin_id} in extension list is a duplicate of {self[j].origin_id}")
+                        logger.info(f"{other[i].id} in extension list is a duplicate of {self[j].id}")
                         duplicates_counter.add(j)
                         break
                 else:
@@ -540,13 +540,13 @@ class CrystalDataset(list[CrystalEntry]):
         directory.mkdir(parents=True, exist_ok=True)
         fnames=[]
         for e in self:
-            fname = f"{e.origin_id.replace('POSCAR', '')}-{e.formula}_POSCAR".split("/")[-1]
+            fname = f"{e.id.replace('POSCAR', '')}-{e.formula}_POSCAR".split("/")[-1]
             fnames.append(fname)
-            e.structure.to(fmt="poscar", filename=directory / fname, comment=e.origin_id)
+            e.structure.to(fmt="poscar", filename=directory / fname, comment=e.id)
         if file_id_mapping_file:
             with open(directory / file_id_mapping_file, 'wt') as fid:
                 for i, e in enumerate(self):
-                    fid.write(f"{fnames[i]} {e.origin_id}\n")
+                    fid.write(f"{fnames[i]} {e.id}\n")
 
     def write_multistructure_poscar(self, filename: Path | str | None = None, sort_key=None,
                                     entries_order_file: Path | str | None = None):
@@ -555,16 +555,16 @@ class CrystalDataset(list[CrystalEntry]):
         with open(filename, 'wt') as fid:
             sequence = self if not sort_key else sorted(self, key=sort_key)
             for e in sequence:
-                poscar_str = Poscar(e.structure, comment=e.origin_id).get_str()
+                poscar_str = Poscar(e.structure, comment=e.id).get_str()
                 fid.write(poscar_str)
             if entries_order_file:
                 with open(entries_order_file, 'wt') as order_file:
                     for e in sequence:
-                        order_file.write(f"{e.origin_id}\n")
+                        order_file.write(f"{e.id}\n")
 
     def to_energy_csv(self, path: Path | str | None = None, *, unique: bool = False) -> str:
         df = pd.DataFrame({
-            "id": [e.origin_id for e in self],
+            "id": [e.id for e in self],
             "composition": [e.formula for e in self],
             "e_total": [e.energy_total for e in self],
         })
@@ -644,7 +644,7 @@ class CrystalDataset(list[CrystalEntry]):
         uspex_entry_ref = crystal_entry.as_uspex_entry()
         rho = prepare_dist_function(self.uspex_entry_list + [uspex_entry_ref], elements=self.elements | {crystal_entry.composition.as_data_dict()['elements']})
         true_idcs = [i for i, uspex_entry in enumerate(self.uspex_entry_list) if rho(uspex_entry_ref, uspex_entry) <= tol_FP ]
-        return true_idcs, [self[i].origin_id for i in true_idcs]
+        return true_idcs, [self[i].id for i in true_idcs]
 
     # ------------------------------------------------------------------
     # Symmetrization
