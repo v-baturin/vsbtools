@@ -430,7 +430,7 @@ class CrystalDataset(list[CrystalEntry]):
     # ------------------------------------------------------------------
     @property
     def source(self) -> Optional[str]:
-        return self[0].origin if self else None
+        return ', '.join(list({e.origin for e in self})) if self else None
 
     @property
     def elements(self) -> Set[str]:
