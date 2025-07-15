@@ -582,7 +582,7 @@ class CrystalDataset(list[CrystalEntry]):
                      check_clusters_file=False,
                      check_dist_matrix_file=False,
                      tol_FP=None,
-                     enforce_compositions_separation=False,
+                     enforce_compositions_separation=True,
                      fitness_list=None,
                      **kwargs):
         """
