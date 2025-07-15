@@ -31,7 +31,7 @@ class CrystalDataset_Test(unittest.TestCase):
     def test_filtering(self):
         ds = CrystalDataset.from_client(OQMDClient(), elements=['Al', 'Fe', 'Ni'], skip_registry=True)
         fs = ds.filter(predicate_fn=lambda e: e.e_above_hull < 0.02, reset_entries=False, skip_registry=True)
-        print(fs.metadata["comment"])
+        print(fs.metadata["message"])
 
     def test_rw(self):
         ds = CrystalDataset.from_struct_folder(self.poscars_folder, search_pattern='*.POSCAR')

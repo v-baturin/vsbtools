@@ -252,7 +252,7 @@ class CrystalDataset(list[CrystalEntry]):
     def __init__(self, entries: Optional[list[CrystalEntry]] = None, elements=None, reset_entries=True,
                  tol_FP: float = None,
                  estimator: str = "mattersim",
-                 comment: str = None, skip_dump=False, repository: str | Path = '', parents: list | None = None, id=None,
+                 message: str = None, skip_dump=False, repository: str | Path = '', parents: list | None = None, id=None,
                  regfile: str = "registry.txt", treefile: str = "tree.txt",
                  **kwargs):
         super().__init__(entries or [])
@@ -268,7 +268,7 @@ class CrystalDataset(list[CrystalEntry]):
         self.tol_FP = tol_FP or DEFAULT_TOL_FP
         self.metadata = {
             "elements": self.elements,
-            "comment": comment or f"Created on {datetime.today().strftime('%Y-%m-%d %H:%M')}",
+            "message": message or f"{datetime.today().strftime('%Y-%m-%d %H:%M')} - Crystal dataset created",
         }
         self.repository = Path(repository).expanduser().resolve() if repository else Path(
             os.getcwd())  # Repository path for storing dataset files
@@ -284,7 +284,7 @@ class CrystalDataset(list[CrystalEntry]):
     # ------------------------------------------------------------------
 
     def refresh_id(self) -> str:
-        self.id = hex(hash((id(self), tdy, self.metadata["comment"])))[2:]
+        self.id = hex(hash((id(self), tdy, self.metadata["message"])))[2:]
         self.pkl_path = self.repository / f"{self.id}.pkl"  # Path to save the dataset as a pickle file
         return self.id
 
@@ -293,9 +293,9 @@ class CrystalDataset(list[CrystalEntry]):
             pkl.dump(self, fh)
         with (open(self.regfile, 'a') as reg_file,
               open(self.treefile, 'a') as tree_file):
-            reg_file.write(f"{self.id:10s} {self.metadata['comment']} "
-                           f"{'origin' if self.parents == ['origin'] else f'parents: {self.parents}'}\n")
-            tree_file.write(f"{self.id:10s} from {'and '.join(self.parents)} ")
+            reg_file.write(f"{self.id:10s} - {self.metadata["message"]} "
+                           f" - from parents: {self.parents}\n")
+            tree_file.write(f"{self.id:10s}" + (f" from {'and '.join(self.parents)} " if self.parents else ' origin'))
 
     def _reset_caches(self):
         self._pd_cache: PhaseDiagram | None = None
@@ -350,7 +350,7 @@ class CrystalDataset(list[CrystalEntry]):
         old_id = self.id
         self.refresh_id()
         self.parents = [old_id, other.id] if isinstance(other, CrystalDataset) else [old_id]
-        self.metadata["comment"] = (f"{datetime.today().strftime('%Y-%m-%d %H:%M')}:"
+        self.metadata["message"] = (f"{datetime.today().strftime('%Y-%m-%d %H:%M')}:"
                                     f"Extension of {old_id} by "
                                     f"{other.id if isinstance(other, CrystalDataset) else str(len(other)) + 'entries'}"
                                     f"{' by NEW structures only' if check_duplicates else ''}")
@@ -368,7 +368,7 @@ class CrystalDataset(list[CrystalEntry]):
                           reset_caches=reset_caches, reset_entry_caches=reset_entry_caches,
                           verbose=verbose)
         ours.parents = [self.id, other.id]
-        ours.metadata["comment"] = (f"{datetime.today().strftime('%Y-%m-%d %H:%M')}:"
+        ours.metadata["message"] = (f"{datetime.today().strftime('%Y-%m-%d %H:%M')}:"
                                     f"Extended {self.id} by {other.id} {'by NEW structures only' if check_duplicates else ''}"
                         )
         ours.refresh_id()
@@ -387,7 +387,7 @@ class CrystalDataset(list[CrystalEntry]):
             raise AttributeError("Client lacks 'query' method")
         tag = label or client.__class__.__name__.replace("Client", "").lower()
         entries = [CrystalEntry.from_row(r, tag) for r in df.itertuples(index=False)]
-        dataset = cls(entries, comment=f"{datetime.today().strftime('%Y-%m-%d %H:%M')}: Created from {tag}",
+        dataset = cls(entries, message=f"{datetime.today().strftime('%Y-%m-%d %H:%M')}: Created from {tag}",
                       repository=repository, **kwargs)
         dataset._reset_caches()
         dataset._reset_entry_caches()
@@ -408,8 +408,8 @@ class CrystalDataset(list[CrystalEntry]):
         else:
             params = [{'id': str(i) } for i in range(len(found_files))]
         entry_list = [CrystalEntry.from_struc_file(f, origin=f.name, **params[i]) for i, f in enumerate(found_files)]
-        dataset = cls(entry_list, comment=f"{datetime.today().strftime('%Y-%m-%d %H:%M')}: "
-                                          f"Created from structures in {structures_path}",**kwargs)
+        dataset = cls(entry_list, message=f"{datetime.today().strftime('%Y-%m-%d %H:%M')}: "
+                                          f"Created from structures in {structures_path}", **kwargs)
         dataset._reset_entry_caches()
         return dataset
 
@@ -465,10 +465,10 @@ class CrystalDataset(list[CrystalEntry]):
     # Filtering
     #------------------------------------------------------------------
     def filter(self, predicate_fn: Callable[[CrystalEntry], bool], **kwargs) -> CrystalDataset:
-        comment = (f"Filtered on {datetime.today().strftime('%Y-%m-%d %H:%M')} by "
+        message = (f"{datetime.today().strftime('%Y-%m-%d %H:%M')} - parent filtered by "
                                 f"{describe_predicate(predicate_fn)}")
         filtered_set = self.__class__([e for e in self if predicate_fn(e)], repository=self.repository, parents=[self.id],
-                                      comment=comment, **kwargs)
+                                      message=message, **kwargs)
         return filtered_set
 
     # ------------------------------------------------------------------
@@ -636,8 +636,8 @@ class CrystalDataset(list[CrystalEntry]):
         #         #     f"Composition mismatch in cluster {cl}: {self[cl[i]].composition.reduced_formula} != " \
         #         #     f"{self[cl[i+1]].composition.reduced_formula}"
         filtered_list = [self[i] for i in best_idx]
-        comment = f"Deduplicated on {datetime.today().strftime('%Y-%m-%d %H:%M')} with tol_FP={tol_FP} "
-        return CrystalDataset(filtered_list, comment=comment, parents=[self.id], **kwargs), clusters, best_idx
+        message = f"{datetime.today().strftime('%Y-%m-%d %H:%M')} - Parent deduplicated with tol_FP={tol_FP} "
+        return CrystalDataset(filtered_list, message=message, parents=[self.id], **kwargs), clusters, best_idx
 
     def contains_structure(self, crystal_entry: CrystalEntry, tol_FP = None) -> Tuple[list, list]:
         tol_FP = tol_FP or self.tol_FP
@@ -662,9 +662,10 @@ class CrystalDataset(list[CrystalEntry]):
                 e._ehull_height_cache = None
         if update_id:
             self.refresh_id()
-            self.metadata["comment"] = (f"{datetime.today().strftime('%Y-%m-%d %H:%M')}: Symmetrized"
-                                        f"{'primitive' if primitive else ''} structures with "
-                                        f"symprec={symprec}")
+            self.metadata["message"] = (f"{datetime.today().strftime('%Y-%m-%d %H:%M')} - Parent symmetrized with "
+                                        f"symprec={symprec}."
+                                        f"{'Primitive cells saved.' if primitive else ''}"
+                                        )
         if dump:
             self.dump()
 
