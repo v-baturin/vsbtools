@@ -31,19 +31,20 @@ def gather_entries_from_databases(elements,
     else:
         max_ehull = max_ehull or MAX_EHULL
     reference_client = clients[0]
-    reference_data = CrystalDataset.from_client(reference_client, elements)
+    reference_data = CrystalDataset.from_client(reference_client, elements, skip_dump=True, **kwargs)
     if do_ehull_filtering:
         reference_data = reference_data.filter(
-        lambda e: e.e_above_hull < max_ehull, reset_entries=False)
+        lambda e: e.e_above_hull < max_ehull, reset_entries=False, skip_dump=True)
 
     for client in clients[:-1]: # Skip the first client as it's already processed
         print(f"Fetching data from {client.__class__.__name__}...")
-        filtered_ds = CrystalDataset.from_client(client, elements)
+        filtered_ds = CrystalDataset.from_client(client, elements, skip_dump=True)
         if do_ehull_filtering:
             filtered_ds = filtered_ds.filter(
-                lambda e: e.e_above_hull < max_ehull, reset_entries=False)
+                lambda e: e.e_above_hull < max_ehull, reset_entries=False, skip_dump=True)
         reference_data.extend(filtered_ds,
                               reset_entry_caches=False, reset_caches=True, check_duplicates=do_deduplication,
+                              skip_dump=True,
                               **kwargs)
 
     return reference_data
