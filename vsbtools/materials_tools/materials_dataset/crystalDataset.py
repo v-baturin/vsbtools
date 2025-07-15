@@ -266,7 +266,7 @@ class CrystalDataset(list[CrystalEntry]):
             self._reset_entry_caches()
         self._reset_caches()
         self.tol_FP = tol_FP or DEFAULT_TOL_FP
-        self.metadata = {
+        self.metadata: dict = {
             "elements": self.elements,
             "message": message or f"{datetime.today().strftime('%Y-%m-%d %H:%M')} - Crystal dataset created",
         }
@@ -350,7 +350,7 @@ class CrystalDataset(list[CrystalEntry]):
         old_id = self.id
         self.refresh_id()
         self.parents = [old_id, other.id] if isinstance(other, CrystalDataset) else [old_id]
-        self.metadata["message"] = (f"{datetime.today().strftime('%Y-%m-%d %H:%M')}:"
+        self.metadata["message"] = (f"{datetime.today().strftime('%Y-%m-%d %H:%M')} - "
                                     f"Extension of {old_id} by "
                                     f"{other.id if isinstance(other, CrystalDataset) else str(len(other)) + 'entries'}"
                                     f"{' by NEW structures only' if check_duplicates else ''}")
@@ -387,7 +387,7 @@ class CrystalDataset(list[CrystalEntry]):
             raise AttributeError("Client lacks 'query' method")
         tag = label or client.__class__.__name__.replace("Client", "").lower()
         entries = [CrystalEntry.from_row(r, tag) for r in df.itertuples(index=False)]
-        dataset = cls(entries, message=f"{datetime.today().strftime('%Y-%m-%d %H:%M')}: Created from {tag}",
+        dataset = cls(entries, message=f"{datetime.today().strftime('%Y-%m-%d %H:%M')} - Created from {tag}",
                       repository=repository, **kwargs)
         dataset._reset_caches()
         dataset._reset_entry_caches()
