@@ -274,7 +274,7 @@ class CrystalDataset(list[CrystalEntry]):
             os.getcwd())  # Repository path for storing dataset files
         self.id = id or self.refresh_id()
         self.pkl_path = self.repository / f"{self.id}.pkl"  # Path to save the dataset as a pickle file
-        self.parents = parents or ["origin"]  # List of parent datasets, if any
+        self.parents = parents  # List of parent datasets, if any
         self.regfile = self.repository / regfile  # Path to the registry file
         self.treefile = self.repository / treefile  # Path to the tree file
         if not skip_dump:
@@ -641,7 +641,7 @@ class CrystalDataset(list[CrystalEntry]):
             self.refresh_id()
             self.metadata["message"] = (f"{datetime.today().strftime('%Y-%m-%d %H:%M')} - Parent symmetrized with "
                                         f"symprec={symprec}."
-                                        f"{'Primitive cells saved.' if primitive else ''}"
+                                        f"{' Primitive cells saved.' if primitive else ''}"
                                         )
         if dump:
             self.dump()
