@@ -47,8 +47,9 @@ def gather_entries_from_databases(elements,
                               reset_entry_caches=False, reset_caches=True, check_duplicates=do_deduplication,
                               skip_dump=True,
                               **kwargs)
-    reference_data.parents = ["origin"]
-    reference_data.metadata["comment"] = f"Gathered from {', '.join(database_names)} databases with elements: {', '.join(elements)}"
+    reference_data.parents = None
+    reference_data.metadata["message"] = (f"{datetime.today().strftime('%Y-%m-%d %H:%M')}"
+                                          f" - Gathered from {', '.join(database_names)} databases with elements: {', '.join(elements)}")
     return reference_data
 #
 # dump_basename = f"allDB_{"".join(elements)}_data_{'filtered' if do_ehull_filtering else 'RAW'}"  # Name of the pickle file to save the dataset

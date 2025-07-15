@@ -293,9 +293,13 @@ class CrystalDataset(list[CrystalEntry]):
             pkl.dump(self, fh)
         with (open(self.regfile, 'a') as reg_file,
               open(self.treefile, 'a') as tree_file):
-            reg_file.write(f"{self.id:10s} - {self.metadata["message"]} "
-                           f" - from parents: {self.parents}\n")
-            tree_file.write(f"{self.id:10s}" + (f" from {'and '.join(self.parents)} " if self.parents else ' origin'))
+            reg_file.write(f"{self.id:<20} - {self.metadata["message"]}" +
+                           (f" - from parents: {self.parents}" if self.parents else ' - origin')
+                           + f" - saved in {self.pkl_path.name}"
+                           + '\n')
+            tree_file.write(f"{self.id:10s}"
+                            + (f" from {' and '.join(self.parents)} " if self.parents else ' origin')
+                            + '\n')
 
     def _reset_caches(self):
         self._pd_cache: PhaseDiagram | None = None
@@ -343,7 +347,10 @@ class CrystalDataset(list[CrystalEntry]):
                 else:
                     new_entries.append(other[i])
             if verbose:
-                logger.info(f"Extension contains {len(duplicates_counter)/len(self):.2%} of initial entries")
+                reproductibility = len(duplicates_counter) / len(self)
+                logger.info(f"Extension contains {reproductibility:.2%} of initial entries")
+                self.metadata["reproducibility"] = reproductibility
+
         else:
             new_entries = other
         super().extend(new_entries)
@@ -367,9 +374,10 @@ class CrystalDataset(list[CrystalEntry]):
         ours.extend(theirs, check_duplicates=check_duplicates, tol_FP=tol_FP,
                           reset_caches=reset_caches, reset_entry_caches=reset_entry_caches,
                           verbose=verbose)
+        reproducibility = ours.metadata['reproducibility'] if 'reproducibility' in ours.metadata else 0.0
         ours.parents = [self.id, other.id]
-        ours.metadata["message"] = (f"{datetime.today().strftime('%Y-%m-%d %H:%M')}:"
-                                    f"Extended {self.id} by {other.id} {'by NEW structures only' if check_duplicates else ''}"
+        ours.metadata["message"] = (f"{datetime.today().strftime('%Y-%m-%d %H:%M')} - "
+                                    f"Merge of {self.id} by {other.id} {f'by NEW structures only ({reproducibility:.2%} reproduced)' if check_duplicates else ''}"
                         )
         ours.refresh_id()
         return ours
@@ -408,8 +416,9 @@ class CrystalDataset(list[CrystalEntry]):
         else:
             params = [{'id': str(i) } for i in range(len(found_files))]
         entry_list = [CrystalEntry.from_struc_file(f, origin=f.name, **params[i]) for i, f in enumerate(found_files)]
-        dataset = cls(entry_list, message=f"{datetime.today().strftime('%Y-%m-%d %H:%M')}: "
-                                          f"Created from structures in {structures_path}", **kwargs)
+        repo = (kwargs.get("repository", '/'))
+        dataset = cls(entry_list, message=f"{datetime.today().strftime('%Y-%m-%d %H:%M')} - "
+                                          f"Created from structures in {os.path.relpath(str(structures_path), str(repo))}", **kwargs)
         dataset._reset_entry_caches()
         return dataset
 
