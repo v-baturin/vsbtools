@@ -32,7 +32,7 @@ atomistic = Atomistic()
 uspex_entry_extensions = dict(atomistic=(atomistic, atomistic.propertyExtension.propertyTable))
 
 # Representation preset
-ENTRY_ATTRIBUTE_LABELS = {"origin_id": "ID", "composition": "Composition",
+ENTRY_ATTRIBUTE_LABELS = {"id": "ID", "composition": "Composition",
                          "energy_total": "Total energy (eV)",
                           "e_above_hull":  "Energy above hull (eV/atom)",
                           "sym_group_no": "Symmetry group No",
@@ -50,7 +50,7 @@ ESTIMATORS = {"mattersim": mattersim_estimator}
 class CrystalEntry:
 
     def __init__(self,
-                 origin_id: str,
+                 id: str,
                  structure: Structure | None = None,
                  composition: Composition | None = None,
                  energy_total: float | None = None,
@@ -58,7 +58,7 @@ class CrystalEntry:
                  calc_settings: Mapping[str, Any] | None = None,
                  parent_set: CrystalDataset | None = None,
                  symprec: float = None, **kwargs):
-        self.id = origin_id
+        self.id = id
         self.structure = structure               # in‑memory structure
         self.composition = composition or getattr(structure,'composition', None)
         self.energy_total = energy_total         # eV per formula unit
@@ -215,7 +215,7 @@ class CrystalEntry:
         calc_settings = _get(row, "settings") or _get(row, "calc_settings")
 
         return cls(
-            origin_id=sid,
+            id=sid,
             energy_total=energy_total,
             composition=composition,
             structure=structure,
@@ -406,7 +406,7 @@ class CrystalDataset(list[CrystalEntry]):
                 assert len(val) == len(list(found_files))
             params = [dict(zip(parameters_dict.keys(), values)) for values in zip(*parameters_dict.values())]
         else:
-            params = [{'origin_id': str(i) } for i in range(len(found_files))]
+            params = [{'id': str(i) } for i in range(len(found_files))]
         entry_list = [CrystalEntry.from_struc_file(f, origin=f.name, **params[i]) for i, f in enumerate(found_files)]
         dataset = cls(entry_list, comment=f"{datetime.today().strftime('%Y-%m-%d %H:%M')}: "
                                           f"Created from structures in {structures_path}",**kwargs)
