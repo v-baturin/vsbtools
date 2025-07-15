@@ -37,7 +37,7 @@ def gather_entries_from_databases(elements,
         reference_data = reference_data.filter(
         lambda e: e.e_above_hull < max_ehull, reset_entries=False, skip_dump=True)
 
-    for client in clients[:-1]: # Skip the first client as it's already processed
+    for client in clients[1:]: # Skip the first client as it's already processed
         print(f"Fetching data from {client.__class__.__name__}...")
         filtered_ds = CrystalDataset.from_client(client, elements, skip_dump=True)
         if do_ehull_filtering:
