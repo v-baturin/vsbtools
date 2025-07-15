@@ -367,7 +367,7 @@ class CrystalDataset(list[CrystalEntry]):
             self._reset_entry_caches()
 
     def merge_from(self, other: CrystalDataset, check_duplicates: bool = False, tol_FP: float = None,
-              reset_caches=True, reset_entry_caches=True, verbose=True, **kwargs) -> CrystalDataset:
+              reset_caches=True, reset_entry_caches=True, verbose=True, skip_dump=False, **kwargs) -> CrystalDataset:
         """Merge another dataset into this one."""
         ours = self.__copy__()
         theirs = other.__copy__()
@@ -380,6 +380,8 @@ class CrystalDataset(list[CrystalEntry]):
                                     f"Merge of {self.id} by {other.id} {f'by NEW structures only ({reproducibility:.2%} reproduced)' if check_duplicates else ''}"
                         )
         ours.refresh_id()
+        if not skip_dump:
+            ours.dump()
         return ours
 
     # ------------------------------------------------------------------
@@ -647,7 +649,9 @@ class CrystalDataset(list[CrystalEntry]):
                 e.energy_total = None
                 e._ehull_height_cache = None
         if update_id:
+            old_id = self.id
             self.refresh_id()
+            self.parents=[old_id]
             self.metadata["message"] = (f"{datetime.today().strftime('%Y-%m-%d %H:%M')} - Parent symmetrized with "
                                         f"symprec={symprec}."
                                         f"{' Primitive cells saved.' if primitive else ''}"
@@ -712,11 +716,15 @@ class CrystalDataset(list[CrystalEntry]):
     # Overrides
     # ------------------------------------------------------------------
 
-    def __copy__(self):
+    def copy(self):
         """Create a deep copy of the dataset."""
-        new_dataset = CrystalDataset([CrystalEntry(**e.__dict__.copy()) for e in self], tol_FP=self.tol_FP,
-                                     estimator=self.estimator, repository=self.repository, skip_dump=True)
+        self_dict_copy = self.__dict__.copy()
+        self_dict_copy['skip_dump'] = True
+        new_dataset = CrystalDataset([CrystalEntry(**e.__dict__.copy()) for e in self], **self_dict_copy)
         return new_dataset
+
+    def __copy__(self):
+        return self.copy()
 
     def __add__(self, other):
         """Concatenate two datasets."""
