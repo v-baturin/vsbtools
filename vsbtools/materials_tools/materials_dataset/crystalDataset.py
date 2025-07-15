@@ -283,10 +283,11 @@ class CrystalDataset(list[CrystalEntry]):
     # Infrastructure / validation / cache helpers
     # ------------------------------------------------------------------
 
-    def refresh_id(self) -> None:
+    def refresh_id(self) -> str:
         self.id = hex(hash((id(self), tdy, self.metadata["comment"])))[2:]
         self.pkl_path = self.repository / f"{self.id}.pkl"  # Path to save the dataset as a pickle file
         return self.id
+
     def dump(self) -> None:
         with open(self.pkl_path, 'wb') as fh:
             pkl.dump(self, fh)
@@ -649,16 +650,23 @@ class CrystalDataset(list[CrystalEntry]):
     # Symmetrization
     # ------------------------------------------------------------------
     def symmetrize(self, symprec: float = DEFAULT_SYMPREC, update_sga=False,
-                            primitive=True, reset_compromized_parameters=True) -> CrystalDataset:
+                   primitive=True, reset_compromised_parameters=True, update_id=True, dump=False) -> CrystalDataset:
         """Return a list of symmetrized structures."""
         for e in self:
             e.structure = e.get_symmetrized_structure(symprec=symprec, update_sga=update_sga, primitive=primitive)
-        if reset_compromized_parameters:
+        if reset_compromised_parameters:
             self._reset_entry_caches()
             self._reset_caches()
             for e in self:
                 e.energy_total = None
                 e._ehull_height_cache = None
+        if update_id:
+            self.refresh_id()
+            self.metadata["comment"] = (f"{datetime.today().strftime('%Y-%m-%d %H:%M')}: Symmetrized"
+                                        f"{'primitive' if primitive else ''} structures with "
+                                        f"symprec={symprec}")
+        if dump:
+            self.dump()
 
     # ------------------------------------------------------------------
     # Batch energy estimation
