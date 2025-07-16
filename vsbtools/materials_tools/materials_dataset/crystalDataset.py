@@ -375,8 +375,6 @@ class CrystalDataset(list[CrystalEntry]):
                    reset_caches=True, reset_entry_caches=True, verbose=True, skip_dump=False,
                    **kwargs) -> CrystalDataset:
         """Merge another dataset into this one."""
-        ours = self.__copy__()
-        theirs = other.__copy__()
         ours = self.copy()
         theirs = other.copy()
         ours.extend(theirs, check_duplicates=check_duplicates, tol_FP=tol_FP,
