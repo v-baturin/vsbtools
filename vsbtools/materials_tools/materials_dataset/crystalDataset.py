@@ -672,7 +672,7 @@ class CrystalDataset(list[CrystalEntry]):
     # ------------------------------------------------------------------
     # Batch energy estimation
     # ------------------------------------------------------------------
-    def estimate_energies(self, estimator: str | None = None, **kwargs):
+    def estimate_energies(self, estimator: str | None = None, update_id=True, dump=False, **kwargs):
         if estimator is None:
             estimator = self.estimator
         if estimator not in ESTIMATORS:
@@ -681,6 +681,15 @@ class CrystalDataset(list[CrystalEntry]):
         with estimator.EnergyStream() as es:
             for e in self:
                 e.energy_total = es.calc(e.structure.to_ase_atoms())
+        if update_id:
+            old_id = self.id
+            self.update_id()
+            self.parents = [old_id]
+            self.metadata["message"] = (f"{datetime.today().strftime('%Y-%m-%d %H:%M')} - Energies estimated with "
+                                        f"{estimator}."
+                                        )
+        if dump:
+            self.dump()
 
     # ------------------------------------------------------------------
     # Serialization
