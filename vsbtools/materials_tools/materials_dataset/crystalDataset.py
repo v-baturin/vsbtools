@@ -24,6 +24,7 @@ from my_packages.materials_tools.uspex_toolkit.remove_duplicates import remove_d
 from my_packages.materials_tools.NN_energy_estimators import mattersim_estimator
 from my_packages.genutils.misc import describe_predicate
 
+Engine.createEngine(":memory:")
 tdy = datetime.today().strftime('%Y%m%d')
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -33,8 +34,8 @@ uspex_entry_extensions = dict(atomistic=(atomistic, atomistic.propertyExtension.
 
 # Representation preset
 ENTRY_ATTRIBUTE_LABELS = {"id": "ID", "composition": "Composition",
-                         "energy_total": "Total energy (eV)",
-                          "e_above_hull":  "Energy above hull (eV/atom)",
+                          "energy_total": "Total energy (eV)",
+                          "e_above_hull": "Energy above hull (eV/atom)",
                           "sym_group_no": "Symmetry group No",
                           "sym_group_symbol": "Symmetry group Symbol",
                           "nonequivalent_sites": "Non-equivalent sites"}
@@ -59,17 +60,16 @@ class CrystalEntry:
                  parent_set: CrystalDataset | None = None,
                  symprec: float = None, **kwargs):
         self.id = id
-        self.structure = structure               # in‑memory structure
-        self.composition = composition or getattr(structure,'composition', None)
-        self.energy_total = energy_total         # eV per formula unit
-        self.origin = origin                       # provenance tag ("oqmd", "mp", …)
+        self.structure = structure  # in‑memory structure
+        self.composition = composition or getattr(structure, 'composition', None)
+        self.energy_total = energy_total  # eV per formula unit
+        self.origin = origin  # provenance tag ("oqmd", "mp", …)
         self.calc_settings = calc_settings
         self.parent_set = parent_set
         self.estimator = "mattersim"
         self._sga = None
         self._ehull_height_cache = None  # cache for energies above hull
         self.symprec = symprec or DEFAULT_SYMPREC
-
 
     # ---------------------------------------------------------------------
     # Derived helpers
@@ -81,7 +81,7 @@ class CrystalEntry:
     @property
     def formula(self) -> str:
         """Integer formula string, e.g. "Al4Fe2Ni2"."""
-        return self.composition.formula.replace(" ","")
+        return self.composition.formula.replace(" ", "")
 
     @property
     def e_above_hull(self) -> float:
@@ -101,7 +101,8 @@ class CrystalEntry:
     def sga(self):
         if not hasattr(self, '_sga'):
             self._sga = None
-        self._sga = self._sga or SpacegroupAnalyzer(self.structure, symprec=self.symprec if hasattr(self, 'symprec') else DEFAULT_SYMPREC)
+        self._sga = self._sga or SpacegroupAnalyzer(self.structure, symprec=self.symprec if hasattr(self,
+                                                                                                    'symprec') else DEFAULT_SYMPREC)
         return self._sga
 
     @property
@@ -141,7 +142,6 @@ class CrystalEntry:
         else:
             return sga.get_refined_structure()
 
-
     # ------------------------------------------------------------------
     # Conversions
     # ------------------------------------------------------------------
@@ -158,12 +158,16 @@ class CrystalEntry:
         uspex_structure = atomistic.AtomicStructureRepresentation.fromAtoms(atoms)
         return Entry.newEntry(Flavour(extensions=uspex_entry_extensions,
                                       **{'.howCome': 'Seeds', '.parent': None, '.label': self.id},
-                                      **atomistic.atomicDisassemblerType(np.arange(len(uspex_structure)).reshape((-1, 1))).disassemble(uspex_structure)))
+                                      **atomistic.atomicDisassemblerType(
+                                          np.arange(len(uspex_structure)).reshape((-1, 1))).disassemble(
+                                          uspex_structure)))
+
     # ------------------------------------------------------------------
     # Hash / equality
     # ------------------------------------------------------------------
     def __hash__(self):  # noqa: D401
         return hash((self.origin, self.id))
+
     def __eq__(self, other: object):  # noqa: D401
         if not isinstance(other, CrystalEntry):
             return NotImplemented
@@ -178,6 +182,7 @@ class CrystalEntry:
     @classmethod
     def from_row(cls, row: Mapping[str, Any] | pd.Series | Any, source: str) -> "CrystalEntry":
         """Create a `ThermoEntry` from a DataFrame row / dict / namedtuple."""
+
         # helper that works for dict, Series, or namedtuple
         def _get(obj: Any, key: str, default: Any = None):
             if isinstance(obj, Mapping):
@@ -238,8 +243,6 @@ class CrystalEntry:
         return cls(structure=struct, **kwargs)
 
 
-
-
 # ---------------------------------------------------------------------------
 # CrystalDataset
 # ---------------------------------------------------------------------------
@@ -249,10 +252,12 @@ class CrystalDataset(list[CrystalEntry]):
     """Collection of entries from one provenance (total energies).
     All pkl's of the same tree are stored in the same repository.
     """
+
     def __init__(self, entries: Optional[list[CrystalEntry]] = None, elements=None, reset_entries=True,
                  tol_FP: float = None,
                  estimator: str = "mattersim",
-                 message: str = None, skip_dump=False, repository: str | Path = '', parents: list | None = None, id=None,
+                 message: str = None, skip_dump=False, repository: str | Path = '', parents: list | None = None,
+                 id=None,
                  regfile: str = "registry.txt", treefile: str = "tree.txt",
                  **kwargs):
         super().__init__(entries or [])
@@ -279,6 +284,7 @@ class CrystalDataset(list[CrystalEntry]):
         self.treefile = self.repository / treefile  # Path to the tree file
         if not skip_dump:
             self.dump()
+
     # ------------------------------------------------------------------
     # Infrastructure / validation / cache helpers
     # ------------------------------------------------------------------
@@ -324,7 +330,7 @@ class CrystalDataset(list[CrystalEntry]):
                 warnings.warn(f"Parent dataset {parent_id} not found in repository.")
         return parents
 
-    def extend(self, other, check_duplicates: bool = False, tol_FP = None,
+    def extend(self, other, check_duplicates: bool = False, tol_FP=None,
                reset_caches=True, reset_entry_caches=True, verbose=True, **kwargs):
         if 'id' not in self.__dict__:  # for unpickling
             return super().extend(other)
@@ -338,7 +344,7 @@ class CrystalDataset(list[CrystalEntry]):
                                         elements=self.elements | other.elements,
                                         storeDistances=False)
             for i, e in enumerate(other.uspex_entry_list):
-                logger.info(f"Checking entry {i+1}/{len(other.uspex_entry_list)} of added dataset for duplicates...")
+                logger.info(f"Checking entry {i + 1}/{len(other.uspex_entry_list)} of added dataset for duplicates...")
                 for j, e2 in enumerate(self.uspex_entry_list):
                     if rho(e, e2) <= tol_FP:
                         logger.info(f"{other[i].id} in extension list is a duplicate of {self[j].id}")
@@ -367,18 +373,19 @@ class CrystalDataset(list[CrystalEntry]):
             self._reset_entry_caches()
 
     def merge_from(self, other: CrystalDataset, check_duplicates: bool = False, tol_FP: float = None,
-              reset_caches=True, reset_entry_caches=True, verbose=True, skip_dump=False, **kwargs) -> CrystalDataset:
+                   reset_caches=True, reset_entry_caches=True, verbose=True, skip_dump=False,
+                   **kwargs) -> CrystalDataset:
         """Merge another dataset into this one."""
         ours = self.__copy__()
         theirs = other.__copy__()
         ours.extend(theirs, check_duplicates=check_duplicates, tol_FP=tol_FP,
-                          reset_caches=reset_caches, reset_entry_caches=reset_entry_caches,
-                          verbose=verbose)
+                    reset_caches=reset_caches, reset_entry_caches=reset_entry_caches,
+                    verbose=verbose)
         reproducibility = ours.metadata['reproducibility'] if 'reproducibility' in ours.metadata else 0.0
         ours.parents = [self.id, other.id]
         ours.metadata["message"] = (f"{datetime.today().strftime('%Y-%m-%d %H:%M')} - "
                                     f"Merge of {self.id} by {other.id} {f'by NEW structures only ({reproducibility:.2%} reproduced)' if check_duplicates else ''}"
-                        )
+                                    )
         ours.refresh_id()
         if not skip_dump:
             ours.dump()
@@ -405,9 +412,9 @@ class CrystalDataset(list[CrystalEntry]):
 
     @classmethod
     def from_struct_folder(cls,
-                           structures_path: Path| str,
+                           structures_path: Path | str,
                            search_pattern: str = '*POSCAR',
-                           parameters_dict: Dict[str, list]| None = None,
+                           parameters_dict: Dict[str, list] | None = None,
                            **kwargs) -> "CrystalDataset":
         structures_path = Path(structures_path)
         found_files = sorted(structures_path.rglob(search_pattern))
@@ -416,14 +423,14 @@ class CrystalDataset(list[CrystalEntry]):
                 assert len(val) == len(list(found_files))
             params = [dict(zip(parameters_dict.keys(), values)) for values in zip(*parameters_dict.values())]
         else:
-            params = [{'id': str(i) } for i in range(len(found_files))]
+            params = [{'id': str(i)} for i in range(len(found_files))]
         entry_list = [CrystalEntry.from_struc_file(f, origin=f.name, **params[i]) for i, f in enumerate(found_files)]
         repo = (kwargs.get("repository", '/'))
         dataset = cls(entry_list, message=f"{datetime.today().strftime('%Y-%m-%d %H:%M')} - "
-                                          f"Created from structures in {os.path.relpath(str(structures_path), str(repo))}", **kwargs)
+                                          f"Created from structures in {os.path.relpath(str(structures_path), str(repo))}",
+                      **kwargs)
         dataset._reset_entry_caches()
         return dataset
-
 
     # ------------------------------------------------------------------
     # Properties & heavy operations
@@ -436,7 +443,8 @@ class CrystalDataset(list[CrystalEntry]):
     def elements(self) -> Set[str]:
         """Set of elements in the dataset."""
         if not self._elements:
-            self._elements = set(el for e in self if e.structure for el in e.structure.composition.as_data_dict()['elements'])
+            self._elements = set(
+                el for e in self if e.structure for el in e.structure.composition.as_data_dict()['elements'])
         return self._elements
 
     @property
@@ -477,8 +485,9 @@ class CrystalDataset(list[CrystalEntry]):
     #------------------------------------------------------------------
     def filter(self, predicate_fn: Callable[[CrystalEntry], bool], **kwargs) -> CrystalDataset:
         message = (f"{datetime.today().strftime('%Y-%m-%d %H:%M')} - parent filtered by "
-                                f"{describe_predicate(predicate_fn)}")
-        filtered_set = self.__class__([e for e in self if predicate_fn(e)], repository=self.repository, parents=[self.id],
+                   f"{describe_predicate(predicate_fn)}")
+        filtered_set = self.__class__([e for e in self if predicate_fn(e)], repository=self.repository,
+                                      parents=[self.id],
                                       message=message, **kwargs)
         return filtered_set
 
@@ -496,8 +505,8 @@ class CrystalDataset(list[CrystalEntry]):
             entry_attribute_labels = ENTRY_ATTRIBUTE_LABELS
         if dataset_attribute_labels is None:
             dataset_attribute_labels = DATASET_ATTRIBUTE_LABELS
-        data={v:[getattr(e,k) for e in self] for k,v in entry_attribute_labels.items()}
-        data.update({v:getattr(self, k) for k,v in dataset_attribute_labels.items()})
+        data = {v: [getattr(e, k) for e in self] for k, v in entry_attribute_labels.items()}
+        data.update({v: getattr(self, k) for k, v in dataset_attribute_labels.items()})
         df = pd.DataFrame(data)
         # Identify and drop all-None columns
         all_none_cols = [col for col in df.columns if df[col].isna().all()]
@@ -549,7 +558,7 @@ class CrystalDataset(list[CrystalEntry]):
             directory = os.getcwd()
         directory = Path(directory).expanduser().resolve()
         directory.mkdir(parents=True, exist_ok=True)
-        fnames=[]
+        fnames = []
         for e in self:
             fname = f"{e.id.replace('POSCAR', '')}-{e.formula}_POSCAR".split("/")[-1]
             fnames.append(fname)
@@ -606,7 +615,7 @@ class CrystalDataset(list[CrystalEntry]):
         """
         tol_FP = tol_FP or self.tol_FP
         try:
-            fitness_list = fitness_list or [e.energy_total/e.natoms for e in self]
+            fitness_list = fitness_list or [e.energy_total / e.natoms for e in self]
         except TypeError:
             fitness_list = None
 
@@ -621,17 +630,19 @@ class CrystalDataset(list[CrystalEntry]):
                                                                      tol_Fp=tol_FP,
                                                                      enforce_compositions_separation=enforce_compositions_separation,
                                                                      compositions_list=reduced_compositions,
-                                                                     elements= self.elements,
+                                                                     elements=self.elements,
                                                                      **kwargs)
         filtered_list = [self[i] for i in best_idx]
         message = f"{datetime.today().strftime('%Y-%m-%d %H:%M')} - Parent deduplicated with tol_FP={tol_FP} "
         return CrystalDataset(filtered_list, message=message, parents=[self.id], **kwargs), clusters, best_idx
 
-    def contains_structure(self, crystal_entry: CrystalEntry, tol_FP = None) -> Tuple[list, list]:
+    def contains_structure(self, crystal_entry: CrystalEntry, tol_FP=None) -> Tuple[list, list]:
         tol_FP = tol_FP or self.tol_FP
         uspex_entry_ref = crystal_entry.as_uspex_entry()
-        rho = prepare_dist_function(self.uspex_entry_list + [uspex_entry_ref], elements=self.elements | {crystal_entry.composition.as_data_dict()['elements']})
-        true_idcs = [i for i, uspex_entry in enumerate(self.uspex_entry_list) if rho(uspex_entry_ref, uspex_entry) <= tol_FP ]
+        rho = prepare_dist_function(self.uspex_entry_list + [uspex_entry_ref],
+                                    elements=self.elements | {crystal_entry.composition.as_data_dict()['elements']})
+        true_idcs = [i for i, uspex_entry in enumerate(self.uspex_entry_list) if
+                     rho(uspex_entry_ref, uspex_entry) <= tol_FP]
         return true_idcs, [self[i].id for i in true_idcs]
 
     # ------------------------------------------------------------------
@@ -652,6 +663,7 @@ class CrystalDataset(list[CrystalEntry]):
             old_id = self.id
             self.refresh_id()
             self.parents=[old_id]
+            self.parents = [old_id]
             self.metadata["message"] = (f"{datetime.today().strftime('%Y-%m-%d %H:%M')} - Parent symmetrized with "
                                         f"symprec={symprec}."
                                         f"{' Primitive cells saved.' if primitive else ''}"
@@ -711,7 +723,6 @@ class CrystalDataset(list[CrystalEntry]):
         self.extend([CrystalEntry(**dct) for dct in data_copy])
         self.id = attrs_copy.get('id')
 
-
     # ------------------------------------------------------------------
     # Overrides
     # ------------------------------------------------------------------
@@ -733,6 +744,7 @@ class CrystalDataset(list[CrystalEntry]):
         new_dataset = self.__copy__()
         new_dataset.extend(other, check_duplicates=False, reset_caches=True, reset_entry_caches=True)
         return new_dataset
+
 
 if __name__ == "__main__":
     pass
