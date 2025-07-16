@@ -17,7 +17,6 @@ from pymatgen.io.ase import AseAtomsAdaptor
 from pymatgen.io.vasp.inputs import Poscar
 from USPEX.components import Atomistic
 from USPEX.DataModel.Engine import Engine
-Engine.createEngine(":memory:")
 from USPEX.DataModel.Flavour import Flavour
 from USPEX.DataModel.Entry import Entry
 from my_packages.materials_tools.uspex_toolkit.remove_duplicates import remove_duplicates, prepare_dist_function
@@ -277,7 +276,7 @@ class CrystalDataset(list[CrystalEntry]):
         }
         self.repository = Path(repository).expanduser().resolve() if repository else Path(
             os.getcwd())  # Repository path for storing dataset files
-        self.id = id or self.refresh_id()
+        self.id = id or self.update_id()
         self.pkl_path = self.repository / f"{self.id}.pkl"  # Path to save the dataset as a pickle file
         self.parents = parents  # List of parent datasets, if any
         self.regfile = self.repository / regfile  # Path to the registry file
@@ -289,8 +288,8 @@ class CrystalDataset(list[CrystalEntry]):
     # Infrastructure / validation / cache helpers
     # ------------------------------------------------------------------
 
-    def refresh_id(self) -> str:
-        self.id = hex(hash((id(self), tdy, self.metadata["message"])))[2:]
+    def update_id(self) -> str:
+        self.id = hex(hash((id(self), datetime.today(), self.metadata["message"])))[2:]
         self.pkl_path = self.repository / f"{self.id}.pkl"  # Path to save the dataset as a pickle file
         return self.id
 
@@ -361,7 +360,7 @@ class CrystalDataset(list[CrystalEntry]):
             new_entries = other
         super().extend(new_entries)
         old_id = self.id
-        self.refresh_id()
+        self.update_id()
         self.parents = [old_id, other.id] if isinstance(other, CrystalDataset) else [old_id]
         self.metadata["message"] = (f"{datetime.today().strftime('%Y-%m-%d %H:%M')} - "
                                     f"Extension of {old_id} by "
@@ -378,6 +377,8 @@ class CrystalDataset(list[CrystalEntry]):
         """Merge another dataset into this one."""
         ours = self.__copy__()
         theirs = other.__copy__()
+        ours = self.copy()
+        theirs = other.copy()
         ours.extend(theirs, check_duplicates=check_duplicates, tol_FP=tol_FP,
                     reset_caches=reset_caches, reset_entry_caches=reset_entry_caches,
                     verbose=verbose)
@@ -661,8 +662,7 @@ class CrystalDataset(list[CrystalEntry]):
                 e._ehull_height_cache = None
         if update_id:
             old_id = self.id
-            self.refresh_id()
-            self.parents=[old_id]
+            self.update_id()
             self.parents = [old_id]
             self.metadata["message"] = (f"{datetime.today().strftime('%Y-%m-%d %H:%M')} - Parent symmetrized with "
                                         f"symprec={symprec}."
