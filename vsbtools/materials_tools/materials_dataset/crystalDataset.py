@@ -19,7 +19,7 @@ from USPEX.components import Atomistic
 from USPEX.DataModel.Engine import Engine
 from USPEX.DataModel.Flavour import Flavour
 from USPEX.DataModel.Entry import Entry
-from my_packages.materials_tools.uspex_toolkit.remove_duplicates import remove_duplicates, prepare_dist_function
+from my_packages.materials_tools.uspex_toolkit.remove_duplicates import remove_duplicate_entries, prepare_dist_function
 from my_packages.materials_tools.NN_energy_estimators import mattersim_estimator
 from my_packages.genutils.misc import describe_predicate
 
@@ -179,7 +179,7 @@ class CrystalEntry:
     # Constructors from external sources
     # ------------------------------------------------------------------
     @classmethod
-    def from_row(cls, row: Mapping[str, Any] | pd.Series | Any, source: str) -> "CrystalEntry":
+    def from_tuple(cls, row: Mapping[str, Any] | pd.Series | Any, source: str) -> "CrystalEntry":
         """Create a `ThermoEntry` from a DataFrame row / dict / namedtuple."""
 
         # helper that works for dict, Series, or namedtuple
@@ -354,7 +354,7 @@ class CrystalDataset(list[CrystalEntry]):
             if verbose:
                 reproductibility = len(duplicates_counter) / len(self)
                 logger.info(f"Extension contains {reproductibility:.2%} of initial entries")
-                self.metadata["reproducibility"] = reproductibility
+                other.metadata["reproducibility"] = reproductibility
 
         else:
             new_entries = other
@@ -402,7 +402,7 @@ class CrystalDataset(list[CrystalEntry]):
         else:
             raise AttributeError("Client lacks 'query' method")
         tag = label or client.__class__.__name__.replace("Client", "").lower()
-        entries = [CrystalEntry.from_row(r, tag) for r in df.itertuples(index=False)]
+        entries = [CrystalEntry.from_tuple(r, tag) for r in df.itertuples(index=False)]
         dataset = cls(entries, message=f"{datetime.today().strftime('%Y-%m-%d %H:%M')} - Created from {tag}",
                       repository=repository, **kwargs)
         dataset._reset_caches()
@@ -423,7 +423,12 @@ class CrystalDataset(list[CrystalEntry]):
             params = [dict(zip(parameters_dict.keys(), values)) for values in zip(*parameters_dict.values())]
         else:
             params = [{'id': str(i)} for i in range(len(found_files))]
-        entry_list = [CrystalEntry.from_struc_file(f, origin=f.name, **params[i]) for i, f in enumerate(found_files)]
+        entry_list = []
+        for i, f in enumerate(found_files):
+            try:
+                entry_list.append(CrystalEntry.from_struc_file(f, origin=f.name, **params[i]))
+            except ValueError:
+                continue
         repo = (kwargs.get("repository", '/'))
         dataset = cls(entry_list, message=f"{datetime.today().strftime('%Y-%m-%d %H:%M')} - "
                                           f"Created from structures in {os.path.relpath(str(structures_path), str(repo))}",
@@ -623,14 +628,14 @@ class CrystalDataset(list[CrystalEntry]):
         else:
             reduced_compositions = None
 
-        best_representatives, clusters, best_idx = remove_duplicates(self.uspex_entry_list, fitness_list,
-                                                                     check_clusters_file=check_clusters_file,
-                                                                     check_dist_matrix_file=check_dist_matrix_file,
-                                                                     tol_Fp=tol_FP,
-                                                                     enforce_compositions_separation=enforce_compositions_separation,
-                                                                     compositions_list=reduced_compositions,
-                                                                     elements=self.elements,
-                                                                     **kwargs)
+        best_representatives, clusters, best_idx = remove_duplicate_entries(self.uspex_entry_list, fitness_list,
+                                                                            check_clusters_file=check_clusters_file,
+                                                                            check_dist_matrix_file=check_dist_matrix_file,
+                                                                            tol_Fp=tol_FP,
+                                                                            enforce_compositions_separation=enforce_compositions_separation,
+                                                                            compositions_list=reduced_compositions,
+                                                                            elements=self.elements,
+                                                                            **kwargs)
         filtered_list = [self[i] for i in best_idx]
         message = f"{datetime.today().strftime('%Y-%m-%d %H:%M')} - Parent deduplicated with tol_FP={tol_FP} "
         return CrystalDataset(filtered_list, message=message, parents=[self.id], **kwargs), clusters, best_idx

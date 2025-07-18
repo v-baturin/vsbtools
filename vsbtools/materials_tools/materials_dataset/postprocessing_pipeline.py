@@ -5,7 +5,7 @@ import pickle as pkl
 from my_packages.materials_tools.materials_dataset.crystalDataset import CrystalDataset, CrystalEntry
 from my_packages.materials_tools.materials_dataset.db_preset_scenarios import gather_entries_from_databases
 
-DEBUG = True
+DEBUG = False
 
 class GenerationPostprocessingPipeline:
     """
