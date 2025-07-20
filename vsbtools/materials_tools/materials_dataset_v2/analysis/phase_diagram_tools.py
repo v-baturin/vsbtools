@@ -21,6 +21,10 @@ class PhaseDiagramTools:
     def height_above_hull_pa(self, e: CrystalEntry):
         return self.phase_diagram().get_e_above_hull(PhaseDiagramTools.as_pdentry(e))
 
+    @lru_cache(maxsize=1000)
+    def formation_energy(self, e: CrystalEntry) -> float:
+        return self.phase_diagram().get_form_energy(PhaseDiagramTools.as_pdentry(e))
+
     def get_e_hull_pa_list(self):
         return [self.height_above_hull_pa(e) for e in self.dataset]
 
