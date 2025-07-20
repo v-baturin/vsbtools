@@ -1,14 +1,22 @@
 from __future__ import annotations
 
 from typing import Any, Callable, Collection, Dict, Iterable, List, Mapping, Sequence
+from prettytable import PrettyTable
 
-#--optional pandas import ----------------------------------------------
+#--optional imports ----------------------------------------------
 try:
     import pandas as _pd
-except ModuleNotFoundError as _err:          # fail late, not at import time
+except ModuleNotFoundError as _err_pd:          # fail late, not at import time
     _pd = None
-    _PANDAS_ERR = _err
+    _PANDAS_ERR = _err_pd
 
+try:
+    from prettytable import PrettyTable as _Pt
+except ModuleNotFoundError as _err_pt:
+    _Pt = None
+    _PRETTYTABLE_ERROR = _err_pt
+
+DEBUG = True
 
 # -- helpers -------------------------------------------------------------
 def _value_from_native(entry, col: str) -> Any:
@@ -70,7 +78,7 @@ def collect_summary_df(
     if _pd is None:  # pandas not installed
         raise RuntimeError(
             "collect_summary_df() requires pandas. "
-            "Install with:  pip install crystaldata[table]"
+            "Install with:  pip install crystaldataset[table]"
         ) from _PANDAS_ERR
 
     native_cols = tuple(native_columns) if native_columns else ("id", "composition", "energy")
@@ -94,3 +102,47 @@ def collect_summary_df(
             df[name] = list(values)
 
     return df
+
+def print_pretty_df(df, dump_path, columns=None, sort_by=None, pretty=True, ):
+    df["_int_ID"] = df["id"].str.extract(r'(\d+)(?!.*\d)')[0].astype(int)
+    if isinstance(sort_by, list):
+        sort_by.append("_int_ID")
+    elif sort_by:
+        sort_by = [sort_by, "_int_ID"]
+
+    df = df.sort_values(by=sort_by)
+    df.drop(columns="_int_ID", inplace=True)
+    if not columns:
+        columns = list(df.columns)
+    else:
+        # Validate that each requested column exists
+        missing = set(columns) - set(df.columns)
+        if missing:
+            raise ValueError(f"Columns {missing} are not in the DataFrame ({df.columns})")
+
+    if pretty and not _Pt: # pandas not installed
+        raise RuntimeError(
+            "pretty=True requires Prettytable "
+            "Install with:  pip install crystaldataset[table]"
+        ) from _PRETTYTABLE_ERROR
+
+    if pretty:
+        pt = PrettyTable()
+        pt.field_names = columns
+
+        # Slice df to just the chosen columns, then iterate
+        for row in df[columns].itertuples(index=False, name=None):
+            pt.add_row(row)
+
+        # Write the table string to a file
+        with open(dump_path, "w") as file:
+            file.write(pt.get_string())
+
+        if DEBUG:
+            print(pt)
+    else:
+        df.to_csv(dump_path, columns=columns)
+        if DEBUG:
+            print(df)
+
+
