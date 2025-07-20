@@ -57,7 +57,7 @@ class SimilarityTools:
         return CrystalDataset.from_parents(filtered_list, parents=(ds.dataset_id,), message=message, **kwargs), clusters, best_idx
 
 
-    def filter_unseen(self, ds: CrystalDataset, ref_ds: CrystalDataset, verbose=True):
+    def get_unseen_in_ref(self, ds: CrystalDataset, ref_ds: CrystalDataset, verbose=True):
         new_entries = []
         duplicates_counter = set()
         rho = self.dist
@@ -70,5 +70,7 @@ class SimilarityTools:
                 new_entries.append(ds[i])
 
         reproductibility = len(duplicates_counter) / len(ref_ds)
+        if verbose:
+            print(f"{reproductibility:.2%} of ref present in ds")
         message = f"Structures of parent1 unseen in parent2. parent1 has {reproductibility:.2%} of parent2"
         return CrystalDataset.from_parents(new_entries, parents=(ref_ds, ds), message=message)

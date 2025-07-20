@@ -1,7 +1,4 @@
-from sys import maxsize
-
-from numba.cuda.cudadrv.devicearray import lru_cache
-
+from functools import lru_cache
 from ..crystal_entry import CrystalEntry
 from ..crystal_dataset import CrystalDataset
 from pymatgen.analysis.phase_diagram import PhaseDiagram, PDEntry
