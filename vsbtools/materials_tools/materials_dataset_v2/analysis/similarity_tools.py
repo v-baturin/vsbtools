@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Callable, Any, Tuple
 from ..crystal_entry import  CrystalEntry
 from ..crystal_dataset import CrystalDataset
-from my_packages.genutils.duplicate_analysis import remove_duplicates
+from genutils.duplicate_analysis import remove_duplicates
 
 class SimilarityTools:
     def __init__(self, dist_fn: Callable[[CrystalEntry, CrystalEntry], float], tol_fp: float = 0.08) -> None:

@@ -3,7 +3,7 @@ import re
 import shutil
 from pathlib import Path
 from typing import Dict, Union, Callable
-from my_packages.genutils.filesystem_tools import sh_execute
+from genutils.filesystem_tools import sh_execute
 import numpy as np
 from USPEX.Atomistic.RadialDistributionUtility import RadialDistributionUtility
 from USPEX.components import AtomisticRepresentation, Atomistic
