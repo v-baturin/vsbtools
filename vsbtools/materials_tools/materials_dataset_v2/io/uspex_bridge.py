@@ -1,11 +1,15 @@
+from pathlib import Path
 from functools import lru_cache
-from ..crystal_entry import CrystalEntry
+
+from materials_dataset_v2.crystal_dataset import CrystalDataset
+from materials_dataset_v2.crystal_entry import CrystalEntry
 from USPEX.components import Atomistic
 from USPEX.DataModel.Engine import Engine
 from USPEX.DataModel.Flavour import Flavour
 from USPEX.DataModel.Entry import Entry
 import numpy as np
 from USPEX.Atomistic.RadialDistributionUtility import RadialDistributionUtility, TOLERANCE_DEFAULT
+from .structures_dataset_io import StructureDatasetIO
 
 Engine.createEngine(":memory:")
 atomistic = Atomistic()
@@ -35,3 +39,14 @@ class USPEXBridge:
 
     def fp_dist(self, de_entry_1: CrystalEntry, de_entry_2: CrystalEntry) -> float:
         return self.rdu.dist(self.uspex_entry_from_de(de_entry_1), self.uspex_entry_from_de(de_entry_2))
+
+    @staticmethod
+    def prepare_seeds(ds: CrystalDataset, seeds_file_path: str | Path | None = None, id_list_file: str | Path | None = None):
+        StructureDatasetIO.dump_multiimage_poscar(ds, seeds_file_path)
+        if id_list_file:
+            with open(id_list_file, 'rt') as id_list_h:
+                id_list_h.writelines([e.id for e in ds])
+
+    @staticmethod
+    def read_idlist(idlist_path: str | Path | None):
+        return idlist_path.read_text().split('\n')

@@ -7,6 +7,7 @@ import pandas as pd
 from pymatgen.io.vasp import Vasprun
 from pymatgen.io.vasp.inputs import Poscar
 
+from ..uspex_bridge import USPEXBridge
 
 @dataclass
 class USPEXOutputClient:
@@ -108,7 +109,7 @@ class USPEXOutputClient:
     def parse_calcFolders(
             self,
             stage: Optional[int] = None,
-            entries_order_file: Optional[Path] = None) -> pd.DataFrame:
+            id_list_file: Optional[Path] = None) -> pd.DataFrame:
         """
         Scan `base_folder` for subdirs named CalcFold<X>_<Y>.  For each unique X:
           – if y_choice is given, pick the folder with Y == y_choice (skip X if absent)
@@ -116,10 +117,10 @@ class USPEXOutputClient:
         Any folder where CONTCAR or vasprun.xml fails to load is skipped.
         Returns a DataFrame with columns ["id","formula","energy","natoms","structure","source"].
         """
-        entries_order = None
-        if entries_order_file:
+        ids_order = None
+        if id_list_file:
             # If entries_order_file is provided, read it to get the order of entries
-            entries_order = pd.read_csv(entries_order_file, header=None).squeeze().tolist()
+            ids_order = USPEXBridge.read_idlist(id_list_file)
         pattern = re.compile(r'^CalcFold(\d+)_([0-9]+)$')
         oszicar_F_pattern = re.compile(r"F=\s*([-\d.]+)")
 
@@ -177,7 +178,7 @@ class USPEXOutputClient:
                     else:
                         print(f"{folder.name}: Couldn't read energy from either Vasprun.xml and OSZICAR. Skipping")
                         continue
-            e_id = entries_order[x] if entries_order else x
+            e_id = ids_order[x+1] if ids_order else x  # calcfolds are 1-based hence x + 1 !!!
             records.append({
                 "id": e_id,
                 "formula": formula,
