@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from pathlib import Path
 import yaml
 import pandas as pd
-from numba.core.types import double
 from pymatgen.core import Structure
 from ..crystal_dataset import CrystalDataset, CrystalEntry
 
@@ -109,7 +108,6 @@ def write_csv_poscars(ds: CrystalDataset,
           labels: list[str] | None = None):
 
     labels = labels or ["id", "composition", "energy", "structure"]
-
     base_path = getattr(ds, "basepath", Path(os.getcwd()))
     base_path.mkdir(exist_ok=True)
     csv_file = csv_file or base_path / ds.dataset_id + '.csv'

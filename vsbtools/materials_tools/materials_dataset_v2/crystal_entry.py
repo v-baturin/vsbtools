@@ -41,8 +41,6 @@ class CrystalEntry:
     def log_message(self, message):
         self.metadata["log"] = self.metadata.get("log", '') + message + '\n'
 
-
-
     def copy_with(self, **kw) -> "CrystalEntry":
         # start from existing field values …
         data = {
