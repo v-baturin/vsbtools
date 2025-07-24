@@ -17,14 +17,14 @@ class CrystalDataset(Sequence[CrystalEntry]):
             parent_ids: Tuple[DatasetID, ...] = (),
             message='',
             base_path=None,
-            provenance=None,  # optional handle to provenance store/registry
+            repository=None,  # optional handle to repository store/registry
     ) -> None:
         self._entries = list(entries)
         self.metadata = {"message": message, "created_on": datetime.today().strftime('%Y-%m-%d %H:%M')}
         self.dataset_id = dataset_id or self._generate_id()
         self.parent_ids = parent_ids
-        self.base_path = base_path or provenance.base_path if provenance else Path(os.getcwd())
-        self._prov = provenance  # can be None
+        self._base_path = base_path or repository.storage / self.dataset_id if repository else Path(os.getcwd())
+        self._repo = repository  # can be None
         self._elements = None
 
     """Thin, read‑oriented container around CrystalEntry objects."""
@@ -42,9 +42,12 @@ class CrystalDataset(Sequence[CrystalEntry]):
     def _generate_id(self):
         return hex(hash((id(self), datetime.today(), self.metadata["message"])))[2:]
 
+    def override_base_path(self, new_path: str | Path):
+        self._base_path = new_path
+
     @property
-    def provenance(self):
-        return self._prov
+    def repository(self):
+        return self._repo
 
     @property
     def elements(self):
@@ -54,6 +57,10 @@ class CrystalDataset(Sequence[CrystalEntry]):
                 el for e in self if e.structure for el in e.composition.as_data_dict()['elements'])
         return self._elements
 
+    @property
+    def base_path(self):
+        return self._base_path
+
     @classmethod
     def from_parents(cls, entries, parents, message, **kwargs):
         parent_ids = tuple(ds.dataset_id for ds in parents)
@@ -61,11 +68,11 @@ class CrystalDataset(Sequence[CrystalEntry]):
             base_path = parents[0].base_path
         else:
             base_path=kwargs.get("base_path", None)
-        if all([ds.provenance == parents[0].provenance for ds in parents]):
-            provenance = parents[0].provenance
+        if all([ds.repository == parents[0].repository for ds in parents]):
+            repository = parents[0].repository
         else:
-            provenance=kwargs.get("provenance", None)
-        return cls(entries, parent_ids=parent_ids, message=message, provenance=provenance, base_path=base_path)
+            repository=kwargs.get("repository", None)
+        return cls(entries, parent_ids=parent_ids, message=message, repository=repository, base_path=base_path)
 
     # --- Minimal *pure* helpers that return new datasets ----------
     def merge(self, other: "CrystalDataset", message=None) -> "CrystalDataset":
