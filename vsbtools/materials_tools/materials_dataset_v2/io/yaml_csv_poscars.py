@@ -11,7 +11,7 @@ from ..crystal_dataset import CrystalDataset, CrystalEntry
 
 def _get_str_value_for_csv(e: CrystalEntry, attr_name):
     if attr_name == 'structure':
-        val = f"{e.id}POSCAR"
+        val = e.poscarname
     else:
         val = getattr(e, attr_name)
     if isinstance(val, float):

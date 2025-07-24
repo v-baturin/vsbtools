@@ -28,6 +28,10 @@ class CrystalEntry:
             return int(Composition(self.formula).num_atoms)
 
     @property
+    def poscarname(self):
+        return f"{self.id}POSCAR"
+
+    @property
     def composition(self) -> Composition:
         if self.structure:
             return self.structure.composition
