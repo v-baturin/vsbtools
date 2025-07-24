@@ -46,20 +46,22 @@ def read(dataset_description: str | Path) -> CrystalDataset:
         dataset_info = yaml.safe_load(ds_h.read())
     dataset_info.pop("comment")
     _remove_private_keys(dataset_info)
-    entry_description_file = _rebase_path(Path(dataset_info.pop('entries_csv')), dataset_description.parent)
+    entry_descr_csv = _rebase_path(Path(dataset_info.pop('entries_csv')), dataset_description.parent)
     poscars_dir = _rebase_path(Path(dataset_info.pop('poscars')), dataset_description.parent)
-    dataset = read_csv_poscars(entry_description_file, poscars_dir=poscars_dir, use_fname_as_id=None)
+    dataset = read_csv_poscars(entry_descr_csv, poscars_dir=poscars_dir, use_fname_as_id=None)
     for k in dataset_info:
         if k == "parent_ids":
             dataset_info["parent_ids"] = tuple(dataset_info["parent_ids"]) if dataset_info["parent_ids"] is not None \
                 else tuple()
-        elif k == 'base_path':
-            dataset_info["base_path"] = Path(dataset_info["base_path"])
         setattr(dataset, k, dataset_info[k])
+    dataset.override_base_path(dataset_description.parent)
     return dataset
 
-def write(dataset: CrystalDataset, dataset_description: str | Path | None, comment=None):
-    dataset_file = dataset_description or Path(os.getcwd()) / dataset.dataset_id + '.yaml'
+def write(dataset: CrystalDataset, enforce_base_path: str | Path | None = None, comment=None):
+    if enforce_base_path:
+        dataset.override_base_path(Path(enforce_base_path))
+    dataset.base_path.mkdir(exist_ok=True)
+    dataset_file = dataset.base_path / f"{dataset.dataset_id}.yaml"
     csv_file = dataset_file.with_name(dataset_file.stem + '.csv')
     poscars_path = dataset_file.with_name(dataset_file.stem + 'POSCARS')
     write_csv_poscars(dataset, csv_file, poscars_path)
@@ -68,38 +70,35 @@ def write(dataset: CrystalDataset, dataset_description: str | Path | None, comme
     _prepare_for_yaml_write(ds_dict)
     ds_dict["entries_csv"] = csv_file.relative_to(dataset_file.parent).as_posix()
     ds_dict["poscars"] = poscars_path.relative_to(dataset_file.parent).as_posix()
-    with open(dataset_description, 'wt') as ds_desc:
+    ds_dict["comment"] = comment
+    with open(dataset_file, 'wt') as ds_desc:
         yaml.dump(ds_dict, ds_desc)
+    print(f"Data saved to {dataset.base_path.as_posix()}")
 
 
-
-
-
-
-
-
-def read_csv_poscars(csv_file, poscars_dir=None, use_fname_as_id=True, provenance=None) -> CrystalDataset:
+def read_csv_poscars(csv_file, poscars_dir=None, use_fname_as_id=True, repository=None) -> CrystalDataset:
     csv_file = Path(csv_file)
     poscars_dir = poscars_dir or csv_file.with_name(csv_file.stem + 'POSCARS')
-    dataset_ID = csv_file.stem if fname_as_id else None
+    dataset_ID = csv_file.stem if use_fname_as_id else None
     with open(csv_file, 'rt') as csv_h:
-        labels = [h.strip() for h in csv_h.read().split(',')]
-    entries = []
-    for i, line in enumerate(csv_h):
-        entry_data = {k: v for (k,v) in zip(labels, [h.strip() for h in line.split(',')])}
-        if not "id" in labels:
-            entry_data["id"] = str(i)
-        if 'energy' in entry_data:
-            entry_data['energy'] = float(entry_data['energy'])
-        if 'structure' in entry_data:
-            entry_data['structure'] = Structure.from_file(poscars_dir / entry_data['structure'])
-            del entry_data['structure']
-        entries.append(CrystalEntry(**entry_data))
+        labels = [h.strip() for h in csv_h.readline().split(',')]
+        entries = []
+        for i, line in enumerate(csv_h):
+            entry_data = {k: v for (k,v) in zip(labels, [h.strip() for h in line.split(',')])}
+            if not "id" in labels:
+                entry_data["id"] = str(i)
+            if 'energy' in entry_data:
+                entry_data['energy'] = float(entry_data['energy'])
+            if 'structure' in entry_data:
+                entry_data['structure'] = Structure.from_file(poscars_dir / entry_data['structure'])
+            entry_keys = [k for k in entry_data if k in CrystalEntry.__annotations__.keys()]
+            entry_data = {k: entry_data[k] for k in entry_keys}
+            entries.append(CrystalEntry(**entry_data))
     return CrystalDataset(entries,
                           dataset_id=dataset_ID,
                           message=f'Loaded from {csv_file}',
                           base_path=csv_file.parent,
-                          provenance=provenance
+                          repository=repository
                           )
 
 def write_csv_poscars(ds: CrystalDataset,
