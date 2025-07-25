@@ -8,16 +8,16 @@ from ...io.preset_loaders import (load_from_materials_project,
                                                                                 load_mattersim_estimated_set)
 
 PATH_WITH_TESTS = Path(__file__).parent
+PATH_WITH_DATASETS = PATH_WITH_TESTS / "../../unittests_datasets"
 
 
 class DSLoaders_Test(unittest.TestCase):
 
     def setUp(self) -> None:
-        self.poscars_folder = PATH_WITH_TESTS / "POSCARS"
-        self.cifs_folder = PATH_WITH_TESTS / "cifs"
-        self.uspex_calcfolders = PATH_WITH_TESTS / 'uspex_folders/calcFolders'
-        self.uspex_goodStructures = PATH_WITH_TESTS / 'uspex_folders/results1/goodStructures'
-        self.csv = PATH_WITH_TESTS / 'mattersim_res_for_POSCARS.csv'
+        self.poscars_folder = PATH_WITH_DATASETS / "POSCARS"
+        self.uspex_calcfolders = PATH_WITH_DATASETS / 'uspex_folders/calcFolders'
+        self.uspex_goodStructures = PATH_WITH_DATASETS / 'uspex_folders/results1/goodStructures'
+        self.csv = PATH_WITH_DATASETS / 'mattersim_res_for_POSCARS.csv'
 
     def test_loadMP(self):
         ds = load_from_materials_project({'Mo', 'Si'})

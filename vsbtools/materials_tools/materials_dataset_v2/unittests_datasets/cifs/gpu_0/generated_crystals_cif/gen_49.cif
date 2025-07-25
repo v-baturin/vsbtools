@@ -1,0 +1,34 @@
+data_image0
+_chemical_formula_structural       Rb2SiMnOGdRb3
+_chemical_formula_sum              "Rb5 Si1 Mn1 O1 Gd1"
+_cell_length_a       167.4021902553158
+_cell_length_b       171.42644793686517
+_cell_length_c       186.1573944091797
+_cell_angle_alpha    11.546660270073426
+_cell_angle_beta     2.8684658519376334
+_cell_angle_gamma    11.628042655434369
+
+_space_group_name_H-M_alt    "P 1"
+_space_group_IT_number       1
+
+loop_
+  _space_group_symop_operation_xyz
+  'x, y, z'
+
+loop_
+  _atom_site_type_symbol
+  _atom_site_label
+  _atom_site_symmetry_multiplicity
+  _atom_site_fract_x
+  _atom_site_fract_y
+  _atom_site_fract_z
+  _atom_site_occupancy
+  Rb  Rb1       1.0  0.009430466219782687  0.1822581887245178  0.8705680966377259  1.0000
+  Rb  Rb2       1.0  0.16877691447734833  0.7725328803062439  0.5649770498275758  1.0000
+  Si  Si1       1.0  0.137343928217888  0.7905120253562926  0.1715452373027802  1.0000
+  Mn  Mn1       1.0  0.8986101150512695  0.5401867032051086  0.24275140464305886  1.0000
+  O   O1        1.0  0.5364946722984314  0.2172033041715622  0.17783336341381073  1.0000
+  Gd  Gd1       1.0  0.8941723704338074  0.9835081696510315  0.8645707368850709  1.0000
+  Rb  Rb3       1.0  0.566383957862854  0.8459538817405701  0.46337059140205394  1.0000
+  Rb  Rb4       1.0  0.8101530671119692  0.5792693495750426  0.6233127117156981  1.0000
+  Rb  Rb5       1.0  0.3409065306186676  0.19026707112789154  0.23552070558071142  1.0000

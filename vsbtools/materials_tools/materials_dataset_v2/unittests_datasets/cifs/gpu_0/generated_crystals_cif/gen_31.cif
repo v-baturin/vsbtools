@@ -1,0 +1,33 @@
+data_image0
+_chemical_formula_structural       Rb3CaRbCsBrAs
+_chemical_formula_sum              "Rb4 Ca1 Cs1 Br1 As1"
+_cell_length_a       152.73432657518413
+_cell_length_b       135.99704708023003
+_cell_length_c       173.57168579101562
+_cell_angle_alpha    5.264175825954988
+_cell_angle_beta     11.36877518140272
+_cell_angle_gamma    6.106937197625071
+
+_space_group_name_H-M_alt    "P 1"
+_space_group_IT_number       1
+
+loop_
+  _space_group_symop_operation_xyz
+  'x, y, z'
+
+loop_
+  _atom_site_type_symbol
+  _atom_site_label
+  _atom_site_symmetry_multiplicity
+  _atom_site_fract_x
+  _atom_site_fract_y
+  _atom_site_fract_z
+  _atom_site_occupancy
+  Rb  Rb1       1.0  0.8748332262039185  0.026054959744215008  0.025129022076725998  1.0000
+  Rb  Rb2       1.0  0.040902324020862676  0.6035599112510681  0.44910615682601923  1.0000
+  Rb  Rb3       1.0  0.4519100785255433  0.36415413022041326  0.8103178143501281  1.0000
+  Ca  Ca1       1.0  0.3892923593521118  0.8091909289360046  0.06820607185363775  1.0000
+  Rb  Rb4       1.0  0.7429919838905334  0.09666817635297777  0.03340800106525423  1.0000
+  Cs  Cs1       1.0  0.47714585065841697  0.08541257679462416  0.989132285118103  1.0000
+  Br  Br1       1.0  0.10699941962957402  0.888445734977722  0.782505989074707  1.0000
+  As  As1       1.0  0.6913092136383058  0.4252683520317077  0.0844543278217316  1.0000

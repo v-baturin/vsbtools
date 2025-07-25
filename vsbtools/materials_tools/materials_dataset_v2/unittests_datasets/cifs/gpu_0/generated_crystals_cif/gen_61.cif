@@ -1,0 +1,31 @@
+data_image0
+_chemical_formula_structural       La2Zn2Ru2
+_chemical_formula_sum              "La2 Zn2 Ru2"
+_cell_length_a       4.548621265775993
+_cell_length_b       5.113405387754574
+_cell_length_c       6.416790962219238
+_cell_angle_alpha    73.32951175443112
+_cell_angle_beta     68.88797564845096
+_cell_angle_gamma    89.41933455809999
+
+_space_group_name_H-M_alt    "P 1"
+_space_group_IT_number       1
+
+loop_
+  _space_group_symop_operation_xyz
+  'x, y, z'
+
+loop_
+  _atom_site_type_symbol
+  _atom_site_label
+  _atom_site_symmetry_multiplicity
+  _atom_site_fract_x
+  _atom_site_fract_y
+  _atom_site_fract_z
+  _atom_site_occupancy
+  La  La1       1.0  0.7583822011947632  0.6463199257850647  0.9805537462234497  1.0000
+  La  La2       1.0  0.5136339068412781  0.9611484408378601  0.46993380784988403  1.0000
+  Zn  Zn1       1.0  0.21987053751945498  0.13211394846439364  0.05709800496697424  1.0000
+  Zn  Zn2       1.0  0.05242827534675599  0.47616097331047064  0.39277100563049316  1.0000
+  Ru  Ru1       1.0  0.8312564492225647  0.1642105132341385  0.8349602818489075  1.0000
+  Ru  Ru2       1.0  0.4408774673938751  0.4432767927646637  0.6155084371566772  1.0000

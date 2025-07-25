@@ -1,0 +1,28 @@
+data_image0
+_chemical_formula_structural       GaHgDy
+_chemical_formula_sum              "Ga1 Hg1 Dy1"
+_cell_length_a       3.550075020873495
+_cell_length_b       4.678625589682755
+_cell_length_c       4.6787943840026855
+_cell_angle_alpha    120.01529055847006
+_cell_angle_beta     89.98052280368746
+_cell_angle_gamma    90.01185288405453
+
+_space_group_name_H-M_alt    "P 1"
+_space_group_IT_number       1
+
+loop_
+  _space_group_symop_operation_xyz
+  'x, y, z'
+
+loop_
+  _atom_site_type_symbol
+  _atom_site_label
+  _atom_site_symmetry_multiplicity
+  _atom_site_fract_x
+  _atom_site_fract_y
+  _atom_site_fract_z
+  _atom_site_occupancy
+  Ga  Ga1       1.0  0.7196176052093506  0.4157717823982239  0.6934254169464111  1.0000
+  Hg  Hg1       1.0  0.719920814037323  0.08270996063947678  0.026583034545183182  1.0000
+  Dy  Dy1       1.0  0.2198687642812729  0.7495943903923035  0.3598901927471161  1.0000

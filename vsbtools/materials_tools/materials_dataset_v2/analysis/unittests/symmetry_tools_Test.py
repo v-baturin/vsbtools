@@ -5,11 +5,12 @@ from ...crystal_entry import CrystalEntry
 from ...crystal_dataset import CrystalDataset
 from ..symmetry_tools import SymmetryToolkit
 
-PATH_WITH_TESTS = Path(__file__).parent
+PATH_WITH_DATASETS = Path(__file__).parent / "../../unittests_datasets"
+
 
 class symmetry_tools_Test(unittest.TestCase):
     def setUp(self):
-        sample_poscars_file = PATH_WITH_TESTS /  "../../io/unittests/POSCARS"
+        sample_poscars_file = PATH_WITH_DATASETS /  "POSCARS"
         entries = [CrystalEntry(id = str(i), structure=Structure.from_file(f), energy = -i/10) \
                       for i, f in enumerate(sample_poscars_file.rglob('*POSCAR'))]
         self.ds = CrystalDataset(entries)

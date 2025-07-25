@@ -5,12 +5,12 @@ from ...io.uspex_bridge import USPEXBridge
 from ...io.structures_dataset_io import StructureDatasetIO
 
 PATH_WITH_TESTS = Path(__file__).parent
-
+PATH_WITH_DATASETS = PATH_WITH_TESTS / "../../unittests_datasets"
 
 class SimilarityTools_Test(unittest.TestCase):
 
     def setUp(self):
-        self.test_structures = PATH_WITH_TESTS / "dup_test_poscars"
+        self.test_structures = PATH_WITH_DATASETS / "dup_test_poscars"
         self.ds = StructureDatasetIO(self.test_structures, patterns=("*.POSCAR",)).load_from_directory()
         self.ub = USPEXBridge(elements={'Fe', 'Al', 'Ni'}, legacy=True, tol_FP=0.07)
         self.sim_tools = SimilarityTools(self.ub.fp_dist, self.ub.tol_FP)

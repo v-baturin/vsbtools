@@ -1,0 +1,33 @@
+data_image0
+_chemical_formula_structural       VK2BaO4
+_chemical_formula_sum              "V1 K2 Ba1 O4"
+_cell_length_a       5.6686914761008715
+_cell_length_b       5.674170672364309
+_cell_length_c       6.254284381866455
+_cell_angle_alpha    116.5978847567116
+_cell_angle_beta     115.89066083305516
+_cell_angle_gamma    91.27504840501152
+
+_space_group_name_H-M_alt    "P 1"
+_space_group_IT_number       1
+
+loop_
+  _space_group_symop_operation_xyz
+  'x, y, z'
+
+loop_
+  _atom_site_type_symbol
+  _atom_site_label
+  _atom_site_symmetry_multiplicity
+  _atom_site_fract_x
+  _atom_site_fract_y
+  _atom_site_fract_z
+  _atom_site_occupancy
+  V   V1        1.0  0.35404938459396357  0.8926360011100768  0.1525487899780273  1.0000
+  K   K1        1.0  0.14812365174293518  0.1868230253458023  0.6529005765914917  1.0000
+  K   K2        1.0  0.907198131084442  0.44487559795379633  0.1532269120216369  1.0000
+  Ba  Ba1       1.0  0.645684003829956  0.6828296780586243  0.6527566313743591  1.0000
+  O   O1        1.0  0.2638496160507202  0.7937324047088623  0.7926608920097351  1.0000
+  O   O2        1.0  0.6141192317008972  0.16360150277614594  0.5101804137229919  1.0000
+  O   O3        1.0  0.44067111611366266  0.5898268818855286  0.1622057855129242  1.0000
+  O   O4        1.0  0.040748488157987546  0.9687786102294921  0.14241635799407953  1.0000
