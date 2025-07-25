@@ -16,20 +16,21 @@ atomistic = Atomistic()
 
 
 class USPEXBridge:
-    def __init__(self, elements, legacy, tol_FP=None):
-        tol_FP = tol_FP or TOLERANCE_DEFAULT
-        self.rdu = RadialDistributionUtility(symbols=elements, suffix='origin', legacy=legacy, tolerance=tol_FP)
+    def __init__(self, elements, legacy=True, tol_FP=None):
+        self.tol_FP = tol_FP or TOLERANCE_DEFAULT
+        self.rdu = RadialDistributionUtility(symbols=elements,
+                                             suffix='origin', legacy=legacy, tolerance=self.tol_FP)
         self.uspex_entry_extensions = dict(atomistic=(atomistic, atomistic.propertyExtension.propertyTable),
                           radialDistributionUtility=(self.rdu, self.rdu.propertyExtension.propertyTable))
         self.id=-1
 
     @lru_cache(maxsize=1000)
     def uspex_entry_from_de(self, de_entry: CrystalEntry) -> "Entry":
-        types, coords, cell = ([s.species_string for s in de_entry.structure],
+        types, coords, cell = ([atomistic.atomType(s.species_string) for s in de_entry.structure],
                                de_entry.structure.cart_coords,
-                               de_entry.structure.lattice.matrix)
+                               atomistic.cellType(de_entry.structure.lattice.matrix, pbc = (1, 1, 1)))
         uspex_structure = atomistic.AtomicStructureRepresentation.structureType(atomTypes=types, coordinates=coords,
-                                                                                    cell=cell)
+                                                                                cell=cell)
         self.id += 1
         return Entry.newEntry(Flavour(extensions=self.uspex_entry_extensions,
                                       **{'.howCome': 'Seeds', '.parent': None, '.label': self.id},
