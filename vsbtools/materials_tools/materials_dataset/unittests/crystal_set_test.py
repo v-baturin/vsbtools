@@ -1,8 +1,8 @@
 import unittest
 import pickle as pkl
 from pathlib import Path
-from my_packages.materials_tools.materials_dataset.crystalDataset import CrystalDataset, CrystalEntry
-from my_packages.materials_tools.materials_dataset.db_clients.oqmd_client import OQMDClient
+from materials_tools.materials_dataset.crystalDataset import CrystalDataset, CrystalEntry
+from materials_tools.materials_dataset.db_clients.oqmd_client import OQMDClient
 
 
 class CrystalDataset_Test(unittest.TestCase):

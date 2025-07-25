@@ -4,17 +4,17 @@ import os
 from pathlib import Path
 import pickle as pkl
 from typing import Union, Any, Callable
-from my_packages.materials_tools.uspex_toolkit.IO import readAtomicStructuresToPoolEntries, \
+from materials_tools.uspex_toolkit.IO import readAtomicStructuresToPoolEntries, \
     read_Individuals_uspexPY, atomsListToPoolEntries
-from my_packages.genutils.duplicate_analysis import remove_duplicates
-from my_packages.genutils.clustering_chunk import make_dist_matrix, clusterize_dist_matrix, select_best_representatives
+from genutils.duplicate_analysis import remove_duplicates
+from genutils.clustering_chunk import make_dist_matrix, clusterize_dist_matrix, select_best_representatives
 from USPEX.Atomistic.RadialDistributionUtility import RadialDistributionUtility
 from USPEX.components import Atomistic
 from USPEX.DataModel import Entry
 from datetime import datetime
 
 tdy = datetime.today().strftime('%Y%m%d')
-from my_packages.hydrures_tools.various_tools import fix_wrap_and_check_tetrahedra_in_res_dict
+from hydrures_tools.various_tools import fix_wrap_and_check_tetrahedra_in_res_dict
 
 atomistic = Atomistic()
 

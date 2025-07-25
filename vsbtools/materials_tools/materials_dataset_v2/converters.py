@@ -1,5 +1,4 @@
 import pandas as pd
-from typing import Mapping, Any
 from .crystal_dataset import CrystalDataset
 from .crystal_entry import CrystalEntry
 

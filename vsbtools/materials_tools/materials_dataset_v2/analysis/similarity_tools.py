@@ -41,15 +41,15 @@ class SimilarityTools:
         else:
             reduced_compositions = None
 
-        clusters_path = clusters_file or ds.base_path / f"{ds.dataset_id}_clusters.pkl"
-        dist_matrix_path = dist_matrix_file or ds.base_path / f"{ds.dataset_id}_dist_matrix.pkl"
+        clusters_file = clusters_file or ds.base_path / f"{ds.dataset_id}_clusters.pkl"
+        dist_matrix_file = dist_matrix_file or ds.base_path / f"{ds.dataset_id}_dist_matrix.pkl"
         best_representatives, clusters, best_idx = remove_duplicates(ds, dist_fn=self.dist,
                                                                      fitness_list=fitness_list,
                                                                      intercluster_mindistance=self.tol_fp,
                                                                      check_clusters_file=check_clusters_file,
                                                                      check_dist_matrix_file=check_dist_matrix_file,
-                                                                     dist_matrix_file=dist_matrix_path,
-                                                                     clusters_file=clusters_path,
+                                                                     dist_matrix_file=dist_matrix_file,
+                                                                     clusters_file=clusters_file,
                                                                      do_split_clusters_by_labels=enforce_compositions_separation,
                                                                      labels_list=reduced_compositions)
         filtered_list = [ds[i] for i in best_idx]

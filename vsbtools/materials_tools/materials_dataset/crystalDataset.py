@@ -19,9 +19,9 @@ from USPEX.components import Atomistic
 from USPEX.DataModel.Engine import Engine
 from USPEX.DataModel.Flavour import Flavour
 from USPEX.DataModel.Entry import Entry
-from my_packages.materials_tools.uspex_toolkit.remove_duplicates import remove_duplicate_entries, prepare_dist_function
-from my_packages.materials_tools.NN_energy_estimators import mattersim_estimator
-from my_packages.genutils.misc import describe_predicate
+from materials_tools.uspex_toolkit.remove_duplicates import remove_duplicate_entries, prepare_dist_function
+from materials_tools.NN_energy_estimators import mattersim_estimator
+from genutils.misc import describe_predicate
 
 Engine.createEngine(":memory:")
 tdy = datetime.today().strftime('%Y%m%d')
