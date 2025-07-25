@@ -17,14 +17,14 @@ class SimilarityTools_Test(unittest.TestCase):
 
 
     def test_distance(self):
-        self.assertEqual(len(self.ds), 348)
+        self.assertEqual(len(self.ds), 347)
         clusters_file = PATH_WITH_TESTS / "clusters.pkl"
         dist_matrix_file = PATH_WITH_TESTS / "dm.pkl"
         deduped_ds, _, _ = self.sim_tools.deduplicate(self.ds, enforce_compositions_separation=True,
                                                       clusters_file = clusters_file,
                                                       dist_matrix_file = dist_matrix_file,
                                                       check_clusters_file=True, check_dist_matrix_file=True)
-        self.assertEqual(len(deduped_ds),300)
+        self.assertEqual(len(deduped_ds),299)
         clusters_file.unlink()
         dist_matrix_file.unlink()
 

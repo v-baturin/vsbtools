@@ -18,10 +18,10 @@ class SimilarityTools:
         true_idcs = [i for i, ds_entry in enumerate(ds) if self.dist(entry, ds_entry) <= self.tol_fp]
         return true_idcs, [ds[i].id for i in true_idcs]
 
-    def deduplicated(self, ds: CrystalDataset,
-                     check_clusters_file=False, clusters_file: Path = None, check_dist_matrix_file=False,
-                     dist_matrix_file=None, fitness_list=None,
-                     enforce_compositions_separation=False, **kwargs) -> tuple[CrystalDataset, Any, Any]:
+    def deduplicate(self, ds: CrystalDataset,
+                    check_clusters_file=False, clusters_file: Path = None, check_dist_matrix_file=False,
+                    dist_matrix_file=None, fitness_list=None,
+                    enforce_compositions_separation=False, **kwargs) -> tuple[CrystalDataset, Any, Any]:
 
         """
         Remove duplicates from the dataset using USPEX's remove_duplicates function.
@@ -54,7 +54,7 @@ class SimilarityTools:
                                                                      labels_list=reduced_compositions)
         filtered_list = [ds[i] for i in best_idx]
         message = f"Parent deduplicated with tol_FP={self.tol_fp} "
-        return CrystalDataset.from_parents(filtered_list, parents=(ds.dataset_id,), message=message, **kwargs), clusters, best_idx
+        return CrystalDataset.from_parents(filtered_list, parents=(ds,), message=message, **kwargs), clusters, best_idx
 
 
     def get_unseen_in_ref(self, ds: CrystalDataset, ref_ds: CrystalDataset, verbose=True):
