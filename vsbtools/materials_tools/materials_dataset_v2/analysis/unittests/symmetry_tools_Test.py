@@ -18,7 +18,7 @@ class symmetry_tools_Test(unittest.TestCase):
         self.stk = SymmetryToolkit()
 
     def test_sym_group_no(self):
-        print(self.stk.sym_group_no(self.ds[8]))
+        self.assertEqual(self.stk.sym_group_no(self.ds[8]), 1)
 
     def test_get_symmetrized_entry(self):
         original = self.ds[8]
