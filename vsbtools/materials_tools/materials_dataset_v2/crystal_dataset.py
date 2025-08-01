@@ -15,14 +15,12 @@ class CrystalDataset(Sequence[CrystalEntry]):
             parent_ids: List[str, ...] | None = None,
             message='',
             base_path=None,
-            repository=None,  # optional handle to repository store/registry
     ) -> None:
         self._entries = list(entries)
         self.metadata = {"message": message, "created_on": datetime.today().strftime('%Y-%m-%d %H:%M')}
         self.dataset_id = dataset_id or self._generate_id()
-        self.parent_ids = parent_ids
-        self._base_path = base_path or repository.storage / self.dataset_id if repository else Path(os.getcwd())
-        self._repo = repository  # can be None
+        self.parent_ids = parent_ids if parent_ids else []
+        self._base_path = base_path or Path(os.getcwd())
         self._elements = None
 
     """Thin, read‑oriented container around CrystalEntry objects."""
@@ -44,10 +42,6 @@ class CrystalDataset(Sequence[CrystalEntry]):
         self._base_path = new_path
 
     @property
-    def repository(self):
-        return self._repo
-
-    @property
     def elements(self):
         """Set of elements in the dataset."""
         if not self._elements:
@@ -66,11 +60,7 @@ class CrystalDataset(Sequence[CrystalEntry]):
             base_path = parents[0].base_path
         else:
             base_path=kwargs.get("base_path", None)
-        if all([ds.repository == parents[0].repository for ds in parents]):
-            repository = parents[0].repository
-        else:
-            repository=kwargs.get("repository", None)
-        return cls(entries, parent_ids=parent_ids, message=message, repository=repository, base_path=base_path)
+        return cls(entries, parent_ids=parent_ids, message=message, base_path=base_path)
 
     # --- Minimal *pure* helpers that return new datasets ----------
     def merge(self, other: "CrystalDataset", message=None) -> "CrystalDataset":
