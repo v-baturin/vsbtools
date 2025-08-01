@@ -130,10 +130,10 @@ class StructureDatasetIO:
                 for file in _iter_structure_files(tmp_root, self.patterns):
                     struct = _safe_structure_from_file(file)
                     if struct:
-                        entries.append(CrystalEntry(id=next(self._id_iter), structure=struct))
-
                         entries.append(CrystalEntry(id=next(self._id_iter), structure=struct,
                                                     metadata={"source": self.source_name}))
+        if elements:
+            entries = [e for e in entries if not (set(e.composition.as_data_dict()["elements"]) - set(elements))]
         msg = message or f"Structures collected from {self.root}"
         return CrystalDataset(entries, message=msg)
 
