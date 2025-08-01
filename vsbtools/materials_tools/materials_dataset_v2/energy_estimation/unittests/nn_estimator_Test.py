@@ -3,7 +3,6 @@ import unittest
 from ..nn_estimator import NNEstimator
 from .. import mattersim_bridge
 from ...io.structures_dataset_io import StructureDatasetIO
-from ...crystal_dataset import CrystalDataset, CrystalEntry
 
 PATH_WITH_TESTS = Path(__file__).parent
 PATH_WITH_DATASETS = PATH_WITH_TESTS / "../../unittests_datasets"
