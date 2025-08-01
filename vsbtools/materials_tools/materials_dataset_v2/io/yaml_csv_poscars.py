@@ -34,20 +34,19 @@ def _prepare_for_yaml_write(dct: dict):
             dct[k] = f"{v:.4f}"
 
 
-
-def read(dataset_description: str | Path) -> CrystalDataset:
+def read(manifest_yaml: str | Path) -> CrystalDataset:
     def _rebase_path(pth: Path, base: Path):
         return pth if pth.is_absolute() else base / pth
-    with open(dataset_description, 'rt') as ds_h:
+    with open(manifest_yaml, 'rt') as ds_h:
         dataset_info = yaml.safe_load(ds_h.read())
     dataset_info.pop("comment")
     _remove_private_keys(dataset_info)
-    entry_descr_csv = _rebase_path(Path(dataset_info.pop('entries_csv')), dataset_description.parent)
-    poscars_dir = _rebase_path(Path(dataset_info.pop('poscars')), dataset_description.parent)
-    dataset = read_csv_poscars(entry_descr_csv, poscars_dir=poscars_dir, use_fname_as_id=None)
+    entry_descr_csv = _rebase_path(Path(dataset_info.pop('entries_csv')), manifest_yaml.parent)
+    poscars_dir = _rebase_path(Path(dataset_info.pop('poscars')), manifest_yaml.parent)
+    dataset = read_csv_poscars(entry_descr_csv, poscars_dir=poscars_dir, use_fname_as_id=False)
     for k in dataset_info:
         setattr(dataset, k, dataset_info[k])
-    dataset.override_base_path(dataset_description.parent)
+    dataset.override_base_path(manifest_yaml.parent)
     return dataset
 
 
@@ -55,17 +54,17 @@ def write(dataset: CrystalDataset, enforce_base_path: str | Path | None = None, 
     if enforce_base_path:
         dataset.override_base_path(Path(enforce_base_path))
     dataset.base_path.mkdir(exist_ok=True)
-    dataset_file = dataset.base_path / f"{dataset.dataset_id}.yaml"
-    csv_file = dataset_file.with_name(dataset_file.stem + '.csv')
-    poscars_path = dataset_file.with_name(dataset_file.stem + 'POSCARS')
-    write_csv_poscars(dataset, csv_file, poscars_path)
+    manifest_yaml = dataset.base_path / "manifest.yaml"
+    csv_file = manifest_yaml.with_name('data.csv')
+    poscars_path = manifest_yaml.with_name('POSCARS')
+    write_csv_poscars(dataset, csv_file, poscars_path, **kwargs)
     ds_dict = dataset.__dict__.copy()
     _remove_private_keys(ds_dict)
     _prepare_for_yaml_write(ds_dict)
-    ds_dict["entries_csv"] = csv_file.relative_to(dataset_file.parent).as_posix()
-    ds_dict["poscars"] = poscars_path.relative_to(dataset_file.parent).as_posix()
+    ds_dict["entries_csv"] = csv_file.relative_to(manifest_yaml.parent).as_posix()
+    ds_dict["poscars"] = poscars_path.relative_to(manifest_yaml.parent).as_posix()
     ds_dict["comment"] = comment
-    with open(dataset_file, 'wt') as ds_desc:
+    with open(manifest_yaml, 'wt') as ds_desc:
         yaml.dump(ds_dict, ds_desc)
     print(f"Data saved to {dataset.base_path.as_posix()}")
 
@@ -102,7 +101,7 @@ def write_csv_poscars(ds: CrystalDataset,
     labels = labels or ["id", "composition", "energy", "structure"]
     base_path = getattr(ds, "basepath", Path(os.getcwd()))
     base_path.mkdir(exist_ok=True)
-    csv_file = csv_file or base_path / ds.dataset_id + '.csv'
+    csv_file = csv_file or base_path / 'data.csv'
     poscars_path = poscars_path or csv_file.with_name(csv_file.stem + 'POSCARS')
     poscars_path.mkdir(exist_ok=True)
     with open(csv_file, 'wt') as csv_h:
