@@ -18,3 +18,7 @@ class NNEstimator_Test(unittest.TestCase):
 
     def test_single_entry_estimation(self):
         self.assertAlmostEqual(self.estimator.estimate_entry_energy(self.dataset[2]), -44.0794, places=3)
+
+    def test_batch_estimation(self):
+        ds2 = self.estimator.estimate_dataset_energies(self.dataset)
+        print('\n'.join([str(e.energy) for e in ds2]))
