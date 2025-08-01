@@ -6,15 +6,13 @@ from genutils.misc import describe_predicate
 from .crystal_entry import CrystalEntry
 from datetime import datetime
 
-DatasetID = NewType("DatasetID", str)
-
 class CrystalDataset(Sequence[CrystalEntry]):
 
     def __init__(
             self,
             entries: Iterable[CrystalEntry],
-            dataset_id: DatasetID | None = None,
-            parent_ids: Tuple[DatasetID, ...] = (),
+            dataset_id: str | None = None,
+            parent_ids: List[str, ...] | None = None,
             message='',
             base_path=None,
             repository=None,  # optional handle to repository store/registry
@@ -39,7 +37,7 @@ class CrystalDataset(Sequence[CrystalEntry]):
     def __getitem__(self, idx) -> CrystalEntry:
         return self._entries[idx]
 
-    def _generate_id(self):
+    def _generate_id(self) -> str:
         return hex(hash((id(self), datetime.today(), self.metadata["message"])))[2:]
 
     def override_base_path(self, new_path: str | Path):
@@ -63,7 +61,7 @@ class CrystalDataset(Sequence[CrystalEntry]):
 
     @classmethod
     def from_parents(cls, entries, parents, message, **kwargs):
-        parent_ids = tuple(ds.dataset_id for ds in parents)
+        parent_ids = list(ds.dataset_id for ds in parents)
         if all([ds.base_path == parents[0].base_path for ds in parents]):
             base_path = parents[0].base_path
         else:
