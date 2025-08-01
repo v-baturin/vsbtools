@@ -83,7 +83,7 @@ class StructureDatasetIO:
     patterns: Sequence[str] = ("*POSCAR*", "*.cif")
     id_prefix: str = ""
     expand_archives: bool = True
-
+    source_name: str = "NA"
     _id_iter: Iterator[str] = field(init=False, repr=False)
 
     # --------------------------------------------------------------------- #
@@ -102,7 +102,7 @@ class StructureDatasetIO:
         *,
         elements: Collection[str] | None = None,
         message: str | None = None,
-        expand_archives: bool | None = None,
+        expand_archives: bool = True
     ) -> CrystalDataset:
         """Return a dataset built from *root*.
 
@@ -121,7 +121,8 @@ class StructureDatasetIO:
         for file in _iter_structure_files(self.root, self.patterns):
             struct = _safe_structure_from_file(file)
             if struct:
-                entries.append(CrystalEntry(id=next(self._id_iter), structure=struct))
+                entries.append(CrystalEntry(id=next(self._id_iter), structure=struct,
+                                            metadata={"source": self.source_name}))
 
         # 2) structures inside archives (if requested)
         if use_archives:
@@ -131,6 +132,8 @@ class StructureDatasetIO:
                     if struct:
                         entries.append(CrystalEntry(id=next(self._id_iter), structure=struct))
 
+                        entries.append(CrystalEntry(id=next(self._id_iter), structure=struct,
+                                                    metadata={"source": self.source_name}))
         msg = message or f"Structures collected from {self.root}"
         return CrystalDataset(entries, message=msg)
 
