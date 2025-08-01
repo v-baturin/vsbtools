@@ -12,8 +12,9 @@ class yaml_csv_poscars_Test(unittest.TestCase):
 
     def setUp(self) -> None:
         self.csv = PATH_WITH_TESTS / 'mattersim_res_for_POSCARS.csv'
-        self.poscars_folder = PATH_WITH_TESTS / "POSCARS"
-        self.ref_dump_results = PATH_WITH_TESTS / "ref_yaml_csv_poscars"
+        PATH_WITH_DATASETS = PATH_WITH_TESTS / "../../unittests_datasets"
+        self.poscars_folder = PATH_WITH_DATASETS / "POSCARS"
+        self.ref_dump_results = PATH_WITH_DATASETS / "ref_yaml_csv_poscars"
 
 
     def test_write_read(self):
@@ -24,12 +25,12 @@ class yaml_csv_poscars_Test(unittest.TestCase):
         ds.override_base_path(res_path_1)
         write(ds)
         dcmp = filecmp.dircmp(self.ref_dump_results, res_path_1)
-        mismatch = dcmp.diff_files
+        mismatch = dcmp.diff_files or dcmp.left_only or dcmp.right_only
         for common_dir in dcmp.common_dirs:
             mismatch = mismatch or dcmp.subdirs[common_dir].diff_files
         self.assertFalse(mismatch)
         res_path_2 = PATH_WITH_TESTS / "tmp2"
-        ds2 = read(ds.base_path / f"{ds.dataset_id}.yaml")
+        ds2 = read(ds.base_path / f"manifest.yaml")
         ds2.override_base_path(res_path_2)
         write(ds2)
         dcmp = filecmp.dircmp(res_path_1, res_path_2)
