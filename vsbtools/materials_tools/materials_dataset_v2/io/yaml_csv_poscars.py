@@ -46,9 +46,6 @@ def read(dataset_description: str | Path) -> CrystalDataset:
     poscars_dir = _rebase_path(Path(dataset_info.pop('poscars')), dataset_description.parent)
     dataset = read_csv_poscars(entry_descr_csv, poscars_dir=poscars_dir, use_fname_as_id=None)
     for k in dataset_info:
-        if k == "parent_ids":
-            dataset_info["parent_ids"] = tuple(dataset_info["parent_ids"]) if dataset_info["parent_ids"] is not None \
-                else tuple()
         setattr(dataset, k, dataset_info[k])
     dataset.override_base_path(dataset_description.parent)
     return dataset
@@ -73,7 +70,7 @@ def write(dataset: CrystalDataset, enforce_base_path: str | Path | None = None, 
     print(f"Data saved to {dataset.base_path.as_posix()}")
 
 
-def read_csv_poscars(csv_file, poscars_dir=None, use_fname_as_id=True, repository=None) -> CrystalDataset:
+def read_csv_poscars(csv_file, poscars_dir=None, use_fname_as_id=True) -> CrystalDataset:
     csv_file = Path(csv_file)
     poscars_dir = poscars_dir or csv_file.with_name(csv_file.stem + 'POSCARS')
     dataset_ID = csv_file.stem if use_fname_as_id else None
@@ -95,7 +92,6 @@ def read_csv_poscars(csv_file, poscars_dir=None, use_fname_as_id=True, repositor
                           dataset_id=dataset_ID,
                           message=f'Loaded from {csv_file}',
                           base_path=csv_file.parent,
-                          repository=repository
                           )
 
 def write_csv_poscars(ds: CrystalDataset,
