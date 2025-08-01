@@ -109,6 +109,8 @@ def print_pretty_df(df, dump_path, columns=None, sort_by=None, pretty=True, ):
         sort_by.append("_int_ID")
     elif sort_by:
         sort_by = [sort_by, "_int_ID"]
+    else:
+        sort_by = ["_int_ID"]
 
     df = df.sort_values(by=sort_by)
     df.drop(columns="_int_ID", inplace=True)

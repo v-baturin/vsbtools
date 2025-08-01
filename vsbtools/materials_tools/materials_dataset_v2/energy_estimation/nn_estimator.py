@@ -17,7 +17,7 @@ class NNEstimator:
         new_entries = []
         for entry, estimation in zip(dataset, new_energies):
             new_entries.append(entry.copy_with(**{"energy": estimation}))
-        msg = f"Energies estimated with {estimator}"
+        msg = f"Energies estimated with {estimator_name}"
         return CrystalDataset.from_parents(new_entries, (dataset,), message=msg)
 
     def estimate_entry_energy(self, e: CrystalEntry, estimator: str | None = "mattersim"):

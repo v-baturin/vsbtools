@@ -1,6 +1,6 @@
 import numpy as np
 from ..crystal_dataset import CrystalDataset, CrystalEntry
-from NN_energy_estimators import mattersim_estimator
+from materials_tools.NN_energy_estimators import mattersim_estimator
 
 def estimate_batch(dataset: CrystalDataset):
     with mattersim_estimator.EnergyStream() as es:

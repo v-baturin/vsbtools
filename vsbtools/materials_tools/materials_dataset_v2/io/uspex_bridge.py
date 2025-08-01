@@ -1,8 +1,7 @@
 from pathlib import Path
 from functools import lru_cache
 
-from materials_dataset_v2.crystal_dataset import CrystalDataset
-from materials_dataset_v2.crystal_entry import CrystalEntry
+from ..crystal_dataset import CrystalDataset, CrystalEntry
 from USPEX.components import Atomistic
 from USPEX.DataModel.Engine import Engine
 from USPEX.DataModel.Flavour import Flavour

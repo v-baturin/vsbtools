@@ -16,7 +16,7 @@ class SimilarityTools_Test(unittest.TestCase):
         self.sim_tools = SimilarityTools(self.ub.fp_dist, self.ub.tol_FP)
 
 
-    def test_distance(self):
+    def test_uspex_based_distance(self):
         self.assertEqual(len(self.ds), 347)
         clusters_file = PATH_WITH_TESTS / "clusters.pkl"
         dist_matrix_file = PATH_WITH_TESTS / "dm.pkl"
@@ -27,6 +27,7 @@ class SimilarityTools_Test(unittest.TestCase):
         self.assertEqual(len(deduped_ds),299)
         clusters_file.unlink()
         dist_matrix_file.unlink()
+
 
 
 

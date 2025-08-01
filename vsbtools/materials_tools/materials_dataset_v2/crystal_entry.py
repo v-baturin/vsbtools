@@ -49,7 +49,7 @@ class CrystalEntry:
             "energy": self.energy,
             "metadata": self.metadata,
         }
-        # … overwrite whichever ones the caller supplied
+        # overwrite whichever ones the caller supplied
         data.update(kw)
         return CrystalEntry(**data)
 

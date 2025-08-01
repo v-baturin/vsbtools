@@ -8,8 +8,8 @@ from pymatgen.analysis.phase_diagram import PhaseDiagram, PDEntry
 
 class PhaseDiagramTools:
 
-    def __init__(self, ds: CrystalDataset):
-        self.dataset = ds
+    def __init__(self, dataset: CrystalDataset):
+        self.dataset = dataset
         self._phdiag = None
         assert all([e.energy is not None for e in self.dataset]), "Energies are missing in dataset entries"
 

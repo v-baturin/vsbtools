@@ -96,7 +96,7 @@ class OQMDClient:
 
         # final column set expected by ThermoEntry.from_row
         df = df.rename(columns={"entry_id": "id"})
-        df["metadata"] = {"source": "OQMD"}
+        df["metadata"] = [{"source": "OQMD"}] * len(df)
         df["id"] = "oqmd_" + df["id"].astype(str)
         return df[["id", "formula", "energy", "structure", "metadata"]]
 

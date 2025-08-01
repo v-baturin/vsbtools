@@ -1,9 +1,7 @@
 import os
-import warnings
-from dataclasses import dataclass
+from typing import Dict, Any
 from pathlib import Path
 import yaml
-import pandas as pd
 from pymatgen.core import Structure
 from ..crystal_dataset import CrystalDataset, CrystalEntry
 
@@ -30,8 +28,6 @@ def _prepare_for_yaml_write(dct: dict):
     for k, v in dct.items():
         if isinstance(v, dict):
             _prepare_for_yaml_write(v)
-        elif not bool(v):
-            dct[k] = None
         elif isinstance(v, Path):
             dct[k] = v.as_posix()
         elif isinstance(v, float):
@@ -57,7 +53,8 @@ def read(dataset_description: str | Path) -> CrystalDataset:
     dataset.override_base_path(dataset_description.parent)
     return dataset
 
-def write(dataset: CrystalDataset, enforce_base_path: str | Path | None = None, comment=None):
+
+def write(dataset: CrystalDataset, enforce_base_path: str | Path | None = None, comment=None, **kwargs):
     if enforce_base_path:
         dataset.override_base_path(Path(enforce_base_path))
     dataset.base_path.mkdir(exist_ok=True)
