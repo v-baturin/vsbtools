@@ -60,17 +60,24 @@ class SimilarityTools:
     def get_unseen_in_ref(self, ds: CrystalDataset, ref_ds: CrystalDataset, verbose=True):
         new_entries = []
         duplicates_counter = set()
+        reproduced = set()
         rho = self.dist
-        for i, e in enumerate(ds):
-            for j, e2 in enumerate(ref_ds):
-                if rho(e, e2) <= self.tol_fp:
+        for i, examined in enumerate(ds):
+            for j, reference in enumerate(ref_ds):
+                if rho(examined, reference) <= self.tol_fp:
                     duplicates_counter.add(j)
+                    reproduced.add(reference.id)
+                    if verbose:
+                        print(f"{examined.id} in {examined.metadata['source']} is a duplicate of {reference.id} in {reference.metadata['source']}")
                     break
             else:
                 new_entries.append(ds[i])
 
-        reproductibility = len(duplicates_counter) / len(ref_ds)
+        reproducibility = len(duplicates_counter) / len(ref_ds)
         if verbose:
-            print(f"{reproductibility:.2%} of ref present in ds")
-        message = f"Structures of parent1 unseen in parent2. parent1 has {reproductibility:.2%} of parent2"
-        return CrystalDataset.from_parents(new_entries, parents=(ref_ds, ds), message=message)
+            print(f"{reproducibility:.2%} of ref present in ds")
+        message = f"Structures of parent1 unseen in parent2. parent1 has {reproducibility:.2%} of parent2"
+        res = CrystalDataset.from_parents(new_entries, parents=(ref_ds, ds), message=message)
+        res.metadata["reproducibility"] = reproducibility
+        res.metadata["reproduced"] = list(reproduced)
+        return res
