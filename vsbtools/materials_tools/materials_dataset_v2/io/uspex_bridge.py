@@ -18,7 +18,7 @@ class USPEXBridge:
     def __init__(self, elements, legacy=True, tol_FP=None):
         self.tol_FP = tol_FP or TOLERANCE_DEFAULT
         self.rdu = RadialDistributionUtility(symbols=elements,
-                                             suffix='origin', legacy=legacy, tolerance=self.tol_FP)
+                                             suffix='origin', legacy=legacy, tolerance=self.tol_FP, storeDistances=False)
         self.uspex_entry_extensions = dict(atomistic=(atomistic, atomistic.propertyExtension.propertyTable),
                           radialDistributionUtility=(self.rdu, self.rdu.propertyExtension.propertyTable))
         self.id=-1
