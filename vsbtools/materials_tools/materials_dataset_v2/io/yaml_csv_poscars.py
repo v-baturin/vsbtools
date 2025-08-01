@@ -9,6 +9,8 @@ from ..crystal_dataset import CrystalDataset, CrystalEntry
 def _get_str_value_for_csv(e: CrystalEntry, attr_name):
     if attr_name == 'structure':
         val = e.poscarname
+    elif 'metadata.' in attr_name:
+        val = e.metadata.get(attr_name.split('.')[-1], 'NA')
     else:
         val = getattr(e, attr_name)
     if isinstance(val, float):
@@ -77,13 +79,25 @@ def read_csv_poscars(csv_file, poscars_dir=None, use_fname_as_id=True) -> Crysta
         labels = [h.strip() for h in csv_h.readline().split(',')]
         entries = []
         for i, line in enumerate(csv_h):
-            entry_data = {k: v for (k,v) in zip(labels, [h.strip() for h in line.split(',')])}
+            entry_data: Dict[str, Any] = {k: v for (k,v) in zip(labels, [h.strip() for h in line.split(',')])}
+            entry_data["metadata"] = dict()
             if not "id" in labels:
                 entry_data["id"] = str(i)
             if 'energy' in entry_data:
-                entry_data['energy'] = float(entry_data['energy'])
+                entry_data['energy'] = float(entry_data['energy']) if entry_data['energy'] != 'None' else None
             if 'structure' in entry_data:
                 entry_data['structure'] = Structure.from_file(poscars_dir / entry_data['structure'])
+            for l in labels:
+                if 'metadata.' in l:
+                    try:
+                        val = entry_data.pop(l)
+                    except:
+                        print('hi')
+                    if val in ['True', 'False']:
+                        val = eval(val)
+                    elif val in ['NA', 'None']:
+                        val = None
+                    entry_data["metadata"][l.split('.')[-1]] = val
             entry_keys = [k for k in entry_data if k in CrystalEntry.__annotations__.keys()]
             entry_data = {k: entry_data[k] for k in entry_keys}
             entries.append(CrystalEntry(**entry_data))
@@ -98,7 +112,8 @@ def write_csv_poscars(ds: CrystalDataset,
           poscars_path: str | Path | None = None,
           labels: list[str] | None = None):
 
-    labels = labels or ["id", "composition", "energy", "structure"]
+    labels = (labels or (["id", "composition", "energy", "structure"]
+              + [f"metadata.{k}" for k in gather_metadata_fields(ds)]))
     base_path = getattr(ds, "basepath", Path(os.getcwd()))
     base_path.mkdir(exist_ok=True)
     csv_file = csv_file or base_path / 'data.csv'
@@ -107,41 +122,12 @@ def write_csv_poscars(ds: CrystalDataset,
     with open(csv_file, 'wt') as csv_h:
         csv_h.write(','.join(labels) + '\n')
         for e in ds:
-            csv_h.write(",".join([_get_str_value_for_csv(e, label) for label in labels]) + '\n')
+            csv_h.write((",".join([_get_str_value_for_csv(e, label) for label in labels])).strip() + '\n')
             e.structure.to(fmt="poscar", filename=poscars_path / _get_str_value_for_csv(e, "structure"), comment=e.id)
 
 
-
-
-
-
-#
-# def append_info(self, df, csv):
-#     df_temp = pd.read_csv(csv, dtype={'Energy': float})
-#     current_path = csv.parent
-#     df_temp["id"] = df_temp["structure"].apply(lambda x: f"{current_path.relative_to(csv.parent)}/{x}")
-#     df_temp["structure"] = df_temp["structure"].apply(lambda x: Structure.from_file(current_path /
-#                                                                                poscars_parent_path / x))
-#     df_temp["formula"] = df_temp["structure"].apply(lambda x: x.composition.formula)
-#     df_temp["natoms"] = df_temp["structure"].apply(lambda x: len(x))
-#     df_temp["energy"] = df_temp["Energy"] * (df_temp["natoms"] if source in per_atom_energy else 1)
-#     df_temp["metadata"] = {"source": source}
-#     df = pd.concat([df, df_temp], ignore_index=True)
-#     return df
-
-
-# def query(self) -> pd.DataFrame:
-#     assert results_csv or results_dir_path
-#     df = pd.DataFrame(columns=['id', 'energy', 'structure', 'metadata'])
-#     if results_csv:
-#         df = append_info(df, results_csv)
-#     elif results_dir_path:
-#         for current_csv in results_dir_path.rglob('*.csv'):
-#             df = append_info(df, current_csv)
-#     df.drop(columns=["Energy", "structure", "natoms"], inplace=True)
-#     return df
-#
-# def write(self, ds: CrystalDataset, write_struct_info=True, columns=None):
-#     columns = columns or ["id", "composition", "energy", "structure"]
-#     if write_struct_info:
-#         assert all([e.structure for e in ds]), "Error writing POSCARs: Structures missing"
+def gather_metadata_fields(dataset):
+    fields = set()
+    for e in dataset:
+        fields |= set(e.metadata.keys())
+    return list(fields)
