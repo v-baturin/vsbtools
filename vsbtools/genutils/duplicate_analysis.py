@@ -51,11 +51,9 @@ def remove_duplicates(entries, dist_fn: Callable[[Any, Any], float],
         clusters = clusterize_dist_matrix(
             dist_matrix,
             clusters_out_file=clusters_file,
-            tolFP=intercluster_mindistance
+            tolFP=intercluster_mindistance,
+            separation_labels=(labels_list if labels_list and do_split_clusters_by_labels else None)
         )
-
-        if do_split_clusters_by_labels and labels_list:
-            clusters = separate_by_labels(clusters, labels_list)
 
     best_representatives, best_idc = select_best_representatives(clusters, entries, fitness_list, threshold)
     return best_representatives, clusters, best_idc

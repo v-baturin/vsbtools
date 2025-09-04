@@ -39,9 +39,11 @@ def get_clusters_from_adj_mat(adj_mat):
     return clusters
 
 
-def clusterize_dist_matrix(dist_matrix=None, clusters_out_file=None, tolFP=0.16, **kwargs):
+def clusterize_dist_matrix(dist_matrix=None, clusters_out_file=None, separation_labels=None, tolFP=0.16, **kwargs):
     adj_mat = dist_matrix <= tolFP
     clusters = get_clusters_from_adj_mat(adj_mat)
+    if separation_labels:
+        clusters = separate_by_labels(clusters, separation_labels)
     if clusters_out_file is None:
         clusters_out_file = f'{os.getcwd()}/clusters_{tdy}.pkl'
     with open(clusters_out_file, 'wb') as cl_file:
