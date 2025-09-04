@@ -1,0 +1,29 @@
+data_image0
+_chemical_formula_structural       CePrAlAg
+_chemical_formula_sum              "Ce1 Pr1 Al1 Ag1"
+_cell_length_a       3.5209511114278857
+_cell_length_b       3.520764181460705
+_cell_length_c       8.344344139099121
+_cell_angle_alpha    89.98865756034294
+_cell_angle_beta     89.98787891899083
+_cell_angle_gamma    89.9792592205795
+
+_space_group_name_H-M_alt    "P 1"
+_space_group_IT_number       1
+
+loop_
+  _space_group_symop_operation_xyz
+  'x, y, z'
+
+loop_
+  _atom_site_type_symbol
+  _atom_site_label
+  _atom_site_symmetry_multiplicity
+  _atom_site_fract_x
+  _atom_site_fract_y
+  _atom_site_fract_z
+  _atom_site_occupancy
+  Ce  Ce1       1.0  0.5489912033081055  0.5320447087287903  0.8371423482894897  1.0000
+  Pr  Pr1       1.0  0.5480833053588867  0.531248152256012  0.32533085346221924  1.0000
+  Al  Al1       1.0  0.04843437299132348  0.031590528786182404  0.0754554271697998  1.0000
+  Ag  Ag1       1.0  0.048418149352073676  0.03164835274219513  0.5839464664459229  1.0000

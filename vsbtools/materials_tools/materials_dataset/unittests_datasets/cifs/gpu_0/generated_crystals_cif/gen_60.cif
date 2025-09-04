@@ -1,0 +1,33 @@
+data_image0
+_chemical_formula_structural       Rb3ITl2RbCs
+_chemical_formula_sum              "Rb4 I1 Tl2 Cs1"
+_cell_length_a       458.33203723732186
+_cell_length_b       455.45052808370195
+_cell_length_c       456.0015563964844
+_cell_angle_alpha    0.4537030365297168
+_cell_angle_beta     1.7749779516298154
+_cell_angle_gamma    1.603733728000215
+
+_space_group_name_H-M_alt    "P 1"
+_space_group_IT_number       1
+
+loop_
+  _space_group_symop_operation_xyz
+  'x, y, z'
+
+loop_
+  _atom_site_type_symbol
+  _atom_site_label
+  _atom_site_symmetry_multiplicity
+  _atom_site_fract_x
+  _atom_site_fract_y
+  _atom_site_fract_z
+  _atom_site_occupancy
+  Rb  Rb1       1.0  0.7795131802558898  0.7690302133560184  0.781383693218231  1.0000
+  Rb  Rb2       1.0  0.15957808494567857  0.8571083545684816  0.24291564524173737  1.0000
+  Rb  Rb3       1.0  0.9929468631744385  0.21783840656280523  0.5277388095855713  1.0000
+  I   I1        1.0  0.393812358379364  0.3565852940082551  0.8013502955436705  1.0000
+  Tl  Tl1       1.0  0.08108091354370106  0.8964443802833558  0.43816491961479187  1.0000
+  Tl  Tl2       1.0  0.09203676879405986  0.2569945454597472  0.7139385342597961  1.0000
+  Rb  Rb4       1.0  0.6601455807685852  0.07027088850736632  0.8563994169235228  1.0000
+  Cs  Cs1       1.0  0.15652726590633387  0.09413627535104752  0.2856992185115815  1.0000

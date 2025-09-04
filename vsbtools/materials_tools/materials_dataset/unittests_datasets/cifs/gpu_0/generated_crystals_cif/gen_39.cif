@@ -1,0 +1,35 @@
+data_image0
+_chemical_formula_structural       NiILaIRbAlPtRb3
+_chemical_formula_sum              "Ni1 I2 La1 Rb4 Al1 Pt1"
+_cell_length_a       54.23453556601868
+_cell_length_b       57.66628327070624
+_cell_length_c       93.63585662841797
+_cell_angle_alpha    29.815887478612286
+_cell_angle_beta     20.46740043346438
+_cell_angle_gamma    25.02133070021827
+
+_space_group_name_H-M_alt    "P 1"
+_space_group_IT_number       1
+
+loop_
+  _space_group_symop_operation_xyz
+  'x, y, z'
+
+loop_
+  _atom_site_type_symbol
+  _atom_site_label
+  _atom_site_symmetry_multiplicity
+  _atom_site_fract_x
+  _atom_site_fract_y
+  _atom_site_fract_z
+  _atom_site_occupancy
+  Ni  Ni1       1.0  0.06333366781473188  0.5170528292655945  0.8022448420524596  1.0000
+  I   I1        1.0  0.5271947383880614  0.8544134497642518  0.41350445151329035  1.0000
+  La  La1       1.0  0.8703976869583131  0.0029557968955487013  0.5968632698059081  1.0000
+  I   I2        1.0  0.4835796356201173  0.4838026762008667  0.6419979333877562  1.0000
+  Rb  Rb1       1.0  0.3607643246650696  0.9250615835189819  0.37657436728477467  1.0000
+  Al  Al1       1.0  0.904052793979645  0.608097493648529  0.3593847453594206  1.0000
+  Pt  Pt1       1.0  0.978782594203949  0.20569248497486115  0.4202042520046234  1.0000
+  Rb  Rb2       1.0  0.34309050440788297  0.8534485697746277  0.1894411891698836  1.0000
+  Rb  Rb3       1.0  0.3403327465057376  0.27633917331695557  0.8958356976509092  1.0000
+  Rb  Rb4       1.0  0.0037616018671545026  0.17767202854156494  0.9727181196212767  1.0000

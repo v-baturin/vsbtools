@@ -1,0 +1,29 @@
+data_image0
+_chemical_formula_structural       NbLiTeEr
+_chemical_formula_sum              "Nb1 Li1 Te1 Er1"
+_cell_length_a       1517.6408969091312
+_cell_length_b       1523.7691467756124
+_cell_length_c       1482.2574462890625
+_cell_angle_alpha    70.68138495769614
+_cell_angle_beta     92.50730360215887
+_cell_angle_gamma    56.18959280999178
+
+_space_group_name_H-M_alt    "P 1"
+_space_group_IT_number       1
+
+loop_
+  _space_group_symop_operation_xyz
+  'x, y, z'
+
+loop_
+  _atom_site_type_symbol
+  _atom_site_label
+  _atom_site_symmetry_multiplicity
+  _atom_site_fract_x
+  _atom_site_fract_y
+  _atom_site_fract_z
+  _atom_site_occupancy
+  Nb  Nb1       1.0  0.15162424743175504  0.8896459341049194  0.6973551511764526  1.0000
+  Li  Li1       1.0  0.09237264841794968  0.8200892806053162  0.062433123588562005  1.0000
+  Te  Te1       1.0  0.5664258003234863  0.6238975524902344  0.8635836839675902  1.0000
+  Er  Er1       1.0  0.6555469632148743  0.0949942097067833  0.6658138036727905  1.0000

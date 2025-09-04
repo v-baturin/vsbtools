@@ -1,0 +1,29 @@
+data_image0
+_chemical_formula_structural       SmHgMgGa
+_chemical_formula_sum              "Sm1 Hg1 Mg1 Ga1"
+_cell_length_a       4.013918648915312
+_cell_length_b       4.6737079752297035
+_cell_length_c       4.976565361022949
+_cell_angle_alpha    90.02623726156433
+_cell_angle_beta     90.02018571579383
+_cell_angle_gamma    90.02087556256419
+
+_space_group_name_H-M_alt    "P 1"
+_space_group_IT_number       1
+
+loop_
+  _space_group_symop_operation_xyz
+  'x, y, z'
+
+loop_
+  _atom_site_type_symbol
+  _atom_site_label
+  _atom_site_symmetry_multiplicity
+  _atom_site_fract_x
+  _atom_site_fract_y
+  _atom_site_fract_z
+  _atom_site_occupancy
+  Sm  Sm1       1.0  0.8260647654533386  0.037347886711359024  0.9069802761077881  1.0000
+  Hg  Hg1       1.0  0.32613933086395264  0.037302032113075256  0.40700796246528625  1.0000
+  Mg  Mg1       1.0  0.8261314034461975  0.5371772646903992  0.40694352984428406  1.0000
+  Ga  Ga1       1.0  0.3260516822338104  0.5371910333633423  0.9070742726325989  1.0000

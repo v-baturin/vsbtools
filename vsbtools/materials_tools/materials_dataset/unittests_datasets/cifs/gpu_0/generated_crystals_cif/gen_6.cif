@@ -1,0 +1,30 @@
+data_image0
+_chemical_formula_structural       TmLa2HgO
+_chemical_formula_sum              "Tm1 La2 Hg1 O1"
+_cell_length_a       4.654937412891582
+_cell_length_b       5.108376655497463
+_cell_length_c       5.108057022094727
+_cell_angle_alpha    90.11159412256073
+_cell_angle_beta     90.07473843149509
+_cell_angle_gamma    90.07883654095335
+
+_space_group_name_H-M_alt    "P 1"
+_space_group_IT_number       1
+
+loop_
+  _space_group_symop_operation_xyz
+  'x, y, z'
+
+loop_
+  _atom_site_type_symbol
+  _atom_site_label
+  _atom_site_symmetry_multiplicity
+  _atom_site_fract_x
+  _atom_site_fract_y
+  _atom_site_fract_z
+  _atom_site_occupancy
+  Tm  Tm1       1.0  0.9932807087898254  0.5231256484985352  0.438689649105072  1.0000
+  La  La1       1.0  0.4933149218559265  0.5229750871658325  0.9381519556045532  1.0000
+  La  La2       1.0  0.49328500032424927  0.023152820765972137  0.43804097175598145  1.0000
+  Hg  Hg1       1.0  0.9933098554611206  0.02314811386168003  0.9382525682449341  1.0000
+  O   O1        1.0  0.49340373277664185  0.5230372548103333  0.43831366300582886  1.0000

@@ -1,0 +1,33 @@
+data_image0
+_chemical_formula_structural       SmBiSmCaBiTmBi2
+_chemical_formula_sum              "Sm2 Bi4 Ca1 Tm1"
+_cell_length_a       4.490531465296457
+_cell_length_b       7.857801825985212
+_cell_length_c       7.90719747543335
+_cell_angle_alpha    109.22931413905894
+_cell_angle_beta     90.00550763725865
+_cell_angle_gamma    90.01208510939661
+
+_space_group_name_H-M_alt    "P 1"
+_space_group_IT_number       1
+
+loop_
+  _space_group_symop_operation_xyz
+  'x, y, z'
+
+loop_
+  _atom_site_type_symbol
+  _atom_site_label
+  _atom_site_symmetry_multiplicity
+  _atom_site_fract_x
+  _atom_site_fract_y
+  _atom_site_fract_z
+  _atom_site_occupancy
+  Sm  Sm1       1.0  0.4051896035671234  0.9150114059448241  0.3998814225196838  1.0000
+  Bi  Bi1       1.0  0.4052390158176422  0.165727436542511  0.14434021711349487  1.0000
+  Sm  Sm2       1.0  0.9053446650505066  0.9150032401084899  0.8998759984970092  1.0000
+  Ca  Ca1       1.0  0.9053272604942322  0.4149960577487945  0.3999491930007934  1.0000
+  Bi  Bi2       1.0  0.4051864743232727  0.6642862558364867  0.6555420160293579  1.0000
+  Tm  Tm1       1.0  0.4050397574901581  0.4152854979038238  0.8999522328376769  1.0000
+  Bi  Bi3       1.0  0.9051958918571472  0.1699898391962051  0.656247615814209  1.0000
+  Bi  Bi4       1.0  0.9051728844642639  0.6599973440170288  0.14379784464836118  1.0000

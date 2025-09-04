@@ -1,0 +1,29 @@
+data_image0
+_chemical_formula_structural       Tm2GeS
+_chemical_formula_sum              "Tm2 Ge1 S1"
+_cell_length_a       3.9838058938463834
+_cell_length_b       3.98345726902635
+_cell_length_c       6.939194679260254
+_cell_angle_alpha    73.29274417217215
+_cell_angle_beta     73.29486131757406
+_cell_angle_gamma    59.978485415961664
+
+_space_group_name_H-M_alt    "P 1"
+_space_group_IT_number       1
+
+loop_
+  _space_group_symop_operation_xyz
+  'x, y, z'
+
+loop_
+  _atom_site_type_symbol
+  _atom_site_label
+  _atom_site_symmetry_multiplicity
+  _atom_site_fract_x
+  _atom_site_fract_y
+  _atom_site_fract_z
+  _atom_site_occupancy
+  Tm  Tm1       1.0  0.048421114683151266  0.2101737558841705  0.31736090779304504  1.0000
+  Tm  Tm2       1.0  0.5492689609527588  0.7107744812965393  0.8144679665565491  1.0000
+  Ge  Ge1       1.0  0.29915568232536316  0.4604387283325195  0.5659102201461792  1.0000
+  S   S1        1.0  0.7992116212844849  0.9604649543762206  0.06589244306087501  1.0000

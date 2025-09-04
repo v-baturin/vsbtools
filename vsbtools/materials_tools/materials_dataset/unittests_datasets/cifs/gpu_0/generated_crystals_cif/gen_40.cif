@@ -1,0 +1,29 @@
+data_image0
+_chemical_formula_structural       CuMgRhMg
+_chemical_formula_sum              "Cu1 Mg2 Rh1"
+_cell_length_a       3.20910698048104
+_cell_length_b       4.377298086981548
+_cell_length_c       4.37858247756958
+_cell_angle_alpha    89.92231593676725
+_cell_angle_beta     89.88056298415918
+_cell_angle_gamma    89.89261826821351
+
+_space_group_name_H-M_alt    "P 1"
+_space_group_IT_number       1
+
+loop_
+  _space_group_symop_operation_xyz
+  'x, y, z'
+
+loop_
+  _atom_site_type_symbol
+  _atom_site_label
+  _atom_site_symmetry_multiplicity
+  _atom_site_fract_x
+  _atom_site_fract_y
+  _atom_site_fract_z
+  _atom_site_occupancy
+  Cu  Cu1       1.0  0.13572870194911957  0.18416747450828552  0.22066469490528104  1.0000
+  Mg  Mg1       1.0  0.6360830068588257  0.6840929388999939  0.22078002989292145  1.0000
+  Rh  Rh1       1.0  0.1356843262910843  0.6841932535171509  0.7206419110298157  1.0000
+  Mg  Mg2       1.0  0.6353998184204102  0.1840900480747223  0.720784068107605  1.0000

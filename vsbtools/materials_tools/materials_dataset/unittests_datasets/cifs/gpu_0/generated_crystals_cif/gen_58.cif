@@ -1,0 +1,29 @@
+data_image0
+_chemical_formula_structural       DyPtHoZn
+_chemical_formula_sum              "Dy1 Pt1 Ho1 Zn1"
+_cell_length_a       3.5422697100493163
+_cell_length_b       3.541410227384207
+_cell_length_c       6.95464563369751
+_cell_angle_alpha    90.00603356149276
+_cell_angle_beta     90.00248186300126
+_cell_angle_gamma    90.0177473367053
+
+_space_group_name_H-M_alt    "P 1"
+_space_group_IT_number       1
+
+loop_
+  _space_group_symop_operation_xyz
+  'x, y, z'
+
+loop_
+  _atom_site_type_symbol
+  _atom_site_label
+  _atom_site_symmetry_multiplicity
+  _atom_site_fract_x
+  _atom_site_fract_y
+  _atom_site_fract_z
+  _atom_site_occupancy
+  Dy  Dy1       1.0  0.7157962322235107  0.5928475260734558  0.6781677603721618  1.0000
+  Pt  Pt1       1.0  0.21600103378295898  0.09308525919914246  0.9223281741142272  1.0000
+  Ho  Ho1       1.0  0.7159332036972046  0.5929780006408693  0.1615832298994064  1.0000
+  Zn  Zn1       1.0  0.21590682864189148  0.0929010659456253  0.4182338118553161  1.0000

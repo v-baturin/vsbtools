@@ -1,0 +1,35 @@
+data_image0
+_chemical_formula_structural       NaInHgInHgInHgIn2Bi
+_chemical_formula_sum              "Na1 In5 Hg3 Bi1"
+_cell_length_a       4.697118941634153
+_cell_length_b       6.50515012257081
+_cell_length_c       9.830912590026855
+_cell_angle_alpha    94.59298362732214
+_cell_angle_beta     89.969642313162
+_cell_angle_gamma    89.94568884039015
+
+_space_group_name_H-M_alt    "P 1"
+_space_group_IT_number       1
+
+loop_
+  _space_group_symop_operation_xyz
+  'x, y, z'
+
+loop_
+  _atom_site_type_symbol
+  _atom_site_label
+  _atom_site_symmetry_multiplicity
+  _atom_site_fract_x
+  _atom_site_fract_y
+  _atom_site_fract_z
+  _atom_site_occupancy
+  Na  Na1       1.0  0.15610994398593903  0.1489773988723755  0.7013083696365356  1.0000
+  In  In1       1.0  0.15586252510547638  0.35097479820251465  0.021364195272326473  1.0000
+  Hg  Hg1       1.0  0.6561209559440613  0.38738605380058283  0.22348737716674805  1.0000
+  In  In2       1.0  0.15611544251441956  0.2583339810371399  0.38620635867118835  1.0000
+  Hg  Hg2       1.0  0.6560611128807068  0.058330133557319634  0.9028128385543823  1.0000
+  In  In3       1.0  0.15612244606018066  0.6373254656791687  0.6083837151527405  1.0000
+  Hg  Hg3       1.0  0.6558388471603394  0.5168638229370117  0.7900847792625427  1.0000
+  In  In4       1.0  0.15631569921970367  0.8014456629753112  0.9610632658004761  1.0000
+  In  In5       1.0  0.6561634540557861  0.9291603565216063  0.48909762501716614  1.0000
+  Bi  Bi1       1.0  0.15650996565818787  0.764458656311035  0.29097282886505127  1.0000
