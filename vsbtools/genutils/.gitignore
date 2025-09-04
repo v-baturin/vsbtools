@@ -1,9 +1,0 @@
-*.txt
-*.pkl
-log
-RECALC*
-__pycache__
-*.pyc
-.idea
-../ab_initio_postprocessing/abInitio_io_parse/__pycache__
-
