@@ -1,0 +1,2 @@
+recursive-include vsbtools *.txt *.csv *.json *.cjson
+include README.md
