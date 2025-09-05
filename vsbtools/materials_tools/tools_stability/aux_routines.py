@@ -2,7 +2,7 @@ import numpy as np
 import sys
 
 sys.path.append("../..")
-from genutils.format_tools import stoich2formula
+from ...genutils.format_tools import stoich2formula
 
 
 def bin_paths(stoich):

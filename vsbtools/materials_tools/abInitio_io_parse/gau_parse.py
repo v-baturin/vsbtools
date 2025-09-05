@@ -2,11 +2,11 @@ import os
 import sys
 import numpy as np
 import re
-from genutils import my_io
+from ...genutils import my_io
 from cclib.method import MPA
 from cclib.io import ccread
 from cclib.parser.utils import PeriodicTable as pt
-from genutils.filesystem_tools import add_index
+from ...genutils.filesystem_tools import add_index
 from functools import wraps
 
 ptable = pt()

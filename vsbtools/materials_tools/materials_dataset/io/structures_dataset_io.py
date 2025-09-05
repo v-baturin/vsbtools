@@ -25,7 +25,7 @@ from pymatgen.io.vasp import Poscar
 
 from ..crystal_dataset import CrystalDataset, CrystalEntry
 from .zip_handling import exploded_zip_tree         # archive helper
-from materials_tools.abInitio_io_parse.ext_software_io import read_poscars               # existing helper
+from ...abInitio_io_parse.ext_software_io import read_poscars               # existing helper
 
 LOG = logging.getLogger(__name__)
 

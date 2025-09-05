@@ -2,7 +2,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 from typing import Iterable, Iterator, List, Sequence, Callable, NewType, Tuple, Set
-from genutils.misc import describe_predicate
+from ...genutils.misc import describe_predicate
 from .crystal_entry import CrystalEntry
 from datetime import datetime
 

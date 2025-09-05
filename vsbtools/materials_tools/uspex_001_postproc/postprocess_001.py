@@ -2,8 +2,8 @@ import os
 import numpy as np
 from .gather_best import parse_001_results
 from ..tools_stability.aux_routines import list_fmt2table
-from genutils.misc import get_sorted_compositions
-from genutils.filesystem_tools import add_index
+from ...genutils.misc import get_sorted_compositions
+from ...genutils.filesystem_tools import add_index
 from ase.io import write
 
 def write_best_n_isom(all_gathered_data, format='xyz', n_best=1, out_dir='gathered_isoms'):
