@@ -5,7 +5,6 @@ import numpy as np
 from ase import Atoms
 from ase.io import read as ase_read
 from ase.io import write as ase_write
-from cclib.io import ccread
 from ...genutils.filesystem_tools import add_index
 from pymatgen.core import Structure
 from pymatgen.io.cif import CifParser
@@ -161,6 +160,7 @@ def atoms_2_str(atms):
     return '\n'.join(output)
 
 def parse_gout(logfile):
+    from cclib.io import ccread
     ccdata = ccread(logfile)
     try:
         last_positions = ccdata.atomcoords[-1]
