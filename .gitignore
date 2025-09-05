@@ -1,3 +1,5 @@
+.idea
+.tmp
 */.idea/
 *.txt
 *.pkl
@@ -7,4 +9,6 @@ RECALC*
 *.pyc
 src/__pycache__
 */test_dir/
-
+/dist
+/vsbtools.egg-info
+/uv.lock
