@@ -5,7 +5,23 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "vsbtools"
 dynamic = ["version"]
+requires-python = ">=3.9"
+dependencies = ["numpy", "pandas"]
 # (rest same as above)
+
+[project.optional-dependencies]
+gaussian_calc_manager = [
+  "cclib>=1.8"
+]
+genutils = [
+  # "rich>=13",
+]
+materials_tools = [
+  # "pymatgen>=2024.6", "monty>=2024.5",
+]
+uspex_gather_stat = [
+  # "matplotlib>=3.8",
+]
 
 [tool.setuptools_scm]
 version_scheme = "guess-next-dev"
