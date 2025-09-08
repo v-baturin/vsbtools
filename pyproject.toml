@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "vsbtools"
 dynamic = ["version"]
 requires-python = ">=3.9"
-dependencies = ["numpy", "pandas"]
+dependencies = [ "numpy", "ase"]
 # (rest same as above)
 
 [project.optional-dependencies]
@@ -17,7 +17,7 @@ genutils = [
   # "rich>=13",
 ]
 materials_tools = [
-  # "pymatgen>=2024.6", "monty>=2024.5",
+  "pandas", "torch", "pymatgen", "prettytable", "mp_api", "mysqlclient", "ijson"
 ]
 uspex_gather_stat = [
   # "matplotlib>=3.8",
