@@ -80,7 +80,7 @@ class PPPipeline:
                 print(augmentation.metadata["message"])
                 labeled_entries = []
                 for e in self.processed_stages[PostprocessStage.poll_db]:
-                    if e.id in augmentation.metadata["reproduced"]:
+                    if str(e.id) in augmentation.metadata["reproduced"]:
                         new_metadata = {**e.metadata, **{"reproduced": True}}
                         labeled_entries.append(e.copy_with(**{"metadata": new_metadata}))
                     else:
