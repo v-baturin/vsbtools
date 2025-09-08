@@ -26,7 +26,7 @@ def poll_databases(elements,
     are added.
     """
     
-    if cache_base_path.exists():
+    if cache_base_path is not None and cache_base_path.exists():
         polled_db = read(cache_base_path / "manifest.yaml")
         assert set(polled_db.elements) == set(elements), "Requested elements set mismatch with cached data"
         print(f"Data for elements {' '.join(elements)} read from cache")
