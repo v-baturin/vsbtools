@@ -43,7 +43,7 @@ class AlexandriaClient:
 
         for file in self._files():
             print(f"Parsing {file} ...")
-            with file.open() as fh:
+            with open(file, 'rb') as fh:
                 for ent in ijson.items(fh, "entries.item"):
                     data = ent.get("data", {})
                     # try quick pre-filter on the raw string

@@ -5,7 +5,7 @@ import matplotlib
 from ..crystal_dataset import CrystalDataset, CrystalEntry
 from ..converters import cell_pos_atomtypes_from_pmg_structure, pmg_structure_to_torch_cell_frac_atomnumbers
 # from my_packages.materials_tools.materials_dataset.db_clients
-from materials_tools.geom_utils.coordination_tools import compute_species_pair_atoms, compute_species_pair
+from ...geom_utils.coordination_tools import compute_species_pair_atoms, compute_species_pair
 import pickle as pkl
 
 matplotlib.use('TkAgg')
