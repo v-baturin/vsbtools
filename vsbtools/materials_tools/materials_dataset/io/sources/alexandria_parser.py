@@ -1,9 +1,10 @@
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Set, Iterable
-
 import pandas as pd
 from pymatgen.core import Structure
+
+DEFAULT_ALEXANDRIA_PATH = Path("/data1/common/alexandria/pbe_data")
 
 try:
     import ijson
@@ -15,8 +16,11 @@ except ImportError as err:
 class AlexandriaClient:
     """Read *.json* snapshots of the Alexandria database."""
 
-    root: Path | str = Path("~/work/Alexandria").expanduser()
+    root: Path | str = DEFAULT_ALEXANDRIA_PATH
     pattern: str = "alexandria*.json"
+
+    def __post_init__(self):
+        assert Path(self.root).exists(), f"Alexandria DB files not found in {self.root}"
 
     # ------------------------------------------------------------------ #
     # Internals                                                          #

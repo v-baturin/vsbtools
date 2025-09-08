@@ -55,7 +55,7 @@ def read(manifest_yaml: str | Path) -> CrystalDataset:
 def write(dataset: CrystalDataset, enforce_base_path: str | Path | None = None, comment=None, **kwargs):
     if enforce_base_path:
         dataset.override_base_path(Path(enforce_base_path))
-    dataset.base_path.mkdir(exist_ok=True)
+    dataset.base_path.mkdir(parents=True, exist_ok=True)
     manifest_yaml = dataset.base_path / "manifest.yaml"
     csv_file = manifest_yaml.with_name('data.csv')
     poscars_path = manifest_yaml.with_name('POSCARS')
