@@ -5,6 +5,8 @@ from ..crystal_entry import  CrystalEntry
 from ..crystal_dataset import CrystalDataset
 from ....genutils.duplicate_analysis import remove_duplicates
 
+DEBUG = False
+
 class SimilarityTools:
     def __init__(self, dist_fn: Callable[[CrystalEntry, CrystalEntry], float], tol_fp: float = 0.08) -> None:
         self.tol_fp = tol_fp
@@ -57,7 +59,7 @@ class SimilarityTools:
         return CrystalDataset.from_parents(filtered_list, parents=(ds,), message=message, **kwargs), clusters, best_idx
 
 
-    def get_unseen_in_ref(self, ds: CrystalDataset, ref_ds: CrystalDataset, verbose=True):
+    def get_unseen_in_ref(self, ds: CrystalDataset, ref_ds: CrystalDataset):
         new_entries = []
         duplicates_counter = set()
         reproduced = set()
@@ -67,16 +69,15 @@ class SimilarityTools:
                 if rho(examined, reference) <= self.tol_fp:
                     duplicates_counter.add(j)
                     reproduced.add(reference.id)
-                    if verbose:
+                    if DEBUG:
                         print(f"{examined.id} in {examined.metadata['source']} is a duplicate of {reference.id} in {reference.metadata['source']}")
                     break
             else:
                 new_entries.append(ds[i])
 
         reproducibility = len(duplicates_counter) / len(ref_ds)
-        if verbose:
-            print(f"{reproducibility:.2%} of ref present in ds")
-        message = f"Structures of parent1 unseen in parent2. parent1 has {reproducibility:.2%} of parent2"
+        message = (f"{duplicates_counter} out of {len(ds)} in dataset {ds.dataset_id} are duplicates of {ref_ds.dataset_id}\n"
+                   f"{ds.dataset_id} reproduces {reproducibility:.2%} of {ref_ds.dataset_id}")
         res = CrystalDataset.from_parents(new_entries, parents=(ref_ds, ds), message=message)
         res.metadata["reproducibility"] = reproducibility
         res.metadata["reproduced"] = list(reproduced)
