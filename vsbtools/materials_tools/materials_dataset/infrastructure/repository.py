@@ -88,7 +88,8 @@ class DatasetRepo:
         self,
         dataset: CrystalDataset,
         *,
-        suffix: str = "",
+        suffix: str = None,
+        prefix: str = None,
         overwrite: bool = False,
         **kwargs
     ) -> str:
@@ -103,7 +104,8 @@ class DatasetRepo:
             raise ValueError("CrystalDataset must have a non‑empty dataset_id")
 
         node_id = dataset.dataset_id
-        folder = self.root / f"{node_id}{('_' + suffix) if suffix else ''}"
+        folder = self.root / (f"{(str(prefix) + '_') if prefix is not None else ''}"
+                              f"{node_id}{('_' + suffix) if suffix is not None else ''}")
         if folder.exists() and not overwrite:
             raise FileExistsError(f"Node folder {folder} already exists")
         folder.mkdir(parents=True, exist_ok=True)
