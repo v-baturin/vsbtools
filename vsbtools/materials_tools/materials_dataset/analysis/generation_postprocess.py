@@ -1,5 +1,5 @@
 import warnings
-from typing import Dict, Any, Set, Generator, Tuple
+from typing import Dict, Any, Set, Generator, Tuple, MutableMapping
 from enum import Enum
 from pathlib import Path
 from dataclasses import dataclass, field
@@ -35,13 +35,16 @@ class PPPipeline:
     processed_stages: Dict[PostprocessStage, CrystalDataset] = field(default_factory=dict)
     stages_options: Dict[PostprocessStage, Dict[str, Any]] = field(default_factory=dict)
     toolkits: dict = field(default_factory=dict)
-    toolkit_options: Dict[str, Dict[str, Any]] = field(default_factory=lambda : defaultdict(dict))
+    toolkit_options: MutableMapping[str, Dict[str, Any]] = field(default_factory=lambda : defaultdict(dict))
 
     def __post_init__(self):
-        self.toolkit_options["structure_parser"]["root"] = self.source_path
-        self.toolkit_options["structure_parser"]["source_name"] = self.root_source_name
+        if not isinstance(self.toolkit_options, defaultdict):
+            self.toolkit_options = defaultdict(dict, self.toolkit_options)
+        self.toolkit_options["structure_parser"].update({"root": self.source_path,
+                                                         "source_name": self.root_source_name})
+        self.toolkit_options["uspex"].update({"elements": self.elements})
         self.stages_options = defaultdict(dict, {PostprocessStage(k): v for k, v in self.stages_options.items()})
-        self.toolkit_options["uspex"]["elements"] = self.elements
+
 
     def get_tool(self, toolkit_name):
         if toolkit_name not in self.toolkits:
