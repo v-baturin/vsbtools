@@ -75,7 +75,7 @@ class SimilarityTools:
             else:
                 new_entries.append(ds[i])
 
-        reproducibility = len(duplicates_counter) / len(ref_ds)
+        reproducibility = len(duplicates_counter) / len(ref_ds) if len(ref_ds) > 0 else 1.
         message = (f"{duplicates_counter} out of {len(ds)} in dataset {ds.dataset_id} are duplicates of {ref_ds.dataset_id}\n"
                    f"{ds.dataset_id} reproduces {reproducibility:.2%} of {ref_ds.dataset_id}")
         res = CrystalDataset.from_parents(new_entries, parents=(ref_ds, ds), message=message)

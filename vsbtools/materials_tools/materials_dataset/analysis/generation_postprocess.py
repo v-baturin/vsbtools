@@ -82,7 +82,7 @@ class PPPipeline:
             if stage is PostprocessStage.augment_raw_by_db:
                 similarity_tk: SimilarityTools = self.get_tool("similarity")
                 augmentation = similarity_tk.get_unseen_in_ref(self.processed_stages[PostprocessStage.symmetrize_raw],
-                                                               self.processed_stages[PostprocessStage.poll_db])
+                                                               ref_ds=self.processed_stages[PostprocessStage.poll_db])
                 print(augmentation.metadata["message"])
                 labeled_entries = []
                 for e in self.processed_stages[PostprocessStage.poll_db]:
