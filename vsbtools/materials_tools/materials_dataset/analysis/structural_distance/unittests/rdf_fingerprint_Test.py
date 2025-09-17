@@ -58,10 +58,10 @@ TWO_MgAlO = PATH_WITH_DATASETS /  "two_systems_MgAlO"
 #PLOTTING
 if __name__ == '__main__':
 
-    from materials_dataset.analysis.structural_distance.rdf_fingerprint import RadialFingerprint, compute_fingerprint
-    from materials_dataset.io.structures_dataset_io import  StructureDatasetIO
-    from materials_dataset.io.uspex_bridge import USPEXBridge
-    from materials_dataset.converters import cell_pos_atomtypes_from_pmg_structure
+    from vsbtools.materials_tools.materials_dataset.analysis.structural_distance.rdf_fingerprint import RadialFingerprint, compute_fingerprint
+    from vsbtools.materials_tools.materials_dataset.io.structures_dataset_io import  StructureDatasetIO
+    from vsbtools.materials_tools.materials_dataset.io.uspex_bridge import USPEXBridge
+    from vsbtools.materials_tools.materials_dataset.converters import cell_pos_atomtypes_from_pmg_structure
     matplotlib.use('TkAgg')
     borons = TWO_BORONS
     boron1, boron2 = StructureDatasetIO(borons).load_from_directory()

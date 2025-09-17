@@ -14,10 +14,13 @@ class CrystalDataset(Sequence[CrystalEntry]):
             dataset_id: str | None = None,
             parent_ids: List[str, ...] | None = None,
             message='',
+            supplementary_metadata: dict | None = None,
             base_path=None,
     ) -> None:
+        supplementary_metadata = dict() if not supplementary_metadata else supplementary_metadata
         self._entries = list(entries)
-        self.metadata = {"message": message, "created_on": datetime.today().strftime('%Y-%m-%d %H:%M')}
+        self.metadata = {"message": message, "created_on": datetime.today().strftime('%Y-%m-%d %H:%M'),
+                         **supplementary_metadata}
         self.dataset_id = dataset_id or self._generate_id()
         self.parent_ids = parent_ids if parent_ids else []
         self._base_path = base_path or Path(os.getcwd())

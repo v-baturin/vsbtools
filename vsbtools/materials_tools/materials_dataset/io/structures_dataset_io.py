@@ -55,6 +55,13 @@ def _iter_structure_files(root: Path, patterns: Sequence[str]) -> Iterator[Path]
     for pattern in patterns:
         yield from root.rglob(pattern)
 
+def _get_batch_metadata(root: Path, prov_file):
+    prov_metadata = None
+    for found_provdata in root.rglob(prov_file):
+        with open(found_provdata, 'rt') as pmdf:
+            prov_metadata = pmdf.read()
+    return prov_metadata
+
 ###############################################################################
 # Public façade                                                              #
 ###############################################################################
@@ -84,6 +91,7 @@ class StructureDatasetIO:
     id_prefix: str = ""
     expand_archives: bool = True
     source_name: str = "NA"
+    batch_metadata_file: str | Path | None = None
     _id_iter: Iterator[str] = field(init=False, repr=False)
 
     # --------------------------------------------------------------------- #
@@ -119,6 +127,8 @@ class StructureDatasetIO:
 
         # 1) structures already on disk (outside archives)
         for file in _iter_structure_files(self.root, self.patterns):
+            batch_metadata = _get_batch_metadata(self.root, self.batch_metadata_file) if \
+                self.batch_metadata_file else None
             struct = _safe_structure_from_file(file)
             if struct:
                 entries.append(CrystalEntry(id=next(self._id_iter), structure=struct,
@@ -127,6 +137,8 @@ class StructureDatasetIO:
         # 2) structures inside archives (if requested)
         if use_archives:
             with exploded_zip_tree(self.root) as tmp_root:
+                batch_metadata = _get_batch_metadata(tmp_root, self.batch_metadata_file) if \
+                    self.batch_metadata_file else None
                 for file in _iter_structure_files(tmp_root, self.patterns):
                     struct = _safe_structure_from_file(file)
                     if struct:
@@ -135,7 +147,7 @@ class StructureDatasetIO:
         if elements:
             entries = [e for e in entries if not (set(e.composition.as_data_dict()["elements"]) - set(elements))]
         msg = message or f"Structures collected from {self.root}"
-        return CrystalDataset(entries, message=msg)
+        return CrystalDataset(entries, message=msg, supplementary_metadata={'batch_metadata': batch_metadata})
 
     def load_from_multiimage_poscar(
         self,

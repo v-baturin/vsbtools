@@ -1,5 +1,5 @@
 import warnings
-from typing import Dict, Any, Set, Generator, Tuple
+from typing import Dict, Any, Set, Generator, Tuple, MutableMapping
 from enum import Enum
 from pathlib import Path
 from dataclasses import dataclass, field
@@ -35,13 +35,16 @@ class PPPipeline:
     processed_stages: Dict[PostprocessStage, CrystalDataset] = field(default_factory=dict)
     stages_options: Dict[PostprocessStage, Dict[str, Any]] = field(default_factory=dict)
     toolkits: dict = field(default_factory=dict)
-    toolkit_options: Dict[str, Dict[str, Any]] = field(default_factory=lambda : defaultdict(dict))
+    toolkit_options: MutableMapping[str, Dict[str, Any]] = field(default_factory=lambda : defaultdict(dict))
 
     def __post_init__(self):
-        self.toolkit_options["structure_parser"]["root"] = self.source_path
-        self.toolkit_options["structure_parser"]["source_name"] = self.root_source_name
+        if not isinstance(self.toolkit_options, defaultdict):
+            self.toolkit_options = defaultdict(dict, self.toolkit_options)
+        self.toolkit_options["structure_parser"].update({"root": self.source_path,
+                                                         "source_name": self.root_source_name})
+        self.toolkit_options["uspex"].update({"elements": self.elements})
         self.stages_options = defaultdict(dict, {PostprocessStage(k): v for k, v in self.stages_options.items()})
-        self.toolkit_options["uspex"]["elements"] = self.elements
+
 
     def get_tool(self, toolkit_name):
         if toolkit_name not in self.toolkits:
@@ -71,12 +74,15 @@ class PPPipeline:
 
             if stage is PostprocessStage.poll_db:
                 elements = self.processed_stages[PostprocessStage.parse_raw].elements
-                self.processed_stages[stage] = poll_databases(elements, cache_base_path=elements_refdata_cache)
+                if "max_ehull" not in self.stages_options[stage]:
+                    self.stages_options[stage]["max_ehull"] = MAX_EHULL_PA
+                self.processed_stages[stage] = poll_databases(elements, cache_base_path=elements_refdata_cache,
+                                                              **self.stages_options[stage])
 
             if stage is PostprocessStage.augment_raw_by_db:
                 similarity_tk: SimilarityTools = self.get_tool("similarity")
                 augmentation = similarity_tk.get_unseen_in_ref(self.processed_stages[PostprocessStage.symmetrize_raw],
-                                                               self.processed_stages[PostprocessStage.poll_db])
+                                                               ref_ds=self.processed_stages[PostprocessStage.poll_db])
                 print(augmentation.metadata["message"])
                 labeled_entries = []
                 for e in self.processed_stages[PostprocessStage.poll_db]:
@@ -108,10 +114,7 @@ class PPPipeline:
             if stage is PostprocessStage.filter_and_dedup:
                 self.toolkit_options["phase_diag"] = {"dataset": self.processed_stages[PostprocessStage.estimate]}
                 pd_tk: PhaseDiagramTools = self.get_tool("phase_diag")
-                if 'max_ehull' in self.stages_options[stage]:
-                    max_ehull = self.stages_options[stage]['max_ehull']
-                else:
-                    max_ehull = MAX_EHULL_PA
+                max_ehull = self.stages_options[stage].get("max_ehull", MAX_EHULL_PA)
                 similarity_tk: SimilarityTools = self.get_tool("similarity")
                 filtered = self.processed_stages[PostprocessStage.estimate].filter(
                     lambda e: pd_tk.height_above_hull_pa(e) < max_ehull)
