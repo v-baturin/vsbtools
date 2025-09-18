@@ -23,8 +23,9 @@ class PostprocessStage(Enum):
     poll_db = 2
     augment_raw_by_db = 3
     estimate = 4
-    filter_and_dedup = 5
-    postprocess_dft = 6
+    filter_hull = 5
+    deduplicate = 6
+    postprocess_dft = 7
 
 
 @dataclass
@@ -111,19 +112,26 @@ class PPPipeline:
                 self.processed_stages[stage] = estimator.estimate_dataset_energies(
                     self.processed_stages[PostprocessStage.augment_raw_by_db])
 
-            if stage is PostprocessStage.filter_and_dedup:
+            if stage is PostprocessStage.filter_hull:
                 self.toolkit_options["phase_diag"] = {"dataset": self.processed_stages[PostprocessStage.estimate]}
                 pd_tk: PhaseDiagramTools = self.get_tool("phase_diag")
                 max_ehull = self.stages_options[stage].get("max_ehull", MAX_EHULL_PA)
-                similarity_tk: SimilarityTools = self.get_tool("similarity")
                 filtered = self.processed_stages[PostprocessStage.estimate].filter(
-                    lambda e: pd_tk.height_above_hull_pa(e) < max_ehull)
-                self.processed_stages[stage], _, _ = similarity_tk.deduplicate(filtered)
-                self.processed_stages[stage].parent_ids = [self.processed_stages[PostprocessStage.estimate].dataset_id]
-                self.processed_stages[stage].metadata["message"] = f"Filtered with e_hull < {max_ehull:.3f} and deduplicated"
+                    lambda entry: pd_tk.height_above_hull_pa(entry) < max_ehull)
+                filtered.metadata["message"] = f"Selected entries with e_hull < {max_ehull:.3f}"
+                self.processed_stages[stage] = filtered
+
+            if stage is PostprocessStage.deduplicate:
+                similarity_tk: SimilarityTools = self.get_tool("similarity")
+                self.processed_stages[stage], _, _ = similarity_tk.deduplicate(self.processed_stages[PostprocessStage.filter_hull])
+                self.processed_stages[stage].parent_ids = [self.processed_stages[PostprocessStage.filter_hull].dataset_id]
+                self.processed_stages[stage].metadata["message"] = \
+                    f"Deduplicated version of {self.processed_stages[PostprocessStage.filter_hull].dataset_id}"
+
             if stage in self.processed_stages:
                 self.processed_stages[stage].metadata["pipeline_stage"] = stage.value
                 yield stage, self.processed_stages[stage]
+
             else:
                 warnings.warn(f"Stage '{stage.name}' not yet implemented")
                 break
