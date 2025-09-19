@@ -28,11 +28,15 @@ def poll_databases(elements,
     
     if cache_base_path is not None and cache_base_path.exists():
         polled_db = read(cache_base_path / "manifest.yaml")
-        assert set(polled_db.elements) == set(elements), "Requested elements set mismatch with cached data"
-        print(f"Data for elements {' '.join(elements)} read from cache")
-        return polled_db
-    else:
-        print("Failed to read cached database")
+        if set(polled_db.elements) == set(elements) and \
+            polled_db.metadata["deduplication"] == do_deduplication and \
+            polled_db.metadata["e_hull_filtering"] == do_ehull_filtering:
+            if do_ehull_filtering:
+                assert abs(float(polled_db.metadata["e_hull_filtering"]) - max_ehull) < 1e-4
+            print(f"Data for elements {' '.join(elements)} read from cache")
+            return polled_db
+        else:
+            print("Failed to read cached database")
         
     
     if loader_kwargs is None: loader_kwargs = dict()
@@ -74,5 +78,8 @@ def poll_databases(elements,
     msg = (f"Gathered from {', '.join(database_names)} databases "
            f"with elements: {', '.join(elements)}")
     ds = CrystalDataset([e.copy_with(**{'energy': None}) for e in reference_data], message=msg)
+    ds.metadata["deduplication"] = do_deduplication
+    ds.metadata["e_hull_filtering"] = do_ehull_filtering
+    ds.metadata["max_ehull"] = max_ehull
     write(ds, enforce_base_path=cache_base_path)
     return ds

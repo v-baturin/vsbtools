@@ -104,7 +104,7 @@ class DatasetRepo:
             raise ValueError("CrystalDataset must have a non‑empty dataset_id")
 
         node_id = dataset.dataset_id
-        folder = self.root / (f"{(str(prefix) + '_') if prefix is not None else ''}"
+        folder = self.root / (f"{(prefix + '_') if prefix is not None else ''}"
                               f"{node_id}{('_' + suffix) if suffix is not None else ''}")
         if folder.exists() and not overwrite:
             raise FileExistsError(f"Node folder {folder} already exists")
