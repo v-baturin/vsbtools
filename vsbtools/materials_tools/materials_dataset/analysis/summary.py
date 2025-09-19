@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Callable, Collection, Dict, Iterable, List, Mapping, Sequence
+from typing import Any, Callable, Collection, Dict, List, Mapping, Sequence
 from prettytable import PrettyTable
 
 #--optional imports ----------------------------------------------
@@ -130,11 +130,19 @@ def print_pretty_df(df, dump_path, columns=None, sort_by=None, pretty=True, ):
 
     if pretty:
         pt = PrettyTable()
+        pt.align = 'l'
         pt.field_names = columns
         float_fmt = "{:.4f}".format
         # Slice df to just the chosen columns, then iterate
         for row in df[columns].itertuples(index=False, name=None):
-            formatted_row = [float_fmt(x) if isinstance(x, float) else x for x in row]
+            formatted_row = []
+            for x in row:
+                if isinstance(x, float):
+                    formatted_row.append(float_fmt(x))
+                elif not isinstance(x, str):
+                    formatted_row.append(str(x))
+                else:
+                    formatted_row.append(x)
             pt.add_row(formatted_row)
 
         # Write the table string to a file
