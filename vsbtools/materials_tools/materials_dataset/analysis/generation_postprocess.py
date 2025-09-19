@@ -57,10 +57,18 @@ class PPPipeline:
 
 
     def run(self, to_process: list | None = None,
-            elements_refdata_cache: Path | None = None) -> Generator[Tuple[PostprocessStage,CrystalDataset], None, None]:
-        to_process = to_process or [stage for stage in PostprocessStage if stage not in self.processed_stages]
+            skip_list: list | None = None,
+            elements_refdata_cache: Path | None = None,
+            ) -> Generator[Tuple[PostprocessStage,CrystalDataset], None, None]:
+        
+        skip_list = [] if skip_list is None else skip_list
+        skip_list = [PostprocessStage(i) for i in skip_list]
+        
+        to_process = to_process if to_process is not None else \
+            [stage for stage in PostprocessStage if stage not in self.processed_stages and stage not in skip_list]
+        
         for stage in to_process:
-
+            print(f"Now working on stage {stage.name} ...")
             if stage is PostprocessStage.parse_raw:
                 assert self.source_path and self.source_path.exists()
                 assert self.elements is not None
@@ -129,6 +137,7 @@ class PPPipeline:
                     f"Deduplicated version of {self.processed_stages[PostprocessStage.filter_hull].dataset_id}"
 
             if stage in self.processed_stages:
+                print(f"Finished {stage.name} stage")
                 self.processed_stages[stage].metadata["pipeline_stage"] = stage.value
                 yield stage, self.processed_stages[stage]
 
