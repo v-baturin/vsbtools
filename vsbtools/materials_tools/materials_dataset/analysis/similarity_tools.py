@@ -54,7 +54,14 @@ class SimilarityTools:
                                                                      clusters_file=clusters_file,
                                                                      do_split_clusters_by_labels=enforce_compositions_separation,
                                                                      labels_list=reduced_compositions)
+        filtered_list = []
+        for no, idx in enumerate(best_idx):
+            if "duplicates" not in ds[idx].metadata or ds[idx].metadata["duplicates"] is None:
+                ds[idx].metadata["duplicates"] = set([ds[j].id for j in clusters[no]])
+            else:
+                ds[idx].metadata["duplicates"] |= set([ds[j].id for j in clusters[no]])
         filtered_list = [ds[i] for i in best_idx]
+
         message = f"Parent deduplicated with tol_FP={self.tol_fp} "
         return CrystalDataset.from_parents(filtered_list, parents=(ds,), message=message, **kwargs), clusters, best_idx
 
@@ -69,6 +76,10 @@ class SimilarityTools:
                 if rho(examined, reference) <= self.tol_fp:
                     duplicates_counter.add(j)
                     reproduced.add(reference.id)
+                    if not "duplicates" in reference.metadata:
+                        reference.metadata["duplicates"] = {examined.id}
+                    else:
+                        reference.metadata["duplicates"].add(examined.id)
                     if DEBUG:
                         print(f"{examined.id} in {examined.metadata['source']} is a duplicate of {reference.id} in {reference.metadata['source']}")
                     break

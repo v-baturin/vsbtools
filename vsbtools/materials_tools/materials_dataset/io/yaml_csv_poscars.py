@@ -1,4 +1,5 @@
 import os
+from collections.abc import Iterable
 from typing import Dict, Any
 from pathlib import Path
 import yaml
@@ -15,6 +16,8 @@ def _get_str_value_for_csv(e: CrystalEntry, attr_name):
         val = getattr(e, attr_name)
     if isinstance(val, float):
         val = f"{val:.6f}"
+    elif isinstance(val, Iterable) and not isinstance(val, str):
+        val = str(val).replace(',', '')
     else:
         val = str(val).strip()
     return val
@@ -97,6 +100,8 @@ def read_csv_poscars(csv_file, poscars_dir=None, use_fname_as_id=True) -> Crysta
                         val = eval(val)
                     elif val in ['NA', 'None']:
                         val = None
+                    elif val[0] == '{' and val[-1] == '}':
+                        val = eval(val.replace(' ', ','))
                     entry_data["metadata"][l.split('.')[-1]] = val
             entry_keys = [k for k in entry_data if k in CrystalEntry.__annotations__.keys()]
             entry_data = {k: entry_data[k] for k in entry_keys}

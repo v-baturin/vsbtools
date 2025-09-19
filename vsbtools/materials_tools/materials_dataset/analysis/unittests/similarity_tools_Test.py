@@ -28,6 +28,12 @@ class SimilarityTools_Test(unittest.TestCase):
         clusters_file.unlink()
         dist_matrix_file.unlink()
 
+    def test_suspiciousDistance(self):
+        ds_sio2 = StructureDatasetIO(PATH_WITH_DATASETS / "SiO2_two_loose_structures", patterns=('*POSCAR',)).load_from_directory()
+        ubSiO = USPEXBridge(elements={'Si', 'O'}, legacy=True, tol_FP=0.07)
+        simtoolsSiO = SimilarityTools(ubSiO.fp_dist, ubSiO.tol_FP)
+        print(simtoolsSiO.dist(ds_sio2[0], ds_sio2[1]))
+
 
 
 
