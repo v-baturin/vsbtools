@@ -78,6 +78,10 @@ def poll_databases(elements,
             unseen = similarity_tk.get_unseen_in_ref(loaded_ds, reference_data)
             loaded_ds = unseen
         reference_data = reference_data.merge(loaded_ds)
+    if do_deduplication:
+        os.makedirs(cache_base_path)
+        reference_data.override_base_path(cache_base_path)
+        reference_data, _, _ = similarity_tk.deduplicate(reference_data)
     msg = (f"Gathered from {', '.join(database_names)} databases "
            f"with elements: {', '.join(elements)}")
     ds = CrystalDataset([e.copy_with(**{'energy': None}) for e in reference_data], message=msg)
