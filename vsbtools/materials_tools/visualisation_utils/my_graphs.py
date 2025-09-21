@@ -387,7 +387,7 @@ def prop_map(v_array, h_array, values_array, contours=None, cmap='jet',
     if contours is not None:
         if contours_kwargs is None:
             contours_kwargs = {'colors': 'k', 'linewidths': 0.5}
-        CS = plt.contour(fine_h_array, fine_v_array, interp_values, contours, zorder=1.2, **contours_kwargs)
+        CS = plt.contour(fine_h_array, fine_v_array, interp_masked, contours, zorder=1.2, **contours_kwargs)
         if 'clabel' in kwargs and kwargs['clabel'] is not None:
             if kwargs['clabel'] is True:
                 kwargs['clabel'] = {'inline': 1, 'fontsize': 7, 'fmt': '%1.2g'}
