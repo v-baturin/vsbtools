@@ -1,3 +1,4 @@
+import os
 from typing import Dict
 from collections import defaultdict
 from pathlib import Path
@@ -26,17 +27,19 @@ def poll_databases(elements,
     are added.
     """
     
-    if cache_base_path is not None and cache_base_path.exists():
+    if cache_base_path is not None and (cache_base_path / "manifest.yaml").exists():
         polled_db = read(cache_base_path / "manifest.yaml")
-        if set(polled_db.elements) == set(elements) and \
-            polled_db.metadata["deduplication"] == do_deduplication and \
-            polled_db.metadata["e_hull_filtering"] == do_ehull_filtering:
-            if do_ehull_filtering:
-                assert abs(float(polled_db.metadata["e_hull_filtering"]) - max_ehull) < 1e-4
-            print(f"Data for elements {' '.join(elements)} read from cache")
-            return polled_db
-        else:
-            print("Failed to read cached database")
+        try:
+            if set(polled_db.elements) == set(elements) and \
+                polled_db.metadata["deduplication"] == do_deduplication and \
+                polled_db.metadata["e_hull_filtering"] == do_ehull_filtering:
+                if do_ehull_filtering:
+                    assert abs(float(polled_db.metadata["e_hull_filtering"]) - max_ehull) < 1e-4
+                print(f"Data for elements {' '.join(elements)} read from cache")
+                return polled_db
+        except (AssertionError, KeyError):
+            print("Incorrect db file")
+        print("Failed to read cached DB")
         
     
     if loader_kwargs is None: loader_kwargs = dict()
