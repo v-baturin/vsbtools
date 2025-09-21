@@ -23,7 +23,7 @@ class SimilarityTools:
     def deduplicate(self, ds: CrystalDataset,
                     check_clusters_file=False, clusters_file: Path = None, check_dist_matrix_file=False,
                     dist_matrix_file=None, fitness_list=None,
-                    enforce_compositions_separation=False, **kwargs) -> tuple[CrystalDataset, Any, Any]:
+                    enforce_compositions_separation=True, **kwargs) -> tuple[CrystalDataset, Any, Any]:
 
         """
         Remove duplicates from the dataset using USPEX's remove_duplicates function.
