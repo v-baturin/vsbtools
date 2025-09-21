@@ -131,7 +131,9 @@ class PPPipeline:
 
             if stage is PostprocessStage.deduplicate:
                 similarity_tk: SimilarityTools = self.get_tool("similarity")
-                self.processed_stages[stage], _, _ = similarity_tk.deduplicate(self.processed_stages[PostprocessStage.filter_hull])
+                self.processed_stages[stage], _, _ =\
+                    similarity_tk.deduplicate(self.processed_stages[PostprocessStage.filter_hull],
+                                              check_clusters_file=True, check_dist_matrix_file=True)
                 self.processed_stages[stage].parent_ids = [self.processed_stages[PostprocessStage.filter_hull].dataset_id]
                 self.processed_stages[stage].metadata["message"] = \
                     f"Deduplicated version of {self.processed_stages[PostprocessStage.filter_hull].dataset_id}"
