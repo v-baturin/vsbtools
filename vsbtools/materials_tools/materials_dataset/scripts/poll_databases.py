@@ -15,7 +15,7 @@ LOADERS = {"al": load_from_alexandria, "oq": load_from_oqmd, "mp": load_from_mat
 
 def poll_databases(elements,
                    database_names=None,
-                   ref_db: str = 'al',
+                   pref_db: str = 'al',
                    do_ehull_filtering=True,
                    do_deduplication=True,
                    max_ehull=None,
@@ -50,7 +50,7 @@ def poll_databases(elements,
         ub = USPEXBridge(elements)
         similarity_tk = SimilarityTools(ub.fp_dist)
 
-    ref_db = ref_db[:2].casefold()
+    pref_db = pref_db[:2].casefold()
     database_names = database_names or ['alexandria', 'oqmd', 'MatProj']  # Default databases to fetch data from
     short_names_dict = {name[:2].casefold(): name for name in database_names}
     loader_kw = defaultdict(dict, {k.casefold()[:2]: v for k, v in loader_kwargs.items()})
@@ -58,10 +58,10 @@ def poll_databases(elements,
         assert isinstance(db, str), "Database names must be strings."
         assert db in LOADERS, f"Database '{short_names_dict[db]}' is not recognized. Available databases: {list(LOADERS.keys())}."
     # other_loaders = [LOADERS[short_name] for short_name in short_names_dict if not short_name.startswith(ref_db)]
-    short_names_dict.pop(ref_db)
-    reference_loader = LOADERS[ref_db]
+    short_names_dict.pop(pref_db)
+    reference_loader = LOADERS[pref_db]
 
-    reference_data = reference_loader(elements, **loader_kw[ref_db])
+    reference_data = reference_loader(elements, **loader_kw[pref_db])
 
     if do_ehull_filtering:
         max_ehull = max_ehull or MAX_EHULL
