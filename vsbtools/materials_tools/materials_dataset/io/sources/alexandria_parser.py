@@ -1,10 +1,19 @@
+import socket
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Set, Iterable
 import pandas as pd
 from pymatgen.core import Structure
 
-DEFAULT_ALEXANDRIA_PATH = Path("/data1/common/alexandria/pbe_data")
+ALEXANDRIA_PATH = {
+    'nina': '/home/vsbat/work/Alexandria',
+    'taurus': "/data1/common/alexandria/pbe_data"
+                           }
+host = socket.gethostname()
+if host not in ALEXANDRIA_PATH:
+    ALEXANDRIA_PATH[host] = input("Enter full path to Alexaandria Database: ")
+
+DEFAULT_ALEXANDRIA_PATH = ALEXANDRIA_PATH[host]
 
 try:
     import ijson

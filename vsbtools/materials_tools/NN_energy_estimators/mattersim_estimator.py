@@ -1,9 +1,17 @@
+import socket
 import io, subprocess
 from pathlib import Path
 from ase.io import write
 
+host = socket.gethostname()
+MATTERSIM_PYTHON_PATHS = {'nina': "/home/vsbat/work/mattergen/mattergenbis/.venv/bin/python",
+                          "taurus": "/home/vsbat/work/venvs/mattersim_venv/bin/python"}
 
-other_python = "/home/vsbat/work/venvs/mattersim_venv/bin/python"
+if host not in MATTERSIM_PYTHON_PATHS:
+    other_python = Path(input("Enter full path to mattersim-containing virtual environment")) / "bin/python"
+else:
+    other_python = Path(MATTERSIM_PYTHON_PATHS[host])
+
 energy_cli_single   = (Path(__file__).parent / "mattersim_helper_single.py").as_posix()
 energy_worker = (Path(__file__).parent / "mattersim_helper_batch.py").as_posix()
 

@@ -82,7 +82,7 @@ class MPClient:
             e_total = doc.energy_per_atom * natoms
             rows.append(
                 {
-                    "id": doc.material_id,
+                    "id": str(doc.material_id),
                     "formula": struct.composition.formula,
                     "energy": e_total,
                     "structure": struct,
