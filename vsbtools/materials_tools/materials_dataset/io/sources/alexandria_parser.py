@@ -7,11 +7,12 @@ from pymatgen.core import Structure
 
 ALEXANDRIA_PATH = {
     'nina': '/home/vsbat/work/Alexandria',
-    'taurus': "/data1/common/alexandria/pbe_data"
+    'taurus': "/data1/common/alexandria/pbe_data",
+    'serpens': "/home/vsbat/work/Alexandria/pbe_data"
                            }
 host = socket.gethostname()
 if host not in ALEXANDRIA_PATH:
-    ALEXANDRIA_PATH[host] = input("Enter full path to Alexaandria Database: ")
+    ALEXANDRIA_PATH[host] = input("Enter full path to Alexandria Database: ")
 
 DEFAULT_ALEXANDRIA_PATH = ALEXANDRIA_PATH[host]
 
