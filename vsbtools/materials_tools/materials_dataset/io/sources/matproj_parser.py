@@ -54,7 +54,7 @@ class MPClient:
             thermo_docs.extend(
                 rester.thermo.search(
                     chemsys=space,
-                    thermo_types=['GGA_GGA+U'],
+                    thermo_types=['GGA_GGA+U'],  # TODO: check other xc-functionals
                     fields=["material_id", "formula_pretty", "energy_per_atom"],
                 )
             )
