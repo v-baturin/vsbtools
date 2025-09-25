@@ -26,7 +26,7 @@ def poll_databases(elements,
     Data is first taken from the reference database (Alexandria) then only the structures unseen in the reference DB
     are added.
     """
-    cache_base_path = Path(os.getcwd()) if cache_base_path is None else Path(cache_base_path)
+    cache_base_path = Path(os.getcwd()) / "db_cache" if cache_base_path is None else Path(cache_base_path)
     if cache_base_path is not None and (cache_base_path / "manifest.yaml").exists():
         polled_db = read(cache_base_path / "manifest.yaml")
         try:

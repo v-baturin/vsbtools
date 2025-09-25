@@ -121,7 +121,11 @@ class PPPipeline:
                     self.processed_stages[PostprocessStage.augment_raw_by_db])
 
             if stage is PostprocessStage.filter_hull:
-                self.toolkit_options["phase_diag"] = {"dataset": self.processed_stages[PostprocessStage.estimate]}
+                if "base_stage" in self.stages_options[stage]:
+                    base_ds = self.processed_stages[self.stages_options[stage]["base_stage"]]
+                else:
+                    base_ds = self.processed_stages[PostprocessStage.estimate]
+                self.toolkit_options["phase_diag"] = {"dataset": base_ds}
                 pd_tk: PhaseDiagramTools = self.get_tool("phase_diag")
                 max_ehull = self.stages_options[stage].get("max_ehull", MAX_EHULL_PA)
                 filtered = self.processed_stages[PostprocessStage.estimate].filter(
