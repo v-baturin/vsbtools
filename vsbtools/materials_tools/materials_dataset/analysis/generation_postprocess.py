@@ -95,6 +95,14 @@ class PPPipeline:
                     self.stages_options[stage]["max_ehull"] = MAX_EHULL_PA
                 self.processed_stages[stage] = poll_databases(elements, cache_base_path=elements_refdata_cache,
                                                               **self.stages_options[stage])
+                if self.stages_options[stage]["estimate_energies"]:
+                    estimator = self.get_tool("estimator")
+                    estimated = estimator.estimate_dataset_energies(self.processed_stages[stage])
+                    estimated.parents = []
+                    estimated.metadata["message"] = (self.processed_stages[stage].metadata["message"] + ' '
+                                                     + estimated.metadata["message"])
+                    self.processed_stages[stage] = estimated
+
 
             if stage is PostprocessStage.augment_raw_by_db:
                 similarity_tk: SimilarityTools = self.get_tool("similarity")
