@@ -12,7 +12,7 @@ class NNEstimator_Test(unittest.TestCase):
     def setUp(self):
         self.poscars = PATH_WITH_DATASETS / "POSCARS"
         self.dataset = StructureDatasetIO(self.poscars).load_from_directory()
-        NNEstimator.register_estimator("mattersim", mattersim_bridge)
+        NNEstimator.register_model("mattersim", mattersim_bridge)
         self.estimator = NNEstimator()
 
     def test_single_entry_estimation(self):
