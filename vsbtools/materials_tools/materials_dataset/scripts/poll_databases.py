@@ -20,7 +20,8 @@ def poll_databases(elements,
                    do_deduplication=True,
                    max_ehull=None,
                    loader_kwargs: Dict | None =None,
-                   cache_base_path: Path | None = None):
+                   cache_base_path: Path | None = None,
+                   **kwargs):
     """
     Fetch data from Alexandria, OQMD, and Materials Project databases.
     Data is first taken from the reference database (Alexandria) then only the structures unseen in the reference DB

@@ -137,7 +137,7 @@ class PPPipeline:
 
             if stage is PostprocessStage.filter_hull:
                 if "base_stage" in self.stages_options[stage]:
-                    base_ds = self.processed_stages[self.stages_options[stage]["base_stage"]]
+                    base_ds = self.processed_stages[PostprocessStage(self.stages_options[stage]["base_stage"])]
                 else:
                     base_ds = self.processed_stages[PostprocessStage.estimate]
                 self.toolkit_options["phase_diag"] = {"dataset": base_ds}
