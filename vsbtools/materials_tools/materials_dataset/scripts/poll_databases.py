@@ -34,7 +34,7 @@ def poll_databases(elements,
                 polled_db.metadata["deduplication"] == do_deduplication and \
                 polled_db.metadata["e_hull_filtering"] == do_ehull_filtering:
                 if do_ehull_filtering:
-                    assert abs(float(polled_db.metadata["e_hull_filtering"]) - max_ehull) < 1e-4
+                    assert abs(float(polled_db.metadata["max_ehull"]) - max_ehull) < 1e-4
                 print(f"Data for elements {' '.join(elements)} read from cache")
                 return polled_db
         except (AssertionError, KeyError):
@@ -58,9 +58,10 @@ def poll_databases(elements,
         assert isinstance(db, str), "Database names must be strings."
         assert db in LOADERS, f"Database '{short_names_dict[db]}' is not recognized. Available databases: {list(LOADERS.keys())}."
     # other_loaders = [LOADERS[short_name] for short_name in short_names_dict if not short_name.startswith(ref_db)]
-    short_names_dict.pop(pref_db)
+
     reference_loader = LOADERS[pref_db]
 
+    print(f"Fetching data from preferred DB: {short_names_dict.pop(pref_db)}...")
     reference_data = reference_loader(elements, **loader_kw[pref_db])
 
     if do_ehull_filtering:
@@ -79,7 +80,7 @@ def poll_databases(elements,
             loaded_ds = unseen
         reference_data = reference_data.merge(loaded_ds)
     if do_deduplication:
-        os.makedirs(cache_base_path)
+        os.makedirs(cache_base_path, exist_ok=True)
         reference_data.override_base_path(cache_base_path)
         reference_data, _, _ = similarity_tk.deduplicate(reference_data)
     msg = (f"Gathered from {', '.join(database_names)} databases "

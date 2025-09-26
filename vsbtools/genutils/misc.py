@@ -1,5 +1,4 @@
 import numpy as np
-import functools
 import textwrap, inspect, ast
 
 def rgetattr(obj, attr, default=None):

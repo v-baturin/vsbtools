@@ -40,6 +40,7 @@ def _prepare_for_yaml_write(dct: dict):
 
 
 def read(manifest_yaml: str | Path) -> CrystalDataset:
+    manifest_yaml = Path(manifest_yaml)
     def _rebase_path(pth: Path, base: Path):
         return pth if pth.is_absolute() else base / pth
     with open(manifest_yaml, 'rt') as ds_h:
