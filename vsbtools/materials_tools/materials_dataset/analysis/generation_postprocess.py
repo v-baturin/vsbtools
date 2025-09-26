@@ -14,7 +14,11 @@ from ..energy_estimation import nn_estimator, mattersim_bridge
 from ..analysis.phase_diagram_tools import PhaseDiagramTools
 
 TOOLKIT_DICT = {"structure_parser":StructureDatasetIO, "symmetry": SymmetryToolkit,
-                "similarity": SimilarityTools, "uspex": USPEXBridge, "phase_diag": PhaseDiagramTools}
+                "similarity": SimilarityTools, "uspex": USPEXBridge, "phase_diag": PhaseDiagramTools,
+                "estimator": nn_estimator.NNEstimator}
+
+KNOWN_MODELS = {"mattersim": mattersim_bridge}
+
 MAX_EHULL_PA = 0.1
 
 class PostprocessStage(Enum):
@@ -52,6 +56,9 @@ class PPPipeline:
             if toolkit_name == "similarity":
                 ub = self.get_tool("uspex")
                 self.toolkit_options["similarity"]["dist_fn"] = ub.fp_dist
+            elif toolkit_name == "estimator":
+                for label, module in KNOWN_MODELS.items():
+                    TOOLKIT_DICT[toolkit_name].register_model(label, module)
             self.toolkits[toolkit_name] = TOOLKIT_DICT[toolkit_name](**self.toolkit_options.get(toolkit_name, dict()))
         return self.toolkits[toolkit_name]
 
@@ -73,6 +80,7 @@ class PPPipeline:
                 assert self.source_path and self.source_path.exists()
                 assert self.elements is not None
                 raw_parse = self.get_tool("structure_parser").load_from_directory(elements=self.elements)
+                assert len(raw_parse) > 0, f"Empty dataset in {self.source_path}"
                 print(f"loaded {len(raw_parse)} structures")
                 self.processed_stages[stage] = raw_parse
 
@@ -115,8 +123,7 @@ class PPPipeline:
                 self.processed_stages[stage].metadata["reproducibility"] = augmentation.metadata["reproducibility"]
 
             if stage is PostprocessStage.estimate:
-                nn_estimator.NNEstimator.register_estimator("mattersim", mattersim_bridge)
-                estimator = nn_estimator.NNEstimator()
+                estimator = self.get_tool("estimator")
                 self.processed_stages[stage] = estimator.estimate_dataset_energies(
                     self.processed_stages[PostprocessStage.augment_raw_by_db])
 
