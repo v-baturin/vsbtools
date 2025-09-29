@@ -98,9 +98,9 @@ class PPPipeline:
                 if self.stages_options[stage]["estimate_energies"]:
                     estimator = self.get_tool("estimator")
                     estimated = estimator.estimate_dataset_energies(self.processed_stages[stage])
-                    estimated.parents = []
-                    estimated.metadata["message"] = (self.processed_stages[stage].metadata["message"] + ' '
-                                                     + estimated.metadata["message"])
+                    estimated.parent_ids = []
+                    estimated.metadata["message"] = (self.processed_stages[stage].metadata["message"].strip() + '. '
+                                                     + estimated.metadata["message"].strip())
                     self.processed_stages[stage] = estimated
 
 

@@ -79,7 +79,11 @@ class DatasetRepo:
     # ------------------------------------------------------------------
     def load_node(self, node_id: str) -> Tuple[CrystalDataset, Dict[str, Any]]:
         """Load node *node_id* and return `(CrystalDataset, manifest_dict)`."""
-        manifest_path = self._node_manifest(node_id)
+        try:
+            manifest_path = self._node_manifest(node_id)
+        except KeyError as e:
+            print()
+            raise KeyError(f"{e}: on processing node_id: {node_id} in {self.root}")
         dataset = cd_read(manifest_path)
         manifest = yaml.safe_load(manifest_path.read_text())
         return dataset, manifest
