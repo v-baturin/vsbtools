@@ -43,6 +43,7 @@ class PPPipeline:
     toolkit_options: MutableMapping[str, Dict[str, Any]] = field(default_factory=lambda : defaultdict(dict))
 
     def __post_init__(self):
+        USPEXBridge.uspex_entry_from_de.cache_clear()
         if not isinstance(self.toolkit_options, defaultdict):
             self.toolkit_options = defaultdict(dict, self.toolkit_options)
         self.toolkit_options["structure_parser"].update({"root": self.source_path,
@@ -95,7 +96,7 @@ class PPPipeline:
                     self.stages_options[stage]["max_ehull"] = MAX_EHULL_PA
                 self.processed_stages[stage] = poll_databases(elements, cache_base_path=elements_refdata_cache,
                                                               **self.stages_options[stage])
-                if self.stages_options[stage]["estimate_energies"]:
+                if "estimate_energies" in self.stages_options[stage] and self.stages_options[stage]["estimate_energies"]:
                     estimator = self.get_tool("estimator")
                     estimated = estimator.estimate_dataset_energies(self.processed_stages[stage])
                     estimated.parent_ids = []
