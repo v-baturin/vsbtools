@@ -1,0 +1,43 @@
+version: 1
+globals:
+  toolkit_options:
+    structure_parser: { root: ./data/raw, source_name: NA }
+    uspex: { elements: [Ca, B, H] }
+stages:
+  parse_raw:
+    op: parse_directory
+    tool: structure_parser
+    needs: []
+    params: { elements: [Ca, B, H] }
+
+  symmetrize_raw:
+    op: symmetrize_dataset
+    tool: symmetry
+    needs: [parse_raw]
+
+  poll_db:
+    op: poll_databases
+    tool: builtin
+    needs: [parse_raw]
+    params: { max_ehull: 0.1, estimate_energies: true, elements_refdata_cache: ./cache/refdata }
+
+  augment_raw_by_db:
+    op: augment_with_reference
+    tool: similarity
+    needs: [symmetrize_raw, poll_db]
+
+  estimate:
+    op: estimate_energies
+    tool: estimator
+    needs: [augment_raw_by_db]
+
+  filter_hull:
+    op: filter_by_hull
+    tool: phase_diag
+    needs: [estimate]
+    params: { max_ehull: 0.1 }
+
+  deduplicate:
+    op: deduplicate
+    tool: similarity
+    needs: [filter_hull]
