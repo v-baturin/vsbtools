@@ -102,7 +102,7 @@ def _soft_neighbor_counts_per_A(
 
 # ------------------------- Public metrics -------------------------
 
-def compute_species_pair(
+def compute_average_coordination(
     cell: torch.Tensor,
     frac: torch.Tensor,
     types: torch.Tensor,
@@ -160,7 +160,7 @@ def compute_target_share(
     H = torch.exp(-((C - float(target)) / float(tau)).pow(2))
     return H.mean()
 
-def compute_target_share_multi(
+def compute_multiple_target_share(
     cell: torch.Tensor,
     frac: torch.Tensor,
     types: torch.Tensor,
@@ -197,10 +197,10 @@ def _to_torch_from_atoms(atoms):
     types = torch.tensor(atoms.get_atomic_numbers(), dtype=torch.int64, device=device)
     return cell, frac, types
 
-def compute_species_pair_atoms(atoms, type_A, type_B, kernel="sigmoid", sigma=1.0, r_cut=None, alpha=8.0):
+def compute_average_coordination_atoms(atoms, type_A, type_B, kernel="sigmoid", sigma=1.0, r_cut=None, alpha=8.0):
     cell, frac, types = _to_torch_from_atoms(atoms)
-    return compute_species_pair(cell, frac, types, type_A, type_B,
-                                kernel=kernel, sigma=sigma, r_cut=r_cut, alpha=alpha)
+    return compute_average_coordination(cell, frac, types, type_A, type_B,
+                                        kernel=kernel, sigma=sigma, r_cut=r_cut, alpha=alpha)
 
 def compute_target_share_atoms(atoms, type_A, type_B, *, target, tau=0.5,
                                kernel="sigmoid", sigma=1.0, r_cut=None, alpha=8.0):
@@ -209,8 +209,8 @@ def compute_target_share_atoms(atoms, type_A, type_B, *, target, tau=0.5,
                                 target=target, tau=tau, kernel=kernel,
                                 sigma=sigma, r_cut=r_cut, alpha=alpha)
 
-def compute_target_share_multi_atoms(atoms, type_A, type_B, targets, *, tau=0.5,
-                                     kernel="sigmoid", sigma=1.0, r_cut=None, alpha=8.0):
+def compute_multi_target_share_atoms(atoms, type_A, type_B, targets, *, tau=0.5,
+                                           kernel="sigmoid", sigma=1.0, r_cut=None, alpha=8.0):
     cell, frac, types = _to_torch_from_atoms(atoms)
-    return compute_target_share_multi(cell, frac, types, type_A, type_B, targets,
-                                      tau=tau, kernel=kernel, sigma=sigma, r_cut=r_cut, alpha=alpha)
+    return compute_multiple_target_share(cell, frac, types, type_A, type_B, targets,
+                                         tau=tau, kernel=kernel, sigma=sigma, r_cut=r_cut, alpha=alpha)

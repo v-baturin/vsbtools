@@ -5,7 +5,8 @@ import matplotlib
 from ..crystal_dataset import CrystalDataset, CrystalEntry
 from ..converters import cell_pos_atomtypes_from_pmg_structure, pmg_structure_to_torch_cell_frac_atomnumbers
 # from my_packages.materials_tools.materials_dataset.db_clients
-from ...geom_utils.coordination_tools import compute_species_pair_atoms, compute_species_pair
+from ...geom_utils.coordination_tools import (compute_average_coordination_atoms,
+                                              compute_average_coordination, compute_target_share)
 import pickle as pkl
 
 matplotlib.use('TkAgg')
@@ -24,14 +25,14 @@ matplotlib.use('TkAgg')
 
 
 
-def analyze_environment(dataset, atom_A, atom_B, csv_output, **kwargs):
+def analyze_average_environment(dataset, atom_A, atom_B, csv_output, **kwargs):
     coordinations = dict()
     coordinations_data = {"ID":[], "Coordination":[]}
     for e in dataset:
         ats = e.structure.to_ase_atoms()
         if not (atom_A in ats.get_chemical_symbols() and atom_B in ats.get_chemical_symbols()):
             continue
-        n_neighbours = compute_species_pair_atoms(ats, atom_A, atom_B, kernel="sigmoid", alpha=100, **kwargs)
+        n_neighbours = compute_average_coordination_atoms(ats, atom_A, atom_B, kernel="sigmoid", alpha=100, **kwargs)
         coordinations[n_neighbours.round().int().item()] = coordinations.get(n_neighbours.round().int().item(), 0) + 1
         coordinations_data["ID"].append(e.id)
         coordinations_data["Coordination"].append(n_neighbours.round().int().item())
@@ -44,6 +45,13 @@ def analyze_environment(dataset, atom_A, atom_B, csv_output, **kwargs):
     plt.ylabel('Count')
     plt.show()
 
-def analyze_environment_in_entry(entry: CrystalEntry, type_A, type_B, **kwargs):
+# def analyze_target_coordination_share(dataset, atom_A, atom_B, target_coordinations, csv_output=None, plot=False, **kwargs):
+#     coordinations
+
+def analyze_average_environment_in_entry(entry: CrystalEntry, type_A, type_B, **kwargs):
     cell, frac, at_numbers = pmg_structure_to_torch_cell_frac_atomnumbers(entry.structure)
-    return compute_species_pair(cell, frac, types=at_numbers, type_A=type_A, type_B=type_B, **kwargs)
+    return compute_average_coordination(cell, frac, types=at_numbers, type_A=type_A, type_B=type_B, **kwargs)
+
+def analyze_target_coordination_share_in_entry(entry: CrystalEntry, type_A, type_B, target, **kwargs):
+    cell, frac, at_numbers = pmg_structure_to_torch_cell_frac_atomnumbers(entry.structure)
+    return compute_target_share(cell, frac, types=at_numbers, type_A=type_A, type_B=type_B, target=target, **kwargs)
