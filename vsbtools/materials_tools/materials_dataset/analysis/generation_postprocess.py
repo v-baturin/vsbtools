@@ -77,6 +77,7 @@ class PPPipeline:
         
         for stage in to_process:
             print(f"Now working on stage {stage.name} ...")
+
             if stage is PostprocessStage.parse_raw:
                 assert self.source_path and self.source_path.exists()
                 assert self.elements is not None

@@ -2,6 +2,8 @@ from pathlib import Path
 from typing import List, Any
 import yaml, re
 
+STANDARD_PARAM_DICT_KEYS = ['chemical_system', 'guidance', 'diffusion_loss_weight', 'algo']
+
 class SafeLoaderWithNone(yaml.SafeLoader): pass
 SafeLoaderWithNone.add_implicit_resolver(
     "tag:yaml.org,2002:null",
@@ -62,7 +64,9 @@ def input_parameters_to_dict(inp_par_file: Path | str | None = None, raw: str | 
         raise ValueError("Parsed content is not a mapping/dict")
     return data
 
-def fname_friendly_serialize(d: dict, dict_keys: List|Any):
+def fname_friendly_serialize(d: dict, dict_keys: List|Any = None):
+
+    if dict_keys is None: dict_keys = STANDARD_PARAM_DICT_KEYS
     parts = []
     for k in dict_keys:
         if k == 'chemical_system':
@@ -74,6 +78,11 @@ def fname_friendly_serialize(d: dict, dict_keys: List|Any):
         else:
             parts.append(serialized_val)
     return '__'.join(parts)
+
+def input_paramfile_2_dirname(input_param_file, dict_keys=None):
+    if dict_keys is None:
+        dict_keys = STANDARD_PARAM_DICT_KEYS
+    return fname_friendly_serialize(input_parameters_to_dict(inp_par_file=input_param_file), dict_keys=dict_keys)
 
 if __name__ == '__main__':
     inpar_path_guided = Path("/home/vsbat/SYNC/00__WORK/2025-2026_MOLTEN_SALTS/MG_postprocess_pipelines/INBOX/Si-O_guided_20250929_0_SiO6/Si-O_guided_0/input_parameters.txt")
