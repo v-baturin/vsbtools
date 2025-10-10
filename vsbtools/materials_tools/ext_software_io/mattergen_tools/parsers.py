@@ -68,12 +68,12 @@ def fname_friendly_serialize(d: dict, dict_keys: List|Any):
         if k == 'chemical_system':
             serialized_val = serialize_structure(d['properties_to_condition_on'][k])
         else:
-            serialized_val = serialize_structure(d.get(k, ''))
+            serialized_val = serialize_structure(d.get(k, None))
         if k and k != 'chemical_system':
             parts.append(f"{k}_{serialized_val}")
         else:
             parts.append(serialized_val)
-    return '_'.join(parts)
+    return '__'.join(parts)
 
 if __name__ == '__main__':
     inpar_path_guided = Path("/home/vsbat/SYNC/00__WORK/2025-2026_MOLTEN_SALTS/MG_postprocess_pipelines/INBOX/Si-O_guided_20250929_0_SiO6/Si-O_guided_0/input_parameters.txt")
@@ -89,7 +89,7 @@ if __name__ == '__main__':
     print(f"filename_nonguided = {fname}")
 
     from vsbtools.materials_tools.materials_dataset.io.yaml_csv_poscars import read
-    ds = read("/home/vsbat/SYNC/00__WORK/2025-2026_MOLTEN_SALTS/MG_postprocess_pipelines/PROCESSED_try1/Cu-Si-P-Ca/"
+    ds = read("/home/vsbat/SYNC/00__WORK/2025-2026_MOLTEN_SALTS/MG_postprocess_pipelines/PROCESSED/Cu-Si-P-Ca/"
               "Cu-Si-P-Ca__GUIDANCE_environment_mode_huber_Cu-P_[42.2]_Cu-Cu_[02.9]__kNone_gNone_normNone_algo_None_annotated/"
               "0_11dec62bb404005d/manifest.yaml")
     print(ds.metadata["batch_metadata"])
