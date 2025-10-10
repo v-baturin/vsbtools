@@ -2,7 +2,7 @@ from pathlib import Path
 from ase.io import read, write
 import re
 import numpy as np
-from ..abInitio_io_parse.ext_software_io import read_coords_g
+from ..ext_software_io.ext_software_io import read_coords_g
 
 # res_folder = Path("/home/vsbat/SYNC/00__WORK/PtAu_PROJECT/gathered_results")
 #
