@@ -67,6 +67,9 @@ def fname_friendly_serialize(d: dict, dict_keys: List|Any):
     for k in dict_keys:
         if k == 'chemical_system':
             serialized_val = serialize_structure(d['properties_to_condition_on'][k])
+        elif k == 'algo':
+            val = d.get(k, None)
+            serialized_val = str(int(val)) if val is not None else 'None'
         else:
             serialized_val = serialize_structure(d.get(k, None))
         if k and k != 'chemical_system':
@@ -90,7 +93,7 @@ if __name__ == '__main__':
 
     from vsbtools.materials_tools.materials_dataset.io.yaml_csv_poscars import read
     ds = read("/home/vsbat/SYNC/00__WORK/2025-2026_MOLTEN_SALTS/MG_postprocess_pipelines/PROCESSED/Cu-Si-P-Ca/"
-              "Cu-Si-P-Ca__GUIDANCE_environment_mode_huber_Cu-P_[42.2]_Cu-Cu_[02.9]__kNone_gNone_normNone_algo_None_annotated/"
+              "Cu-Si-P-Ca__guidance_environment_mode_huber_Cu-P_4-2.2_Cu-Cu_0-2.9__diffusion_loss_weight_None__algo_None_annotated/"
               "0_11dec62bb404005d/manifest.yaml")
     print(ds.metadata["batch_metadata"])
     param_dict_guided = input_parameters_to_dict(raw=ds.metadata["batch_metadata"])
