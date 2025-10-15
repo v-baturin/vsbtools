@@ -65,8 +65,7 @@ class PPPipeline:
 
 
     def run(self, to_process: list | None = None,
-            skip_list: list | None = None,
-            elements_refdata_cache: Path | None = None,
+            skip_list: list | None = None
             ) -> Generator[Tuple[PostprocessStage,CrystalDataset], None, None]:
         
         skip_list = [] if skip_list is None else skip_list
@@ -95,8 +94,7 @@ class PPPipeline:
                 elements = self.processed_stages[PostprocessStage.parse_raw].elements
                 if "max_ehull" not in self.stages_options[stage]:
                     self.stages_options[stage]["max_ehull"] = MAX_EHULL_PA
-                self.processed_stages[stage] = poll_databases(elements, cache_base_path=elements_refdata_cache,
-                                                              **self.stages_options[stage])
+                self.processed_stages[stage] = poll_databases(elements, **self.stages_options[stage])
                 if "estimate_energies" in self.stages_options[stage] and self.stages_options[stage]["estimate_energies"]:
                     estimator = self.get_tool("estimator")
                     estimated = estimator.estimate_dataset_energies(self.processed_stages[stage])
