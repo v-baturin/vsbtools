@@ -70,7 +70,7 @@ def fname_friendly_serialize(d: dict, dict_keys: List|Any = None):
     parts = []
     for k in dict_keys:
         if k == 'chemical_system':
-            serialized_val = serialize_structure(d['properties_to_condition_on'][k])
+            serialized_val = serialize_structure(sorted(d['properties_to_condition_on'][k].split('-')))
         elif k == 'algo':
             val = d.get(k, None)
             serialized_val = str(int(val)) if val is not None else 'None'
