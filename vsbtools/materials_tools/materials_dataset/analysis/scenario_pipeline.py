@@ -17,7 +17,9 @@ from ..io.uspex_bridge import USPEXBridge
 from ..energy_estimation import nn_estimator, mattersim_bridge
 from ..analysis.phase_diagram_tools import PhaseDiagramTools
 
-# --- общие константы / реестры тулкитов ---------------------------
+from .pipeline_legacy import LEGACY_INDEX_TO_NAME, LEGACY_NAME_TO_INDEX
+
+# --- global constants / toolkit registry ---------------------------
 
 TOOLKIT_DICT: Dict[str, Any] = {
     "structure_parser": StructureDatasetIO,
@@ -33,12 +35,12 @@ MAX_EHULL_PA = 0.1
 
 
 # ==================================================================
-# 1. Context: toolkits, global settings, stages outputs
+# 1. Context: toolkits, global settings, stage outputs
 # ==================================================================
 
 @dataclass
 class Context:
-    """General context of pipeline execution"""
+    """Execution context for the pipeline."""
     toolkit_options: MutableMapping[str, Dict[str, Any]] = field(
         default_factory=lambda: defaultdict(dict)
     )
@@ -47,12 +49,24 @@ class Context:
     outputs: Dict[str, CrystalDataset] = field(default_factory=dict)
 
     def get_tool(self, name: str):
-        """Lazy toolkit initialization by its name in TOOLKIT_DICT."""
+        """Lazy initialization of a toolkit by name from TOOLKIT_DICT."""
         if name not in TOOLKIT_DICT:
             raise KeyError(f"Unknown toolkit '{name}'")
 
         if name not in self.toolkits:
-            # Special treatments for certain toolkit
+            # special handling for some toolkits
+            # Auto-fill USPEX elements from ctx.globals if missing
+            if name == "uspex":
+                opts = self.toolkit_options["uspex"]
+                if "elements" not in opts:
+                    elems = self.globals.get("elements")
+                    if elems is None:
+                        raise RuntimeError(
+                            "USPEXBridge requires 'elements'; "
+                            "set ctx.globals['elements'] before using 'uspex'"
+                        )
+                    opts["elements"] = elems
+
             if name == "similarity":
                 ub = self.get_tool("uspex")
                 self.toolkit_options["similarity"].setdefault("dist_fn", ub.fp_dist)
@@ -67,7 +81,7 @@ class Context:
 
 
 # ==================================================================
-# 2. Operations and their registry
+# 2. Operations and registry
 # ==================================================================
 
 OperationFn = Callable[[Context, Dict[str, CrystalDataset], Dict[str, Any]],
@@ -77,7 +91,7 @@ OP_REGISTRY: Dict[str, OperationFn] = {}
 
 
 def op(name: str) -> Callable[[OperationFn], OperationFn]:
-    """Operations registration decorator"""
+    """Register an operation in the global registry."""
     def _wrap(fn: OperationFn) -> OperationFn:
         if name in OP_REGISTRY:
             raise ValueError(f"Operation '{name}' already registered")
@@ -87,17 +101,18 @@ def op(name: str) -> Callable[[OperationFn], OperationFn]:
 
 
 # ==================================================================
-# 3. Scenario model and topological sorting
+# 3. Scenario model and topological ordering
 # ==================================================================
 
 @dataclass
 class StageSpec:
-    """Scenario stage description."""
+    """Specification of a single stage from the scenario."""
     name: str
     op: str
     needs: List[str] = field(default_factory=list)
     params: Dict[str, Any] = field(default_factory=dict)
     description: Optional[str] = None
+    legacy_index: Optional[int] = None
 
 
 @dataclass
@@ -106,10 +121,14 @@ class Scenario:
     globals: Dict[str, Any] = field(default_factory=dict)
     stages: Dict[str, StageSpec] = field(default_factory=dict)
 
+    # Legacy mapping: numeric index <-> stage name
+    legacy_index_to_name: Dict[int, str] = field(init=False, default_factory=dict)
+    legacy_name_to_index: Dict[str, int] = field(init=False, default_factory=dict)
+
     @staticmethod
     def from_mapping(cfg: Dict[str, Any]) -> "Scenario":
         if "version" not in cfg:
-            raise ValueError("Scenario must have 'version' field")
+            raise ValueError("Scenario must have a 'version' field")
 
         g = cfg.get("globals", {}) or {}
         raw_stages = cfg.get("stages", {}) or {}
@@ -122,13 +141,69 @@ class Scenario:
                 needs=list(sc.get("needs", []) or []),
                 params=dict(sc.get("params", {}) or {}),
                 description=sc.get("description"),
+                # legacy_index=int(sc["legacy_index"]) if "legacy_index" in sc else None,
             )
 
-        return Scenario(version=int(cfg["version"]), globals=g, stages=stages)
+        scenario = Scenario(version=int(cfg["version"]), globals=g, stages=stages)
+        scenario._build_legacy_mappings()
+        return scenario
+
+    def _build_legacy_mappings(self) -> None:
+        """Initialize legacy index/name mappings from legacy module and scenario."""
+        # Base mapping from legacy module
+        self.legacy_index_to_name.update(LEGACY_INDEX_TO_NAME)
+        self.legacy_name_to_index.update(LEGACY_NAME_TO_INDEX)
+
+        # Optional overrides from scenario (if you decide to use legacy_index in StageSpec)
+        for name, spec in self.stages.items():
+            legacy_idx = getattr(spec, "legacy_index", None)
+            if legacy_idx is None:
+                continue
+            idx = int(legacy_idx)
+            if idx in self.legacy_index_to_name and self.legacy_index_to_name[idx] != name:
+                raise ValueError(
+                    f"Legacy index {idx} is assigned to both "
+                    f"'{self.legacy_index_to_name[idx]}' and '{name}'"
+                )
+            self.legacy_index_to_name[idx] = name
+            self.legacy_name_to_index[name] = idx
+
+
+    def resolve_stage_name_from_metadata(self, ds: CrystalDataset) -> str:
+        """Resolve canonical stage name from dataset metadata.
+
+        Supports:
+        - legacy int in metadata["pipeline_stage"] (0, 1, 2, ...)
+        - string stage name in metadata["pipeline_stage"]
+        - stringified int in metadata["pipeline_stage"]
+        """
+        meta: Dict[str, Any] = getattr(ds, "metadata", None) or {}
+        raw = meta.get("pipeline_stage")
+
+        # Case 1: direct string name
+        if isinstance(raw, str):
+            if raw in self.stages:
+                return raw
+            # maybe it's a stringified integer; try legacy mapping
+            try:
+                idx = int(raw)
+            except ValueError:
+                idx = None
+            if idx is not None and idx in self.legacy_index_to_name:
+                return self.legacy_index_to_name[idx]
+            raise KeyError(f"Cannot resolve stage name from string '{raw}'")
+
+        # Case 2: direct int (legacy index)
+        if isinstance(raw, int):
+            if raw in self.legacy_index_to_name:
+                return self.legacy_index_to_name[raw]
+            raise KeyError(f"Unknown legacy stage index: {raw}")
+
+        raise KeyError(f"Cannot resolve stage name from metadata: {raw!r}")
 
 
 def load_scenario_file(path: Path) -> Scenario:
-    """Loading of the scenario from YAML or JSON."""
+    """Load scenario from YAML or JSON."""
     text = path.read_text(encoding="utf-8")
     suffix = path.suffix.lower()
 
@@ -146,7 +221,11 @@ def load_scenario_file(path: Path) -> Scenario:
 
 
 def topo_order(stages: Dict[str, StageSpec]) -> List[str]:
-    """Topological sorting of DAG sdtages."""
+    """Topological sort of stage DAG.
+
+    Returns a list of stage names such that each stage appears after all its
+    dependencies. Raises RuntimeError if a cycle is detected.
+    """
     indeg: Dict[str, int] = {k: 0 for k in stages}
     graph: Dict[str, List[str]] = {k: [] for k in stages}
 
@@ -175,7 +254,7 @@ def topo_order(stages: Dict[str, StageSpec]) -> List[str]:
 
 
 # ==================================================================
-# 4. Исполнитель сценария
+# 4. Scenario executor
 # ==================================================================
 
 class ScenarioPipeline:
@@ -183,10 +262,10 @@ class ScenarioPipeline:
         self.scenario = scenario
         self.ctx = Context()
 
-        # Clearing USPEX cache
+        # clear USPEX cache as in original PPPipeline.__post_init__
         USPEXBridge.uspex_entry_from_de.cache_clear()
 
-        # Move globals.toolkit_options into context
+        # merge globals.toolkit_options into context
         tk_opts = scenario.globals.get("toolkit_options", {}) or {}
         if not isinstance(self.ctx.toolkit_options, defaultdict):
             self.ctx.toolkit_options = defaultdict(dict, tk_opts)
@@ -211,10 +290,14 @@ class ScenarioPipeline:
         order = topo_order(self.scenario.stages)
         all_names = set(order)
 
-        targets_set = set(targets) if targets else all_names
-        unknown_targets = targets_set - all_names
-        if unknown_targets:
-            raise KeyError(f"Unknown target stages: {sorted(unknown_targets)}")
+        if targets is None:
+            # By default, run only stages that are not already in outputs
+            targets_set = all_names - set(self.ctx.outputs.keys())
+        else:
+            targets_set = set(targets)
+            unknown_targets = targets_set - all_names
+            if unknown_targets:
+                raise KeyError(f"Unknown target stages: {sorted(unknown_targets)}")
 
         skip_set = set(skip) if skip else set()
         return [name for name in order if name in targets_set and name not in skip_set]
@@ -225,8 +308,9 @@ class ScenarioPipeline:
         skip: Optional[Iterable[str]] = None,
     ) -> Iterable[Tuple[str, CrystalDataset]]:
         """
-        Running the scenario.
-        Returns a generator (stage name, CrystalDataset).
+        Execute the scenario.
+
+        Yields pairs (stage_name, CrystalDataset).
         """
         for name in self._stage_sequence(targets, skip):
             spec = self.scenario.stages[name]
@@ -235,28 +319,33 @@ class ScenarioPipeline:
             if spec.op not in OP_REGISTRY:
                 raise KeyError(f"Operation '{spec.op}' not registered")
 
-            params = dict(spec.params)  # копия, чтобы не портить исходный сценарий
+            params = dict(spec.params)  # copy to avoid mutating original scenario
             ds = OP_REGISTRY[spec.op](self.ctx, inputs, params)
 
-            # минимальная запись происхождения
+            # minimal provenance
             if ds.metadata is None:
                 ds.metadata = {}
             else:
                 ds.metadata = dict(ds.metadata)
 
             ds.metadata["pipeline_stage"] = name
+
             ds.parent_ids = [
                 getattr(inp, "dataset_id", None)
                 for inp in inputs.values()
                 if hasattr(inp, "dataset_id")
             ]
 
+            idx = self.scenario.legacy_name_to_index.get(name)
+            if idx is not None:
+                ds.metadata.setdefault("pipeline_stage_index", str(idx))
+
             self.ctx.outputs[name] = ds
             yield name, ds
 
 
 # ==================================================================
-# 5. Операции, реализующие твой текущий PPPipeline
+# 5. Operations implementing the original PPPipeline stages
 # ==================================================================
 
 # --- parse_raw ----------------------------------------------------
@@ -270,7 +359,7 @@ def op_parse_raw(
     if inputs:
         raise AssertionError("parse_raw must have no parents")
 
-    # элементы можно взять из params или из globals
+    # elements can come from params or from globals
     elements = params.get("elements", ctx.globals.get("elements"))
     if elements is None:
         raise AssertionError("elements must be specified (in params or globals)")
@@ -279,7 +368,7 @@ def op_parse_raw(
     ds = parser.load_from_directory(elements=elements)
 
     if len(ds) == 0:
-        raise AssertionError("parse_raw produced empty dataset")
+        raise AssertionError("parse_raw produced an empty dataset")
 
     if ds.metadata is None:
         ds.metadata = {}
@@ -320,13 +409,13 @@ def op_poll_db(
     if elements is None:
         raise AssertionError("parse_raw dataset must expose 'elements'")
 
-    # max_ehull по умолчанию как в исходном коде
+    # default max_ehull as in the original code
     max_ehull = params.setdefault("max_ehull", MAX_EHULL_PA)
 
-    # флаг дополнительной оценки
+    # optional additional estimation
     estimate_energies = bool(params.pop("estimate_energies", False))
 
-    # остальные параметры уходят напрямую в poll_databases
+    # remaining parameters are passed directly to poll_databases
     db = poll_databases(elements, **params)
 
     if not estimate_energies:
@@ -335,7 +424,7 @@ def op_poll_db(
     estimator = ctx.get_tool("estimator")
     estimated = estimator.estimate_dataset_energies(db)
 
-    # parent_ids пустой, как у тебя
+    # parent_ids is empty as in the original code
     estimated.parent_ids = []
 
     msg0 = (db.metadata or {}).get("message", "").strip()
@@ -360,7 +449,7 @@ def op_augment_raw_by_db(
     params: Dict[str, Any],
 ) -> CrystalDataset:
     if set(inputs.keys()) != {"symmetrize_raw", "poll_db"}:
-        # допускаем любое имя, но их должно быть два
+        # allow arbitrary names but require exactly two parents
         if len(inputs) != 2:
             raise AssertionError("augment_raw_by_db expects symmetrize_raw and poll_db as parents")
 
@@ -372,7 +461,7 @@ def op_augment_raw_by_db(
 
     print(augmentation.metadata.get("message", ""))
 
-    # разметка записей БД (reproduced=True)
+    # mark DB entries with reproduced=True
     reproduced = augmentation.metadata.get("reproduced", {})
     labeled_entries = []
     for e in db_ds:
@@ -382,7 +471,7 @@ def op_augment_raw_by_db(
         else:
             labeled_entries.append(e)
 
-    # аккуратное восстановление параметров CrystalDataset
+    # reconstruct CrystalDataset parameters more carefully
     db_parameters = db_ds.__dict__.copy()
     meta = db_parameters.pop("metadata", {})
     base_path = db_parameters.pop("_base_path", None)
@@ -437,7 +526,7 @@ def op_filter_hull(
 
     max_ehull = params.get("max_ehull", MAX_EHULL_PA)
 
-    # dataset для построения PD
+    # dataset for phase-diagram construction
     base_stage = params.get("base_stage")
     if base_stage is not None:
         if base_stage not in inputs:
@@ -449,7 +538,7 @@ def op_filter_hull(
     ctx.toolkit_options["phase_diag"] = {"dataset": base_ds}
     pd_tk: PhaseDiagramTools = ctx.get_tool("phase_diag")
 
-    # dataset, который реально фильтруем
+    # dataset we actually filter
     select_from = inputs.get("estimate", base_ds)
 
     filtered = select_from.filter(
@@ -487,7 +576,7 @@ def op_deduplicate(
     return ds
 
 
-# --- postprocess_dft (заглушка) -----------------------------------
+# --- postprocess_dft (placeholder) --------------------------------
 
 @op("postprocess_dft")
 def op_postprocess_dft(

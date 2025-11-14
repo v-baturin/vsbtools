@@ -5,7 +5,8 @@ from ase.io import write
 
 host = socket.gethostname()
 MATTERSIM_PYTHON_PATHS = {'nina': "/home/vsbat/work/mattergen/mattergenbis/.venv/bin/python",
-                          "taurus": "/home/vsbat/work/venvs/mattersim_venv/bin/python"}
+                          "taurus": "/home/vsbat/work/venvs/mattersim_venv/bin/python",
+                          "serpens": "/home/vsbat/work/venvs/mattersim/bin/python"}
 
 if host not in MATTERSIM_PYTHON_PATHS:
     other_python = Path(input("Enter full path to mattersim-containing virtual environment")) / "bin/python"
