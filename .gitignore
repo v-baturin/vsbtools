@@ -12,3 +12,7 @@ src/__pycache__
 /dist
 /vsbtools.egg-info
 /uv.lock
+/vsbtools/materials_tools/materials_dataset/analysis/unittests/DB_CACHE/
+/vsbtools/materials_tools/materials_dataset/analysis/unittests/db_cache/
+/vsbtools/materials_tools/materials_dataset/analysis/unittests/PROCESSED/
+/vsbtools/materials_tools/materials_dataset/analysis/unittests/PROCESSED_NEW/
