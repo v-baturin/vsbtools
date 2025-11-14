@@ -33,12 +33,12 @@ MAX_EHULL_PA = 0.1
 
 
 # ==================================================================
-# 1. Контекст: тулкиты, глобальные настройки, выходы стадий
+# 1. Context: toolkits, global settings, stages outputs
 # ==================================================================
 
 @dataclass
 class Context:
-    """Общий контекст выполнения пайплайна."""
+    """General context of pipeline execution"""
     toolkit_options: MutableMapping[str, Dict[str, Any]] = field(
         default_factory=lambda: defaultdict(dict)
     )
@@ -47,12 +47,12 @@ class Context:
     outputs: Dict[str, CrystalDataset] = field(default_factory=dict)
 
     def get_tool(self, name: str):
-        """Ленивая инициализация тулкита по имени в TOOLKIT_DICT."""
+        """Lazy toolkit initialization by its name in TOOLKIT_DICT."""
         if name not in TOOLKIT_DICT:
             raise KeyError(f"Unknown toolkit '{name}'")
 
         if name not in self.toolkits:
-            # спец-обработка некоторых тулкитов
+            # Special treatments for certain toolkit
             if name == "similarity":
                 ub = self.get_tool("uspex")
                 self.toolkit_options["similarity"].setdefault("dist_fn", ub.fp_dist)
@@ -67,7 +67,7 @@ class Context:
 
 
 # ==================================================================
-# 2. Операции и их реестр
+# 2. Operations and their registry
 # ==================================================================
 
 OperationFn = Callable[[Context, Dict[str, CrystalDataset], Dict[str, Any]],
@@ -77,7 +77,7 @@ OP_REGISTRY: Dict[str, OperationFn] = {}
 
 
 def op(name: str) -> Callable[[OperationFn], OperationFn]:
-    """Декоратор регистрации операций в реестре."""
+    """Operations registration decorator"""
     def _wrap(fn: OperationFn) -> OperationFn:
         if name in OP_REGISTRY:
             raise ValueError(f"Operation '{name}' already registered")
@@ -87,12 +87,12 @@ def op(name: str) -> Callable[[OperationFn], OperationFn]:
 
 
 # ==================================================================
-# 3. Модель сценария и топологическая сортировка
+# 3. Scenario model and topological sorting
 # ==================================================================
 
 @dataclass
 class StageSpec:
-    """Описание одной стадии из сценария."""
+    """Scenario stage description."""
     name: str
     op: str
     needs: List[str] = field(default_factory=list)
@@ -128,7 +128,7 @@ class Scenario:
 
 
 def load_scenario_file(path: Path) -> Scenario:
-    """Загрузка сценария из YAML или JSON."""
+    """Loading of the scenario from YAML or JSON."""
     text = path.read_text(encoding="utf-8")
     suffix = path.suffix.lower()
 
@@ -146,7 +146,7 @@ def load_scenario_file(path: Path) -> Scenario:
 
 
 def topo_order(stages: Dict[str, StageSpec]) -> List[str]:
-    """Топологическая сортировка DAG стадий."""
+    """Topological sorting of DAG sdtages."""
     indeg: Dict[str, int] = {k: 0 for k in stages}
     graph: Dict[str, List[str]] = {k: [] for k in stages}
 
@@ -183,17 +183,17 @@ class ScenarioPipeline:
         self.scenario = scenario
         self.ctx = Context()
 
-        # очистка кеша USPEX, как у тебя в PPPipeline.__post_init__
+        # Clearing USPEX cache
         USPEXBridge.uspex_entry_from_de.cache_clear()
 
-        # перенос globals.toolkit_options в контекст
+        # Move globals.toolkit_options into context
         tk_opts = scenario.globals.get("toolkit_options", {}) or {}
         if not isinstance(self.ctx.toolkit_options, defaultdict):
             self.ctx.toolkit_options = defaultdict(dict, tk_opts)
         else:
             self.ctx.toolkit_options.update(tk_opts)
 
-        # остальные globals
+        # other globals
         self.ctx.globals = {
             k: v for k, v in scenario.globals.items()
             if k != "toolkit_options"
@@ -225,8 +225,8 @@ class ScenarioPipeline:
         skip: Optional[Iterable[str]] = None,
     ) -> Iterable[Tuple[str, CrystalDataset]]:
         """
-        Выполнить сценарий.
-        Возвращает генератор (имя_стадии, CrystalDataset).
+        Running the scenario.
+        Returns a generator (stage name, CrystalDataset).
         """
         for name in self._stage_sequence(targets, skip):
             spec = self.scenario.stages[name]
