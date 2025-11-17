@@ -1,9 +1,8 @@
 from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Any, Optional, Tuple
-
-import yaml
-import networkx as nx
+import yaml  # type: ignore[import-untyped]
+import networkx as nx  # type: ignore[import-untyped]
 
 # --- CrystalDataset helpers ------------------------------------------
 from ..io.yaml_csv_poscars import read as cd_read, write as cd_write
@@ -56,7 +55,7 @@ class DatasetRepo:
             for yml in self.root.rglob(_MANIFEST_NAME):
                 try:
                     meta = yaml.safe_load(yml.read_text())
-                except Exception(yaml.YAMLError, OSError):
+                except Exception(yaml.YAMLError, OSError):  # type: ignore[misc]
                     continue  # skip malformed YAML silently
 
                 node_id = meta.get("dataset_id")
@@ -92,8 +91,8 @@ class DatasetRepo:
         self,
         dataset: CrystalDataset,
         *,
-        suffix: str = None,
-        prefix: str = None,
+        suffix: str | None = None,
+        prefix: str | None = None,
         overwrite: bool = False,
         **kwargs
     ) -> str:
