@@ -320,6 +320,7 @@ class ScenarioPipeline:
                 raise KeyError(f"Operation '{spec.op}' not registered")
 
             params = dict(spec.params)  # copy to avoid mutating original scenario
+            print(f"Start of stage {name} applied to inputs {inputs}")
             ds = OP_REGISTRY[spec.op](self.ctx, inputs, params)
 
             # minimal provenance
@@ -410,7 +411,7 @@ def op_poll_db(
         raise AssertionError("parse_raw dataset must expose 'elements'")
 
     # default max_ehull as in the original code
-    max_ehull = params.setdefault("max_ehull", MAX_EHULL_PA)
+    params.setdefault("max_ehull", MAX_EHULL_PA)
 
     # optional additional estimation
     estimate_energies = bool(params.pop("estimate_energies", False))
