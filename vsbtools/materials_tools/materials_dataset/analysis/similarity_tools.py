@@ -1,4 +1,5 @@
 from __future__ import annotations
+import time
 from pathlib import Path
 from typing import Callable, Any, Tuple
 from ..crystal_entry import  CrystalEntry
@@ -54,12 +55,11 @@ class SimilarityTools:
                                                                      clusters_file=clusters_file,
                                                                      do_split_clusters_by_labels=enforce_compositions_separation,
                                                                      labels_list=reduced_compositions)
-        filtered_list = []
         for no, idx in enumerate(best_idx):
             if "duplicates" not in ds[idx].metadata or ds[idx].metadata["duplicates"] is None:
-                ds[idx].metadata["duplicates"] = set([ds[j].id for j in clusters[no]])
+                ds[idx].metadata["duplicates"] = set([ds[j].id for j in clusters[no] if j != idx])
             else:
-                ds[idx].metadata["duplicates"] |= set([ds[j].id for j in clusters[no]])
+                ds[idx].metadata["duplicates"] |= set([ds[j].id for j in clusters[no] if j != idx])
         filtered_list = [ds[i] for i in best_idx]
 
         message = f"Parent deduplicated with tol_FP={self.tol_fp} "
@@ -73,7 +73,13 @@ class SimilarityTools:
         rho = self.dist
         for i, examined in enumerate(ds):
             for j, reference in enumerate(ref_ds):
-                if rho(examined, reference) <= self.tol_fp:
+                tic = time.time()
+                dist = rho(examined, reference)
+                duration = time.time() - tic
+                if duration > 10:
+                    print(f"Fingerprint for i = {i} Took too long")
+                    examined.structure.to_file(f"PROBLEM_POSCAR{i}", fmt='vasp')
+                if dist <= self.tol_fp:
                     duplicates_counter.add(j)
                     reproduced.add(reference.id)
                     if not "duplicates" in reference.metadata:
