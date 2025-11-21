@@ -32,7 +32,7 @@ calc = MatterSimCalculator(load_path="MatterSim-v1.0.0-5M.pth", device=device)
 relaxer = Relaxer(
     optimizer="BFGS",
     filter="ExpCellFilter",
-    constrain_symmetry=False,
+    constrain_symmetry=True,
 )
 
 # --------------------------------------------------------------------------- #
@@ -44,11 +44,13 @@ def relax_one(ats):
     ats.calc = calc
 
     flag, result = relaxer.relax(ats, steps=500)
-    print("relaxed" if flag else "relaxation failed")  # to stderr
+    if not flag:
+        result = ats
+    print("relaxed" if flag else "relaxation failed, original structure returned")  # to stderr
     return result
 
 
-for line in sys.stdin:
+for i, line in enumerate(sys.stdin):
     line = line.strip()
     if not line:
         continue
@@ -56,7 +58,7 @@ for line in sys.stdin:
     try:
         atoms = read(io.StringIO(line), format="json")
         relaxed = relax_one(atoms)
-
+        print(f"{i}")
         buf = io.StringIO()
         write(buf, relaxed, format="json")
         json_str = buf.getvalue().replace("\n", " ")  # one JSON per line

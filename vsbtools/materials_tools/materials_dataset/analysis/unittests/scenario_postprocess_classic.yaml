@@ -39,35 +39,15 @@ stages:
       # cache_base_path can optionally be overridden in code if you
       # want DB_CACHE / <system>_<flags>_<max_ehull>
 
-  relax_generated:
-    op: relax
-    needs: [ symmetrize_raw ]
-    params: { }
-
-  relax_db:
-    op: relax
-    needs: [poll_db]
-    params: {}
-
   augment_raw_by_db:
     op: augment_raw_by_db
     needs: [symmetrize_raw, poll_db]
     params: {}
 
-  augment_raw_by_db_relax:
-    op: augment_raw_by_db
-    needs: [ relax_generated, relax_db ]
-    params: { }
-
   estimate:
     op: estimate
-    needs: [ augment_raw_by_db ]
+    needs: [augment_raw_by_db]
     params: {}
-
-  estimate_relax:
-    op: estimate
-    needs: [ augment_raw_by_db_relax ]
-    params: { }
 
   filter_hull:
     op: filter_hull
@@ -75,22 +55,9 @@ stages:
     params:
       max_ehull: 0.3
 
-  filter_hull_relax:
-    op: filter_hull
-    needs: [ estimate_relax ]
-    params:
-      max_ehull: 0.3
-
   deduplicate:
     op: deduplicate
     needs: [filter_hull]
-    params:
-      check_clusters_file: true
-      check_dist_matrix_file: true
-
-  deduplicate_relax:
-    op: deduplicate
-    needs: [ filter_hull_relax ]
     params:
       check_clusters_file: true
       check_dist_matrix_file: true

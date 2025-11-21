@@ -514,6 +514,22 @@ def op_estimate(
     return estimator.estimate_dataset_energies(parent)
 
 
+# --- relax ---------------------------------------------------------
+
+@op("relax")
+def relax(
+    ctx: Context,
+    inputs: Dict[str, CrystalDataset],
+    params: Dict[str, Any],
+) -> CrystalDataset:
+    if len(inputs) != 1:
+        raise AssertionError("relax expects exactly one parent (augment_raw_by_db)")
+    parent = next(iter(inputs.values()))
+
+    estimator = ctx.get_tool("estimator")
+    return estimator.relax_dataset(parent)
+
+
 # --- filter_hull --------------------------------------------------
 
 @op("filter_hull")

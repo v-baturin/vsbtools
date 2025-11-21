@@ -1,9 +1,9 @@
 import numpy as np
 from ..crystal_dataset import CrystalDataset, CrystalEntry
-from ...NN_energy_estimators import mattersim_estimator
+from ...NN_energy_estimators import mattersim_client
 
 def estimate_batch(dataset: CrystalDataset):
-    with mattersim_estimator.EnergyStream() as es:
+    with mattersim_client.EnergyStream() as es:
         energies = np.zeros(len(dataset))
         for i, e in enumerate(dataset):
             try:
@@ -14,4 +14,17 @@ def estimate_batch(dataset: CrystalDataset):
     return energies
 
 def estimate_entry_energy(e: CrystalEntry):
-    return mattersim_estimator.get_energy(e.structure.to_ase_atoms())
+    return mattersim_client.get_energy(e.structure.to_ase_atoms())
+
+def relax_batch(dataset: CrystalDataset):
+    with mattersim_client.RelaxStream() as rs:
+        new_structures = [None] * len(dataset)
+        for i, e in enumerate(dataset):
+            try:
+                new_structures[i] = rs.relax(e.structure.to_ase_atoms())
+            except RuntimeError as err:
+                print (f"Couldn't relax structure with id = {e.id} ({e.poscarname}) from dataset id = {dataset.dataset_id}")
+    return new_structures
+
+def relax_entry(e: CrystalEntry):
+    return mattersim_client.relax(e.structure.to_ase_atoms())

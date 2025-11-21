@@ -8,7 +8,7 @@ from mattersim.forcefield.potential import MatterSimCalculator
 from mattersim.applications.relax import Relaxer
 
 sio2_flavor_paths = dict(
-mg=Path("2442POSCAR"),
+mg=Path("410POSCAR"),
 agm=Path("agm002228342POSCAR"),
 oqmd=Path("oqmd_104526POSCAR")
 )
@@ -41,7 +41,9 @@ def relax(ats):
 
     print(f"{'relaxed' if flag else 'relaxation failed'}")
     return result
-# result.write(f"{flavor_path.name}_relaxed", format='vasp', vasp5=True)
+
+result = relax(ats)
+result.write(f"{flavor_path.name}_relaxed", format='vasp', vasp5=True)
 
 
 

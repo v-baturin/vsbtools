@@ -21,3 +21,6 @@ class NNEstimator_Test(unittest.TestCase):
     def test_batch_estimation(self):
         ds2 = self.estimator.estimate_dataset_energies(self.dataset)
         print('\n'.join([str(e.energy) for e in ds2]))
+
+    def test_batch_relaxation(self):
+        ds2 = self.estimator.relax_dataset(self.dataset)
