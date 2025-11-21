@@ -67,10 +67,10 @@ class CrystalDataset(Sequence[CrystalEntry]):
 
     # --- Minimal *pure* helpers that return new datasets ----------
     def merge(self, other: "CrystalDataset", message=None) -> "CrystalDataset":
-        message = message or 'Simple merge'
+        message = message or f'Simple merge of {self.dataset_id} and {other.dataset_id}'
         return CrystalDataset.from_parents(self._entries + list(other), parents=(self, other), message=message)
 
     def filter(self, predicate: Callable[[CrystalEntry], bool], message=None) -> "CrystalDataset":
-        message = message or f"Filtered by {describe_predicate(predicate)}"
+        message = message or f"Dataset {self.dataset_id} filtered by {describe_predicate(predicate)}"
         return CrystalDataset.from_parents([e for e in self if predicate(e)], parents=(self,), message=message)
 
