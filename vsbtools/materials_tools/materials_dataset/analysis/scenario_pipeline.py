@@ -443,8 +443,8 @@ def op_poll_db(
 
 # --- augment_raw_by_db -------------------------------------------
 
-@op("augment_raw_by_db")
-def op_augment_raw_by_db(
+@op("augment_raw_by_ref")
+def op_augment_by_ref(
     ctx: Context,
     inputs: Dict[str, CrystalDataset],
     params: Dict[str, Any],
