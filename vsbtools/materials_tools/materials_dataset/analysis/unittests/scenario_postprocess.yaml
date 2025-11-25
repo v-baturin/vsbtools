@@ -95,6 +95,28 @@ stages:
       check_clusters_file: true
       check_dist_matrix_file: true
 
+  all_dedup:
+    op: deduplicate
+    needs: parse_raw
+    params: { }
+
+  estimate_raw:
+    op: estimate
+    needs: parse_raw
+    params: {}
+
+  stable:
+    op: filter_hull
+    needs: [estimate_raw, poll_db]
+    params: { }
+
+  stable_dedup:
+    op: deduplicate
+    needs: stable
+    params:
+      check_clusters_file: true
+      check_dist_matrix_file: true
+
 #  postprocess_dft:
 #    op: postprocess_dft
 #    needs: []

@@ -449,40 +449,52 @@ def op_augment_raw_by_db(
     inputs: Dict[str, CrystalDataset],
     params: Dict[str, Any],
 ) -> CrystalDataset:
-    if set(inputs.keys()) != {"symmetrize_raw", "poll_db"}:
-        # allow arbitrary names but require exactly two parents
-        if len(inputs) != 2:
-            raise AssertionError("augment_raw_by_db expects symmetrize_raw and poll_db as parents")
+    if len(inputs) != 2:
+        raise AssertionError("augment_raw_by_db expects exactly two parents")
 
-    sym_ds = inputs.get("symmetrize_raw", list(inputs.values())[0])
-    db_ds = inputs.get("poll_db", list(inputs.values())[1])
+    parent_names = list(inputs.keys())
+
+    # By default, use the order from 'needs' in the scenario:
+    # first parent -> symmetrized dataset, second -> reference DB.
+    base_name = params.get("base_parent", parent_names[0])
+    ref_name = params.get("ref_parent", parent_names[1])
+
+    try:
+        base_ds = inputs[base_name]
+    except KeyError as e:
+        raise KeyError(f"base_parent '{base_name}' not found among inputs {parent_names}") from e
+
+    try:
+        ref_ds = inputs[ref_name]
+    except KeyError as e:
+        raise KeyError(f"ref_parent '{ref_name}' not found among inputs {parent_names}") from e
 
     similarity_tk: SimilarityTools = ctx.get_tool("similarity")
-    augmentation = similarity_tk.get_unseen_in_ref(sym_ds, ref_ds=db_ds)
+    augmentation = similarity_tk.get_unseen_in_ref(base_ds, ref_ds=ref_ds)
 
     print(augmentation.metadata.get("message", ""))
 
-    # mark DB entries with reproduced=True
+    # Mark DB entries with reproduced=True
     reproduced = augmentation.metadata.get("reproduced", {})
     labeled_entries = []
-    for e in db_ds:
+    for e in ref_ds:
         if str(e.id) in reproduced:
             new_metadata = {**(e.metadata or {}), "reproduced": True}
             labeled_entries.append(e.copy_with(metadata=new_metadata))
         else:
             labeled_entries.append(e)
 
-    # reconstruct CrystalDataset parameters more carefully
-    db_parameters = db_ds.__dict__.copy()
-    meta = db_parameters.pop("metadata", {})
-    base_path = db_parameters.pop("_base_path", None)
+    # Reconstruct CrystalDataset parameters
+    ref_parameters = ref_ds.__dict__.copy()
+    meta = ref_parameters.pop("metadata", {})
+    base_path = ref_parameters.pop("_base_path", None)
     if base_path is not None:
-        db_parameters["base_path"] = base_path
-    for k in list(db_parameters):
+        ref_parameters["base_path"] = base_path
+    for k in list(ref_parameters):
         if k.startswith("_"):
-            db_parameters.pop(k, None)
+            ref_parameters.pop(k, None)
 
-    labeled_db = CrystalDataset(labeled_entries, **db_parameters)
+    labeled_db = CrystalDataset(labeled_entries, **ref_parameters)
     labeled_db.metadata = meta
 
     merged = labeled_db.merge(augmentation)
@@ -491,8 +503,8 @@ def op_augment_raw_by_db(
     merged.metadata["reproducibility"] = augmentation.metadata.get("reproducibility")
 
     merged.parent_ids = [
-        getattr(sym_ds, "dataset_id", None),
-        getattr(db_ds, "dataset_id", None),
+        getattr(base_ds, "dataset_id", None),
+        getattr(ref_ds, "dataset_id", None),
     ]
 
     return merged
@@ -543,20 +555,31 @@ def op_filter_hull(
 
     max_ehull = params.get("max_ehull", MAX_EHULL_PA)
 
-    # dataset for phase-diagram construction
-    base_stage = params.get("base_stage")
-    if base_stage is not None:
-        if base_stage not in inputs:
-            raise KeyError(f"base_stage '{base_stage}' not among parents {list(inputs)}")
-        base_ds = inputs[base_stage]
+    parent_names = list(inputs.keys())
+
+    # Dataset used to build the phase diagram
+    pd_source_name = params.get("pd_source")
+    if pd_source_name is None:
+        # Default: first parent in 'needs' order
+        base_ds = next(iter(inputs.values()))
     else:
-        base_ds = inputs.get("estimate", next(iter(inputs.values())))
+        try:
+            base_ds = inputs[pd_source_name]
+        except KeyError as e:
+            raise KeyError(f"pd_source '{pd_source_name}' not found among inputs {parent_names}") from e
 
     ctx.toolkit_options["phase_diag"] = {"dataset": base_ds}
     pd_tk: PhaseDiagramTools = ctx.get_tool("phase_diag")
 
-    # dataset we actually filter
-    select_from = inputs.get("estimate", base_ds)
+    # Dataset to be filtered
+    filter_from_name = params.get("filter_from")
+    if filter_from_name is None:
+        select_from = base_ds
+    else:
+        try:
+            select_from = inputs[filter_from_name]
+        except KeyError as e:
+            raise KeyError(f"filter_from '{filter_from_name}' not found among inputs {parent_names}") from e
 
     filtered = select_from.filter(
         lambda entry: pd_tk.height_above_hull_pa(entry) < max_ehull
