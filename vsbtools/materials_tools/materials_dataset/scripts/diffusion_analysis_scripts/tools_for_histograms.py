@@ -3,6 +3,7 @@ from pathlib import Path
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import yaml
 from ...crystal_dataset import CrystalDataset
 from ...io.yaml_csv_poscars import read
 from ...analysis import (
@@ -10,120 +11,107 @@ from ...analysis import (
     summary
 )
 from ....ext_software_io.mattergen_tools.parsers import input_parameters_to_dict
+from ...scripts.diffusion_analysis_scripts.mattergen_bridge import mattergen_fn_collection, structure_to_tensors
 
+
+def load_yaml_with_batch_data(yaml_fname):
+    with open(yaml_fname) as ym_fid:
+        ym_dict = yaml.safe_load(ym_fid.read())
+    if 'batch_metadata' in ym_dict['metadata']:
+        ym_dict['metadata']['batch_metadata'] = yaml.safe_load(ym_dict['metadata']['batch_metadata'])
+    return ym_dict
 
 def graph_name_from_ds(ds: CrystalDataset):
-    if ds.metadata["pipeline_stage"] == 'parse_raw':
+    if ds.metadata["pipeline_stage"] in [0, 'parse_raw']:
         param_dict_guided = input_parameters_to_dict(raw=ds.metadata["batch_metadata"])
         # print(param_dict_guided)
         if 'guidance' in param_dict_guided and param_dict_guided['guidance'] is not None:
-            return ", ".join([f"{param}={val}" for param, val in zip(["$\\kappa$", "$\\gamma$", "norm"], param_dict_guided.get("diffusion_loss_weight", ['','','']))])
+            return ", ".join([f"{param}={val}" for param, val in zip(["$\\kappa$", "$\\gamma$", "norm"], param_dict_guided.get("diffusion_loss_weight", ['', '', '']))])
         else:
             return "non-guided"
-    elif ds.metadata["pipeline_stage"] == 2:
+    elif ds.metadata["pipeline_stage"] in [2, "poll_db"]:
         return "reference"
     return None
 
-
-def get_datasets_dict(processed_repos_root, system, guidance_type, guidance_target_bond, guidance_target_cn, batch_treatments):
-    """
-    processed_repos_root: path
-    system: str
-    guidance_type: str
-    guidance_target_bond: str
-    guidance_target_cn: int
-    batch_treatments: List[str]
-    """
+def get_average_cn_gen_dirs(processed_repos_root: Path, system: str, bond: str, target: float | int | None = None):
     normalized_system = '-'.join(sorted(system.split('-')))
-    system_search_path = processed_repos_root / normalized_system
-    datasets_dict = {bt: dict() for bt in batch_treatments}
-    datasets_dict = dict()
-    for generation_path in system_search_path.glob(f"{normalized_system}*"): # go over all path and populate dictionary of datasets to plot histograms
-        for manifest in generation_path.rglob("manifest.yaml"):
-            ds = read(manifest)
-            datasets_dict[ds.metadata["pipeline_stage"]] = ds
-
-
-
-        raw = read(next(generation_path.glob('0_*')) / "manifest.yaml")
-        # print(raw.base_path)
-        guidance_label = graph_name_from_ds(raw)
-        input_param_dict = input_parameters_to_dict(raw=raw.metadata["batch_metadata"])
-        if input_param_dict['guidance'] is not None and \
-           (guidance_type not in input_param_dict['guidance'] or \
-            guidance_target_bond not in input_param_dict['guidance'][guidance_type] or \
-            guidance_target_cn != input_param_dict['guidance'][guidance_type][guidance_target_bond]):
-            # print(f"requested: {{{guidance_type}: {{{guidance_target_bond}: {guidance_target_cn}}}}}")
-            # print(f"got:{input_param_dict['guidance']}")
-            # print("Skipping\n")
+    search_dir = processed_repos_root / normalized_system
+    gen_paths = []
+    for gen_path in search_dir.glob(f"{normalized_system}"):
+        for stage_yaml in gen_path.rglob("manifest.yaml"):
+            dataset_info = load_yaml_with_batch_data(stage_yaml)
+            if dataset_info["pipeline_stage"] in [0, 'parse_raw']:
+                break
+        else:
             continue
-        if generation_path.name.endswith('_all'):
-            sym = read(next(generation_path.glob('1_*')) / "manifest.yaml") #these numbers correspond to pipeline in vsbtools.
-            ref = read(next(generation_path.glob('2_*')) / "manifest.yaml")
-            dedup = read(next(generation_path.glob('6_*')) / "manifest.yaml")
-            datasets_dict['all'][guidance_label] = sym
-            # print(f"Got {len(sym)} entries into datasets_dict['all'][{guidance_label}] from {sym.base_path}")
-            datasets_dict['deduplicated'][guidance_label] = dedup
-            # print(f"Got {len(dedup)} entries into datasets_dict['deduplicated'][{guidance_label}] from {dedup.base_path}")
-            if 'reference' not in datasets_dict['all']:
-                datasets_dict['all']['reference'] = ref
-                # print(f"Got {len(ref)} entries into datasets_dict['all']['reference'] from {ref.base_path}")
-                datasets_dict['deduplicated']['reference'] = ref
-                # print(f"Got {len(ref)} entries into datasets_dict['deduplicated']['reference'] from {ref.base_path}")
-        elif generation_path.name.endswith('_stable'):
-            ref_stable = read(next(generation_path.glob('0_*')) / "manifest.yaml")
-            stable = read(next(generation_path.glob('5_*')) / "manifest.yaml")
-            stable_dedup = read(next(generation_path.glob('6_*')) / "manifest.yaml")
-            guidance_label = graph_name_from_ds(raw)
-            datasets_dict['stable'][guidance_label] = stable
-            # print(f"Got {len(stable)} entries into datasets_dict['stable'][{guidance_label}] from {stable.base_path}")
-            datasets_dict['stable_deduplicated'][guidance_label] = stable_dedup
-            # print(f"Got {len(stable_dedup)} entries into datasets_dict['stable_dedup'][{guidance_label}] from {stable_dedup.base_path}")
-            if 'reference' not in datasets_dict['stable']:
-                datasets_dict['stable']['reference'] = ref_stable
-                # print(f"Got {len(ref_stable)} entries into datasets_dict['stable']['reference'] from {ref_stable.base_path}")
-                datasets_dict['stable_deduplicated']['reference'] = ref_stable
-                # print(f"Got {len(ref_stable)} entries into datasets_dict['stable_deduplicated']['reference'] from {ref_stable.base_path}")
-    return datasets_dict
+        if dataset_info["metadata"]["guidance"] is None or (set(dataset_info["metadata"]["guidance"].keys()) &
+                                                            {'average_cn', 'environment'} and
+                                                            bond in dataset_info["metadata"]["guidance"].keys() and
+                                                            (not target
+                                                             or dataset_info["metadata"]["guidance"][bond] == target)):
+            gen_paths.append(gen_path)
+        continue
+    return gen_paths
 
+def collect_stage_dataset_dict(gen_dirs, stage, ref_stage):
+    ds_dict = dict()  #
+    for stage_yml in gen_dirs[0].rglob("manifest.yaml"):
+        stage_desc = load_yaml_with_batch_data(stage_yml)
+        if stage_desc["pipeline_stage"] == ref_stage:
+            ds_dict["reference"] = read(stage_yml)
+    for gen_dir in gen_dirs:
+        for stage_yml in gen_dir.rglob("manifest.yaml"):
+            stage_desc = load_yaml_with_batch_data(stage_yml)
+            if stage_desc["pipeline_stage"] == stage:
+                ds = read(stage_yml)
+                name = graph_name_from_ds(ds)
+                ds_dict[name] = ds
+    return ds_dict
 
-# guidance_fns = {"environment": at_env.analyze_average_environment_in_entry, "dominant_environment": ''}
+def get_entry_fn(fn_name, **params):
 
-def get_guidance_fn(guidance_name, **params):
-    labels = dict()
-
-    if guidance_name == "environment":
-
-        guidance_params_av_env = {type_X: at_sym for type_X, at_sym in
-                                  zip(['type_A', 'type_B'], params["guidance_target_bond"].split('-'))}
+    if fn_name in ("environment", "average_cn"):
+        fn_params = {type_X: at_sym for type_X, at_sym in
+                                  zip(['type_A', 'type_B'], params.pop("guidance_target_bond").split('-'))}
 
         def average_env_fn(entry):
-            return at_env.analyze_average_environment_in_entry(entry, **guidance_params_av_env).cpu().item()
+            return at_env.analyze_average_environment_in_entry(entry, **{**fn_params, **fn_params}).cpu().item()
 
         return average_env_fn
-    elif guidance_name == "dominant_environment":
-        guidance_params_av_env = {type_X: at_sym for type_X, at_sym in
+    elif fn_name == "dominant_environment":
+        fn_params = {type_X: at_sym for type_X, at_sym in
                                   zip(['type_A', 'type_B'], params["guidance_target_bond"].split('-'))}
-        guidance_params_target_share = guidance_params_av_env.copy()
-        guidance_params_target_share["target"] = params["guidance_target_cn"]
+        fn_params_cp = fn_params.copy()
+        fn_params_cp["target"] = params["guidance_target_cn"]
 
         def average_target_share_fn(entry):
-            return at_env.analyze_target_coordination_share_in_entry(entry, **guidance_params_target_share).cpu().item()
+            return at_env.analyze_target_coordination_share_in_entry(entry, **fn_params_cp).cpu().item()
 
         return average_target_share_fn
+    return None
 
 
-def ds_2_histo_data(ds, guidance_name: str, guidance_params: dict, max_bincenter=10, norm=True):
-    print(f"guidance_name = {guidance_name}, guidance_params={guidance_params}")
-    callables = {guidance_name: get_guidance_fn(guidance_name, **guidance_params)}
-    summary_df = summary.collect_summary_df(ds, native_columns=("id", "composition", "energy"), callables=callables)
-    df = summary_df.loc[
-        summary_df['composition'].apply(len).eq(len(ds.elements))]  # We take only system having all elements
-    values = pd.to_numeric(df[guidance_name], errors='coerce').to_numpy()
-    values = values[~np.isnan(values)]
+def calculate_values(ds_dict: dict, callable_name, callable=None, callable_params=None):
+    values_dict = dict()
+    if callable_params is not None and callable is None:
+        callables = {callable_name: get_entry_fn(callable_name, **callable_params)}
+    elif callable is not None and callable_params is None:
+        callables = {callable_name: callable}
+    else:
+        raise RuntimeError("Provide either callable or callable params (not both)")
+    for name, ds in ds_dict.items():
+        summary_df = summary.collect_summary_df(ds, native_columns=("id", "composition", "energy"), callables=callables)
+        df = summary_df.loc[
+            summary_df['composition'].apply(len).eq(len(ds.elements))]  # We take only system having all elements
+        values = pd.to_numeric(df[callable], errors='coerce').to_numpy()
+        values_dict[name] = values[~np.isnan(values)]
+    return values_dict
 
-    lo = np.floor(values.min()) - 0.5
-    hi = np.ceil(values.max()) + 0.5
+
+def values_2_histo_data(values, max_bincenter=10, norm=True, **kwargs):
+
+    # lo = np.floor(values.min()) - 0.5
+    # hi = np.ceil(values.max()) + 0.5
     bin_centers = np.arange(np.floor(values.min()), np.ceil(values.max()) + 1)
     bins = np.hstack((bin_centers - 0.5, [bin_centers[-1] + 0.5]))
 
@@ -135,6 +123,20 @@ def ds_2_histo_data(ds, guidance_name: str, guidance_params: dict, max_bincenter
     if norm:
         counts = counts / counts.sum()
     return bin_centers, counts
+
+def histo_data_collection(ds_dict, callable_name, callable_params=None, callable=None, **kwargs):
+    """
+    Returns list of dictionsries: [{'name': str, 'bin_centers': iterable[floats], }]
+    """
+    histo_collection = []
+    histo_collection_dict = dict()
+    values_dict = calculate_values(ds_dict, callable_name, callable_params=callable_params, callable=callable)
+    for name, values in values_dict.items():
+        hist_data = dict(zip(("bin_centers", "counts"), values_2_histo_data(values, **kwargs)))
+        hist_data['label'] = name
+        histo_collection.append(hist_data)
+    return hist_data
+
 
 
 def plot_multihistogram(multidata, target=None, title='', max_bincenter=10,
@@ -199,27 +201,32 @@ def plot_multihistogram(multidata, target=None, title='', max_bincenter=10,
     plt.tight_layout()
 
 
-def ds_dict_from_path(repo_path, system, guidance_target_bond: str, guidance_target_cn: int, guidance_type = 'environment', batch_treatments: list | None = None):
-    if batch_treatments is None:
-        batch_treatments = ['all', 'deduplicated', 'stable', 'stable_deduplicated']
-    datasets_dict = get_datasets_dict(repo_path, system, guidance_type, guidance_target_bond, guidance_target_cn, batch_treatments)
-    labels = ['reference', 'non-guided', *[k for k in datasets_dict['all'].keys() if k not in ['reference', 'non-guided']]]
-    return labels, datasets_dict
+# def ds_dict_from_path(repo_path, system, guidance_target_bond: str, guidance_target_cn: int, guidance_type = 'environment', batch_treatments: list | None = None):
+#     if batch_treatments is None:
+#         batch_treatments = ['all', 'deduplicated', 'stable', 'stable_deduplicated']
+#     datasets_dict = get_environment_datasets_dict(repo_path, system, guidance_type, guidance_target_bond, guidance_target_cn, batch_treatments)
+#     labels = ['reference', 'non-guided', *[k for k in datasets_dict['all'].keys() if k not in ['reference', 'non-guided']]]
+#     return labels, datasets_dict
 
-def plot_multihist_for_treatment(ds_dict, labels, target_bond, target_cn, batch_treatment = 'deduplicated', title='', max_bin_center=10, guidance_type = 'environment', show_gaussian=True):
-    multidata = []
-    for lbl in labels:
-        bin_centers, counts = ds_2_histo_data(ds_dict[batch_treatment][lbl], guidance_type, {"guidance_target_bond": target_bond}, max_bincenter=max_bin_center)
-        # print(lbl, bin_centers, counts, sum(counts))
-        multidata.append({'label': lbl, 'bin_centers': bin_centers, 'counts': counts})
-        # print(f"{lbl}: max_bincenter = {bin_centers.max()}")
+# def plot_multihist_for_treatment(ds_dict, target_bond, target_cn, title='', max_bin_center=10, guidance_type = 'environment', show_gaussian=True):
+#     multidata = []
+#     for lbl in labels:
+#         bin_centers, counts = ds_2_histo_data(ds_dict[batch_treatment][lbl], guidance_type, {"guidance_target_bond": target_bond}, max_bincenter=max_bin_center)
+#         # print(lbl, bin_centers, counts, sum(counts))
+#         multidata.append({'label': lbl, 'bin_centers': bin_centers, 'counts': counts})
+#         # print(f"{lbl}: max_bincenter = {bin_centers.max()}")
+#
+#
+#     plot_multihistogram(multidata, target=target_cn, max_bincenter=max_bin_center, show_gaussian=show_gaussian)
+#     plt.title(title)
+#     plt.show()
 
-    plot_multihistogram(multidata, target=target_cn, max_bincenter=max_bin_center, show_gaussian=show_gaussian)
-    plt.title(title)
-    plt.show()
-
+# _GEN_FOLDER_FILTERS = {"average_cn": get_average_cn_folders, }
 
 if __name__ == "__main__":
-    pass
+    procesed_dir = Path("/home/vsbat/SYNC/00__WORK/2025-2026_MOLTEN_SALTS/MG_postprocess_pipelines/PROCESSED")
+    system = "Si-O"
+    dirs = get_average_cn_gen_dirs(processed_repos_root=procesed_dir, system=system, bond='Si-O', target=4)
+
 
 
