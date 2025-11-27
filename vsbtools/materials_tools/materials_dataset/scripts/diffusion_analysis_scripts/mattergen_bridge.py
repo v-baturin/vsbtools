@@ -2,13 +2,16 @@ import sys
 import torch
 import numpy as np
 from pymatgen.core import Structure
-sys.path.append("/home/vsbat/my_git_projects/mattergenbis_vb")
+sys.path.append("/home/vsbat/work/mattergen/mattergenbis_vb")
 from mattergen.common.data.chemgraph import ChemGraph
-from mattergen.diffusion.diffusion_loss import volume, volume_pa, compute_mean_coordination, compute_target_share
+from mattergen.diffusion.diffusion_loss import (volume, volume_pa, compute_mean_coordination, compute_target_share,
+                                                _soft_neighbor_counts_per_A_single)
 
-mattergen_fn_collection = {"volume": volume, "volume_pa": volume_pa,
-                        compute_mean_coordination: "compute_mean_coordination",
-                        compute_target_share: "compute_target_share"}
+mattergen_chemgraph_fn_collection = {"volume": volume, "volume_pa": volume_pa}
+
+mattergen_cell_frac_types_fn_collection = {"compute_mean_coordination": compute_mean_coordination,
+                                           "compute_target_share": compute_target_share,
+                                           "_soft_neighbor_counts_per_A_single": _soft_neighbor_counts_per_A_single}
 
 def structure_to_tensors(struct):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'

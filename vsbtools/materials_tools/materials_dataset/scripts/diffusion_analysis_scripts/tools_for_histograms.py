@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import yaml
+import torch
 from ...crystal_dataset import CrystalDataset
 from ...io.yaml_csv_poscars import read
 from ...analysis import (
@@ -11,7 +12,9 @@ from ...analysis import (
     summary
 )
 from ....ext_software_io.mattergen_tools.parsers import input_parameters_to_dict
-from ...scripts.diffusion_analysis_scripts.mattergen_bridge import mattergen_fn_collection, structure_to_tensors
+from ...scripts.diffusion_analysis_scripts.mattergen_bridge import (mattergen_cell_frac_types_fn_collection,
+                                                                    mattergen_chemgraph_fn_collection,
+                                                                    structure_to_tensors, entry2chemgraph)
 
 
 def load_yaml_with_batch_data(yaml_fname):
@@ -33,22 +36,21 @@ def graph_name_from_ds(ds: CrystalDataset):
         return "reference"
     return None
 
-def get_average_cn_gen_dirs(processed_repos_root: Path, system: str, bond: str, target: float | int | None = None):
+def get_average_cn_gen_dirs(processed_repos_root: Path, system: str, guidance_name: str, bond: str, target: float | int | None = None):
     normalized_system = '-'.join(sorted(system.split('-')))
     search_dir = processed_repos_root / normalized_system
     gen_paths = []
-    for gen_path in search_dir.glob(f"{normalized_system}"):
+    for gen_path in search_dir.glob(f"{normalized_system}*"):
         for stage_yaml in gen_path.rglob("manifest.yaml"):
             dataset_info = load_yaml_with_batch_data(stage_yaml)
-            if dataset_info["pipeline_stage"] in [0, 'parse_raw']:
+            if dataset_info["metadata"]["pipeline_stage"] in [0, 'parse_raw']:
                 break
         else:
             continue
-        if dataset_info["metadata"]["guidance"] is None or (set(dataset_info["metadata"]["guidance"].keys()) &
-                                                            {'average_cn', 'environment'} and
-                                                            bond in dataset_info["metadata"]["guidance"].keys() and
-                                                            (not target
-                                                             or dataset_info["metadata"]["guidance"][bond] == target)):
+        if (dataset_info["metadata"]["batch_metadata"]["guidance"] == 'None' or
+                (set(dataset_info["metadata"]["batch_metadata"]["guidance"].keys()) == {guidance_name,} and
+                bond in dataset_info["metadata"]["batch_metadata"]["guidance"][guidance_name].keys() and
+                (not target or dataset_info["metadata"]["batch_metadata"]["guidance"][guidance_name][bond] == target))):
             gen_paths.append(gen_path)
         continue
     return gen_paths
@@ -57,38 +59,50 @@ def collect_stage_dataset_dict(gen_dirs, stage, ref_stage):
     ds_dict = dict()  #
     for stage_yml in gen_dirs[0].rglob("manifest.yaml"):
         stage_desc = load_yaml_with_batch_data(stage_yml)
-        if stage_desc["pipeline_stage"] == ref_stage:
+        if stage_desc["metadata"]["pipeline_stage"] == ref_stage:
             ds_dict["reference"] = read(stage_yml)
     for gen_dir in gen_dirs:
         for stage_yml in gen_dir.rglob("manifest.yaml"):
             stage_desc = load_yaml_with_batch_data(stage_yml)
-            if stage_desc["pipeline_stage"] == stage:
+            if stage_desc["metadata"]["pipeline_stage"] == stage:
                 ds = read(stage_yml)
-                name = graph_name_from_ds(ds)
-                ds_dict[name] = ds
+            elif stage_desc["metadata"]["pipeline_stage"] in (0, 'parse_raw'):
+                bmd = stage_desc["metadata"]["batch_metadata"]
+                if 'guidance' in bmd and bmd['guidance'] not in (None, 'None'):
+                    dlw = bmd.get("diffusion_loss_weight", ['', '', ''])
+                    name = ", ".join([f"{param}={val}" for param, val in zip(["$\\kappa$", "$\\gamma$", "norm"], dlw)])
+                else:
+                    name = 'Non-guided'
+        ds_dict[name] = ds
     return ds_dict
 
 def get_entry_fn(fn_name, **params):
-
+    fn = lambda x: None
     if fn_name in ("environment", "average_cn"):
         fn_params = {type_X: at_sym for type_X, at_sym in
                                   zip(['type_A', 'type_B'], params.pop("guidance_target_bond").split('-'))}
-
-        def average_env_fn(entry):
+        def fn(entry):
             return at_env.analyze_average_environment_in_entry(entry, **{**fn_params, **fn_params}).cpu().item()
-
-        return average_env_fn
     elif fn_name == "dominant_environment":
         fn_params = {type_X: at_sym for type_X, at_sym in
                                   zip(['type_A', 'type_B'], params["guidance_target_bond"].split('-'))}
         fn_params_cp = fn_params.copy()
         fn_params_cp["target"] = params["guidance_target_cn"]
-
-        def average_target_share_fn(entry):
+        def fn(entry):
             return at_env.analyze_target_coordination_share_in_entry(entry, **fn_params_cp).cpu().item()
 
-        return average_target_share_fn
-    return None
+    elif fn_name in mattergen_chemgraph_fn_collection:
+        def fn(entry):
+            x = entry2chemgraph(entry)
+            return mattergen_chemgraph_fn_collection[fn_name](x, **params).cpu().item()
+    elif fn_name in mattergen_cell_frac_types_fn_collection:
+        def fn(entry):
+            cell, frac, types = structure_to_tensors(entry.structure)
+            return mattergen_cell_frac_types_fn_collection[fn_name](cell, frac, types,
+                                                                    num_atoms=torch.tensor([len(types)],
+                                                                                           device = cell.device),
+                                                                    **params).cpu().item()
+    return fn
 
 
 def calculate_values(ds_dict: dict, callable_name, callable=None, callable_params=None):
@@ -103,7 +117,7 @@ def calculate_values(ds_dict: dict, callable_name, callable=None, callable_param
         summary_df = summary.collect_summary_df(ds, native_columns=("id", "composition", "energy"), callables=callables)
         df = summary_df.loc[
             summary_df['composition'].apply(len).eq(len(ds.elements))]  # We take only system having all elements
-        values = pd.to_numeric(df[callable], errors='coerce').to_numpy()
+        values = pd.to_numeric(df[callable_name], errors='coerce').to_numpy()
         values_dict[name] = values[~np.isnan(values)]
     return values_dict
 
@@ -126,7 +140,7 @@ def values_2_histo_data(values, max_bincenter=10, norm=True, **kwargs):
 
 def histo_data_collection(ds_dict, callable_name, callable_params=None, callable=None, **kwargs):
     """
-    Returns list of dictionsries: [{'name': str, 'bin_centers': iterable[floats], }]
+    Returns list of dictionaries: [{'name': str, 'bin_centers': iterable[floats], }]
     """
     histo_collection = []
     histo_collection_dict = dict()
@@ -135,7 +149,7 @@ def histo_data_collection(ds_dict, callable_name, callable_params=None, callable
         hist_data = dict(zip(("bin_centers", "counts"), values_2_histo_data(values, **kwargs)))
         hist_data['label'] = name
         histo_collection.append(hist_data)
-    return hist_data
+    return histo_collection
 
 
 

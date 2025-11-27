@@ -1,6 +1,11 @@
 import unittest
+import torch
+import numpy as np
 from pathlib import Path
-from ..tools_for_histograms import get_average_cn_gen_dirs
+from pymatgen.core import Structure, Element
+from ase.io import read as ase_read
+from ....crystal_entry import CrystalEntry
+from ..tools_for_histograms import get_average_cn_gen_dirs, collect_stage_dataset_dict, histo_data_collection, get_entry_fn
 PROCESSED_PATH = Path("/home/vsbat/SYNC/00__WORK/2025-2026_MOLTEN_SALTS/MG_postprocess_pipelines/PROCESSED")
 
 
@@ -8,62 +13,34 @@ PROCESSED_PATH = Path("/home/vsbat/SYNC/00__WORK/2025-2026_MOLTEN_SALTS/MG_postp
 class hist_tools_Test(unittest.TestCase):
 
     def setUp(self) -> None:
-        self.poscars_folder = PATH_WITH_DATASETS / "POSCARS"
-        self.uspex_calcfolders = PATH_WITH_DATASETS / 'uspex_folders/calcFolders'
-        self.uspex_goodStructures = PATH_WITH_DATASETS / 'uspex_folders/results1/goodStructures'
-        self.csv = PATH_WITH_DATASETS / 'mattersim_res_for_POSCARS.csv'
+        self.sio2_stich = Path("/home/vsbat/SYNC/00__WORK/2025-2026_MOLTEN_SALTS/MG_postprocess_pipelines/PROCESSED/O-Si/O-Si__guidance_environment_mode_huber_Si-O_6__diffusion_loss_weight_1-1-True__algo_0/2_x381aa8ac05cce031/POSCARS/agm002170463POSCAR")
+        self.sio2_quartz = Path("/home/vsbat/SYNC/00__WORK/2025-2026_MOLTEN_SALTS/MG_postprocess_pipelines/PROCESSED/O-Si/O-Si__guidance_environment_mode_huber_Si-O_6__diffusion_loss_weight_1-1-True__algo_0/2_x381aa8ac05cce031/POSCARS/agm002228342POSCAR")
+        self.system = "Si-O"
 
-    def test_loadMP(self):
-        ds = load_from_materials_project({'Mo', 'Si'})
-        self.assertEqual(len(ds), 58)
+    def test_get_average_cn_gen_dirs(self):
+        dirs = get_average_cn_gen_dirs(PROCESSED_PATH, self.system, guidance_name='environment', bond='Si-O', target=4)
+        self.assertEqual(len(dirs), 2)
 
-    def test_loadOQMD(self):
-        ds = load_from_oqmd({'Mo', 'Si'})
-        self.assertEqual(len(ds), 83)
+    def test_get_entry_fn(self):
+        fn = get_entry_fn(fn_name="compute_mean_coordination", type_A=14, type_B=8)
+        entry = CrystalEntry(id='0', structure=Structure.from_file(self.sio2_quartz))
+        print(fn(entry))
 
-    def test_loadAlexandria(self):
-        ds = load_from_alexandria({'Mo', 'Si'}, pattern='alexandria_00*.json')
-        self.assertEqual(len(ds), 34)
+        atoms = ase_read(self.sio2_quartz)
 
-    def test_load_from_uspex_goodstructures(self):
-        ds = load_from_uspex_goodstructures(self.uspex_goodStructures)
-        self.assertEqual(len(ds), 442)
+        cell = torch.tensor(np.array(atoms.cell), dtype=torch.float32,
+                            device='cuda' if torch.cuda.is_available() else 'cpu')
+        pos = torch.tensor(atoms.get_scaled_positions(), dtype=torch.float32, requires_grad=True, device=cell.device)
+        atomic_numbers = torch.tensor(atoms.get_atomic_numbers(), dtype=torch.int64, device=cell.device)
 
-    def test_load_from_uspex_calc_folders(self):
-        ds = load_from_uspex_calc_folders(self.uspex_calcfolders)
-        self.assertEqual(len(ds), 214)
+        fn = get_entry_fn(fn_name="_soft_neighbor_counts_per_A_single", type_A=14, type_B=8)
+        cns = fn(entry)
+        print(cns)
 
-    def test_load_mattersim_estimated_set(self):
-        ds = load_mattersim_estimated_set(self.csv, self.poscars_folder)
-        self.assertEqual(len(ds), 7142)
-
-
-    # def test_elements(self):
-    #     ds = CrystalDataset.from_struct_folder(self.poscars_folder, search_pattern='*.POSCAR', skip_dump=True)
-    #     self.assertEqual(ds.elements, {'N', 'Na', 'Al', 'Ni', 'Fe'})
-    #
-    # def test_deduplication(self):
-    #     ds = CrystalDataset.from_struct_folder(self.poscars_folder, search_pattern='*.POSCAR', skip_dump=True)
-    #     assert len(ds) == 348, "Dataset should contain 348 entries before deduplication"
-    #     ds.tol_FP = 0.07
-    #     deduped_ds, _, _ = ds.deduplicated(enforce_compositions_separation=True,
-    #                                         fitness_list=None,
-    #                                         reset_entries=False, skip_dump=True)
-    #     self.assertEqual(len(deduped_ds),300)
-    #
-    # def test_filtering(self):
-    #     ds = CrystalDataset.from_client(OQMDClient(), elements=['Al', 'Fe', 'Ni'], skip_dump=True)
-    #     fs = ds.filter(predicate_fn=lambda e: e.e_above_hull < 0.02, reset_entries=False, skip_dump=True)
-    #     print(fs.metadata["message"])
-    #
-    # def test_rw(self):
-    #     ds = CrystalDataset.from_struct_folder(self.poscars_folder, search_pattern='*.POSCAR', skip_dump=True)
-    #     ds.dump()
-    #     with open(ds.pkl_path, 'rb') as f:
-    #         ds2 = pkl.load(f)
-    #     print(f"ds1.id: {ds.id}, ds2.id: {ds2.id}")
-    #     self.assertEqual(ds.id, ds2.id)
-    #     Path(ds.pkl_path).unlink()
-    #     Path(ds.regfile).unlink()
-    #     Path(ds.treefile).unlink()
-
+    def test_collect_stage_dataset_dict(self):
+        dirs = get_average_cn_gen_dirs(PROCESSED_PATH, self.system, guidance_name='environment', bond='Si-O', target=6)
+        print(f"found {len(dirs)} dirs")
+        ds_dict = collect_stage_dataset_dict(dirs, "symmetrize_raw", "poll_db")
+        hdc = histo_data_collection(ds_dict, callable_name='compute_mean_coordination', callable_params={"type_A": 14,
+                                                                                                         "type_B": 8})
+        print(hdc)
