@@ -5,7 +5,9 @@ from pathlib import Path
 from pymatgen.core import Structure, Element
 from ase.io import read as ase_read
 from ....crystal_entry import CrystalEntry
-from ..tools_for_histograms import get_average_cn_gen_dirs, collect_stage_dataset_dict, histo_data_collection, get_entry_fn
+from ..tools_for_histograms import (get_average_cn_gen_dirs, collect_stage_dataset_dict, histo_data_collection,
+                                    get_entry_fn, plot_multihistogram)
+from matplotlib import pyplot as plt
 PROCESSED_PATH = Path("/home/vsbat/SYNC/00__WORK/2025-2026_MOLTEN_SALTS/MG_postprocess_pipelines/PROCESSED")
 
 
@@ -43,4 +45,6 @@ class hist_tools_Test(unittest.TestCase):
         ds_dict = collect_stage_dataset_dict(dirs, "symmetrize_raw", "poll_db")
         hdc = histo_data_collection(ds_dict, callable_name='compute_mean_coordination', callable_params={"type_A": 14,
                                                                                                          "type_B": 8})
+        plot_multihistogram(multidata=hdc, target=6)
         print(hdc)
+        plt.show()
