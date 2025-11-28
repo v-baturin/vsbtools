@@ -94,14 +94,14 @@ def get_entry_fn(fn_name, **params):
     elif fn_name in mattergen_chemgraph_fn_collection:
         def fn(entry):
             x = entry2chemgraph(entry)
-            return mattergen_chemgraph_fn_collection[fn_name](x, **params).cpu().item()
+            return mattergen_chemgraph_fn_collection[fn_name](x, **params).cpu().detach().numpy()
     elif fn_name in mattergen_cell_frac_types_fn_collection:
         def fn(entry):
             cell, frac, types = structure_to_tensors(entry.structure)
             return mattergen_cell_frac_types_fn_collection[fn_name](cell, frac, types,
                                                                     num_atoms=torch.tensor([len(types)],
                                                                                            device = cell.device),
-                                                                    **params).cpu().item()
+                                                                    **params).cpu().detach().numpy()
     return fn
 
 
