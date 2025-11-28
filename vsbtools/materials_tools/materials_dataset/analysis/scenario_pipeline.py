@@ -366,7 +366,7 @@ def op_parse_raw(
         raise AssertionError("elements must be specified (in params or globals)")
 
     parser: StructureDatasetIO = ctx.get_tool("structure_parser")
-    ds = parser.load_from_directory(elements=elements)
+    ds = parser.load_from_directory(elements=elements)  # TODO implicit requirement that toolkit has a method
 
     if len(ds) == 0:
         raise AssertionError("parse_raw produced an empty dataset")
@@ -376,6 +376,18 @@ def op_parse_raw(
     ds.metadata["message"] = f"loaded {len(ds)} structures"
 
     return ds
+
+
+# --- discard_bad_density -----------------------------------------
+@op("discard_bad_density")
+def discard_bad_density(ctx: Context,
+                        inputs: Dict[str, CrystalDataset],
+                        params: Dict[str, Any]) -> CrystalDataset:
+    from ...geom_utils.structure_checks import check_density_sanity_pmg
+    def is_structure_ok(entry):
+        return check_density_sanity_pmg(entry.structure)[0]
+    parent: CrystalDataset = next(iter(inputs.values()))
+    return parent.filter(is_structure_ok, message=f"Dataset {parent.dataset_id} cleared from pathological structures")
 
 
 # --- symmetrize_raw ----------------------------------------------

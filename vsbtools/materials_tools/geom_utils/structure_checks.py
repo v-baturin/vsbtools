@@ -158,7 +158,7 @@ def _evaluate_structure(
 
 # ---- ASE front-end ----------------------------------------------------------
 
-def check_structure_sanity_ase(
+def check_density_sanity_ase(
     atoms: "Atoms",
     min_ratio: float = 1.0,
     max_ratio: float = 20.0,
@@ -211,7 +211,7 @@ def _pmg_radius_from_Z(Z: int) -> float:
     return float(r)
 
 
-def check_structure_sanity_pmg(
+def check_density_sanity_pmg(
     structure: "Structure",
     min_ratio: float = 1.0,
     max_ratio: float = 20.0,

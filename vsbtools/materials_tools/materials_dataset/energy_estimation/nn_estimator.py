@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Callable, ClassVar, Dict
 import types
 from ..crystal_dataset import CrystalDataset, CrystalEntry
-from ...geom_utils.structure_checks import check_structure_sanity_ase
+from ...geom_utils.structure_checks import check_density_sanity_ase
 from pymatgen.core import Structure
 
 
@@ -40,7 +40,7 @@ class NNEstimator:
                 is_OK = False
                 info = "Relaxation_failed"
             else:
-                is_OK, info = check_structure_sanity_ase(atoms)
+                is_OK, info = check_density_sanity_ase(atoms)
             if is_OK:
                 new_entries.append(entry.copy_with(**{"structure": Structure.from_ase_atoms(atoms),
                                                       "metadata": {**md, **{'relaxation_done': True}}}))
