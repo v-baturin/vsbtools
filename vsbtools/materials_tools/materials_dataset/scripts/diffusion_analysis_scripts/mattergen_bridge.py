@@ -1,8 +1,20 @@
+import socket
 import sys
+from pathlib import Path
 import torch
 import numpy as np
 from pymatgen.core import Structure
-sys.path.append("/home/vsbat/work/mattergen/mattergenbis_vb")
+host = socket.gethostname()
+MATTERGEN_PYTHON_PATHS = {'nina': "/home/vsbat/work/mattergen/mattergenbis_vb",
+                          "taurus": "/home/vsbat/my_git_projects/mattergenbis_vb",
+                          "serpens": "/home/vsbat/work/venvs/mattersim/bin/python"}
+
+if host not in MATTERGEN_PYTHON_PATHS:
+    mgen_path = Path(input("Enter full path to mattersim-containing virtual environment")) / "bin/python"
+else:
+    mgen_path = Path(MATTERGEN_PYTHON_PATHS[host])
+
+sys.path.append(mgen_path.as_posix())
 from mattergen.common.data.chemgraph import ChemGraph
 from mattergen.diffusion.diffusion_loss import (volume, volume_pa, compute_mean_coordination, compute_target_share,
                                                 _soft_neighbor_counts_per_A_single)
