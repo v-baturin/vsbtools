@@ -122,12 +122,12 @@ def calculate_values(ds_dict: dict, callable_name, fn=None, callable_params=None
     return values_dict
 
 
-def values_2_histo_data(values, max_bincenter=10, norm=True, **kwargs):
+def values_2_histo_data(values, bin_centers=None, bins = None, max_bincenter=10, norm=True, **kwargs):
 
-    # lo = np.floor(values.min()) - 0.5
-    # hi = np.ceil(values.max()) + 0.5
-    bin_centers = np.arange(np.floor(values.min()), np.ceil(values.max()) + 1)
-    bins = np.hstack((bin_centers - 0.5, [bin_centers[-1] + 0.5]))
+    if bin_centers is None:
+        bin_centers = np.arange(np.floor(values.min()), np.ceil(values.max()) + 1)
+    if bins is None:
+        bins = np.hstack((bin_centers - 0.5, [bin_centers[-1] + 0.5]))
 
     # cap by max_bincenter but keep an overflow bin
     mask = bin_centers <= max_bincenter
