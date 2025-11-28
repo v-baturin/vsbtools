@@ -105,19 +105,19 @@ def get_entry_fn(fn_name, **params):
     return fn
 
 
-def calculate_values(ds_dict: dict, callable_name, callable=None, callable_params=None):
+def calculate_values(ds_dict: dict, callable_name, fn=None, callable_params=None):
     values_dict = dict()
-    if callable_params is not None and callable is None:
+    if callable_params is not None and fn is None:
         callables = {callable_name: get_entry_fn(callable_name, **callable_params)}
-    elif callable is not None and callable_params is None:
-        callables = {callable_name: callable}
+    elif fn is not None and callable_params is None:
+        callables = {callable_name: fn}
     else:
         raise RuntimeError("Provide either callable or callable params (not both)")
     for name, ds in ds_dict.items():
         summary_df = summary.collect_summary_df(ds, native_columns=("id", "composition", "energy"), callables=callables)
         df = summary_df.loc[
             summary_df['composition'].apply(len).eq(len(ds.elements))]  # We take only system having all elements
-        values = pd.to_numeric(df[callable_name], errors='coerce').to_numpy()
+        values = pd.to_numeric(df[callable_name], errors='coerce').to_numpy().astype(float)
         values_dict[name] = values[~np.isnan(values)]
     return values_dict
 
@@ -138,13 +138,13 @@ def values_2_histo_data(values, max_bincenter=10, norm=True, **kwargs):
         counts = counts / counts.sum()
     return bin_centers, counts
 
-def histo_data_collection(ds_dict, callable_name, callable_params=None, callable=None, **kwargs):
+def histo_data_collection(ds_dict, callable_name, callable_params=None, fn=None, **kwargs):
     """
     Returns list of dictionaries: [{'name': str, 'bin_centers': iterable[floats], }]
     """
     histo_collection = []
     histo_collection_dict = dict()
-    values_dict = calculate_values(ds_dict, callable_name, callable_params=callable_params, callable=callable)
+    values_dict = calculate_values(ds_dict, callable_name, callable_params=callable_params, fn=fn)
     for name, values in values_dict.items():
         hist_data = dict(zip(("bin_centers", "counts"), values_2_histo_data(values, **kwargs)))
         hist_data['label'] = name
