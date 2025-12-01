@@ -378,10 +378,22 @@ def op_parse_raw(
     return ds
 
 
+# --- discard_bad_density -----------------------------------------
+@op("discard_bad_density")
+def op_discard_bad_density(ctx: Context,
+                        inputs: Dict[str, CrystalDataset],
+                        params: Dict[str, Any]) -> CrystalDataset:
+    from ...geom_utils.structure_checks import check_density_sanity_pmg
+    def is_structure_ok(entry):
+        return check_density_sanity_pmg(entry.structure)[0]
+    parent: CrystalDataset = next(iter(inputs.values()))
+    return parent.filter(is_structure_ok, message=f"Dataset {parent.dataset_id} cleared from pathological structures")
+
+
 # --- symmetrize_raw ----------------------------------------------
 
-@op("symmetrize_raw")
-def op_symmetrize_raw(
+@op("symmetrize")
+def op_symmetrize(
     ctx: Context,
     inputs: Dict[str, CrystalDataset],
     params: Dict[str, Any],
@@ -443,8 +455,8 @@ def op_poll_db(
 
 # --- augment_raw_by_db -------------------------------------------
 
-@op("augment_raw_by_db")
-def op_augment_raw_by_db(
+@op("augment_raw_by_ref")
+def op_augment_by_ref(
     ctx: Context,
     inputs: Dict[str, CrystalDataset],
     params: Dict[str, Any],
@@ -510,6 +522,7 @@ def op_augment_raw_by_db(
     return merged
 
 
+
 # --- estimate -----------------------------------------------------
 
 @op("estimate")
@@ -529,7 +542,7 @@ def op_estimate(
 # --- relax ---------------------------------------------------------
 
 @op("relax")
-def relax(
+def op_relax(
     ctx: Context,
     inputs: Dict[str, CrystalDataset],
     params: Dict[str, Any],
