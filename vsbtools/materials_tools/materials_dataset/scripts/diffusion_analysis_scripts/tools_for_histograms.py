@@ -55,7 +55,7 @@ def get_average_cn_gen_dirs(processed_repos_root: Path, system: str, guidance_na
         continue
     return gen_paths
 
-def collect_stage_dataset_dict(gen_dirs, stage, ref_stage):
+def collect_stage_dataset_dict(gen_dirs, stage, ref_stage, add_guid_des=False):
     ds_dict = dict()  #
     for stage_yml in gen_dirs[0].rglob("manifest.yaml"):
         stage_desc = load_yaml_with_batch_data(stage_yml)
@@ -71,6 +71,8 @@ def collect_stage_dataset_dict(gen_dirs, stage, ref_stage):
                 if 'guidance' in bmd and bmd['guidance'] not in (None, 'None'):
                     dlw = bmd.get("diffusion_loss_weight", ['', '', ''])
                     name = ", ".join([f"{param}={val}" for param, val in zip(["$\\kappa$", "$\\gamma$", "norm"], dlw)])
+                    if add_guid_des:
+                        name += (", " + "_".join(f"{k}_{v}" for k, v in bmd['guidance'].items()))
                 else:
                     name = 'Non-guided'
         ds_dict[name] = ds
@@ -94,7 +96,7 @@ def get_entry_fn(fn_name, **params):
     elif fn_name in mattergen_chemgraph_fn_collection:
         def fn(entry):
             x = entry2chemgraph(entry)
-            return mattergen_chemgraph_fn_collection[fn_name](x, **params).cpu().detach().numpy()
+            return mattergen_chemgraph_fn_collection[fn_name](x, t=None, **params).cpu().detach().numpy()[0]  # x is a batch normally, so to have a result of entry we need [0]
     elif fn_name in mattergen_cell_frac_types_fn_collection:
         def fn(entry):
             cell, frac, types = structure_to_tensors(entry.structure)
@@ -122,29 +124,36 @@ def calculate_values(ds_dict: dict, callable_name, fn=None, callable_params=None
     return values_dict
 
 
-def values_2_histo_data(values, bin_centers=None, bins = None, max_bincenter=10, norm=True, **kwargs):
+def values_2_histo_data(values, bin_centers=None, bins = None, integer_bins = True, max_bincenter=None, norm=True, **kwargs):
 
-    if bin_centers is None:
-        bin_centers = np.arange(np.floor(values.min()), np.ceil(values.max()) + 1)
-    if bins is None:
-        bins = np.hstack((bin_centers - 0.5, [bin_centers[-1] + 0.5]))
-
+    if integer_bins:
+        if bin_centers is None:
+            bin_centers = np.arange(np.floor(values.min()), np.ceil(values.max()) + 1)
+        half_shift = 0.5
+        if bins is None:
+            bins = np.hstack((bin_centers - 0.5, [bin_centers[-1] + 0.5]))
+    else:
+        half_shift = 0.5 * (bin_centers[1] - bin_centers[0])
     # cap by max_bincenter but keep an overflow bin
-    mask = bin_centers <= max_bincenter
-    bins = np.hstack((bin_centers[mask] - 0.5, [bins[-1]]))
-    bin_centers = bin_centers[mask]
     counts, _ = np.histogram(values, bins=bins)
     if norm:
         counts = counts / counts.sum()
     return bin_centers, counts
 
-def histo_data_collection(ds_dict, callable_name, callable_params=None, fn=None, **kwargs):
+def histo_data_collection(ds_dict, callable_name, callable_params=None, fn=None, auto_adjust_bins=False, n_bins=None,
+                          **kwargs):
     """
-    Returns list of dictionaries: [{'name': str, 'bin_centers': iterable[floats], }]
+    Returns list of dictionaries: [{'label': str, 'bin_centers': iterable[floats], 'counts': iterable[floats]}]
     """
     histo_collection = []
-    histo_collection_dict = dict()
     values_dict = calculate_values(ds_dict, callable_name, callable_params=callable_params, fn=fn)
+    if auto_adjust_bins:
+        extremities = np.unique(np.concatenate([np.asarray([v.min(), v.max()]) for v in values_dict.values()]))
+        bin_centers = np.linspace(extremities.min(), extremities.max(), n_bins)
+        shift = (bin_centers[1] - bin_centers[0])
+        bins = np.hstack((bin_centers - shift, [bin_centers[-1] + shift]))
+        kwargs['bins'] = bins
+        kwargs['bin_centers'] = bin_centers
     for name, values in values_dict.items():
         hist_data = dict(zip(("bin_centers", "counts"), values_2_histo_data(values, **kwargs)))
         hist_data['label'] = name
@@ -153,27 +162,48 @@ def histo_data_collection(ds_dict, callable_name, callable_params=None, fn=None,
 
 
 
-def plot_multihistogram(multidata, target=None, title='', max_bincenter=10,
+def plot_multihistogram(multidata, target=None, title='', max_bincenter=None,
                         show_gaussian=False, gaussian_fill_alpha=0.2, gaussian_edge_lw=2.5):
     """
-    Plot side-by-side histograms. If show_gaussian is True, overlay a filled
+    Plot side-by-side histograms for multidata:
+    multidata::  list of dictionaries: [{'label': str, 'bin_centers': iterable[floats], 'counts': iterable[floats]}]
+    If show_gaussian is True, overlay a filled
     Gaussian (PDF) per dataset with the same surface (=1 after normalization),
     mean, and variance. Gaussian fills are excluded from the legend; edges are emphasized.
     """
+    max_bincenter = max_bincenter or np.inf
+    ex_data = multidata[0]['bin_centers']
+    delta = ex_data[1] - ex_data[0]
+
     cmap = plt.get_cmap('tab20c')
     n_data = len(multidata)
-    width = 0.8 / max(n_data, 1)
-    offsets = np.linspace(-0.4 + width/2, 0.4 - width/2, n_data)
+    width = 0.8 * delta / max(n_data, 1)
+    offsets = np.linspace(-0.4 * delta + width/2, 0.4 * delta - width/2, n_data)
 
     plt.figure(figsize=(12, 6))
 
     all_bincenters = np.unique(np.concatenate([np.asarray(d['bin_centers']) for d in multidata]))
-    x_min, x_max = all_bincenters.min() - 0.5, all_bincenters.max() + 0.5
+
+    if max_bincenter is not None:
+        all_bincenters = all_bincenters[all_bincenters <= max_bincenter]
+
+    x_min, x_max = all_bincenters.min() - 0.5 * delta, all_bincenters.max() + 0.5 * delta
     x_line = np.linspace(x_min, x_max, 800)
+
+    last_tick_with_plus = False
 
     for i, dataset in enumerate(multidata):
         bin_centers = np.asarray(dataset['bin_centers'], dtype=float)
         counts_raw  = np.asarray(dataset['counts'], dtype=float)
+
+        if max_bincenter is not None and max_bincenter <= bin_centers.max():
+            mask = bin_centers <= max_bincenter
+            bin_centers = bin_centers[mask]
+            extra_counts_raw = counts_raw[~mask]
+            counts_raw = counts_raw[mask]
+            counts_raw[-1] += extra_counts_raw.sum()
+            last_tick_with_plus = True
+
 
         total = counts_raw.sum()
         counts = counts_raw / total if total > 0 else counts_raw
@@ -205,10 +235,12 @@ def plot_multihistogram(multidata, target=None, title='', max_bincenter=10,
                 plt.axvline(mu, color=color, linewidth=gaussian_edge_lw,
                             alpha=1.0, zorder=3, label='_nolegend_')
 
-    if target is not None and np.isin(target, all_bincenters):
-        plt.axvspan(target - 0.5, target + 0.5, color='orange', alpha=0.3, zorder=0, label='Target')
-
-    plt.xticks(all_bincenters, [str(x) if x < max_bincenter else f"{max_bincenter}+" for x in all_bincenters])
+    if target is not None and all_bincenters.min() <= target <= all_bincenters.max():
+        plt.axvspan(target - 0.5 * delta, target + 0.5 * delta, color='orange', alpha=0.3, zorder=0, label='Target')
+    tick_labels = [f"{x:.2f}" for x in all_bincenters]
+    if last_tick_with_plus:
+        tick_labels[-1] += "+"
+    plt.xticks(all_bincenters, tick_labels)
     if title:
         plt.title(title)
     plt.legend(fontsize='small', loc='upper left')
