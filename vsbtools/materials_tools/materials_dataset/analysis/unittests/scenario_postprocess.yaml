@@ -24,7 +24,7 @@ stages:
     # which you set from batch metadata in Python
 
   symmetrize_raw:
-    op: symmetrize_raw
+    op: symmetrize
     needs: [parse_raw]
     params: {}
 
@@ -50,12 +50,12 @@ stages:
     params: {}
 
   augment_raw_by_db:
-    op: augment_raw_by_db
+    op: augment_by_ref
     needs: [symmetrize_raw, poll_db]
     params: {}
 
   augment_raw_by_db_relax:
-    op: augment_raw_by_db
+    op: augment_by_ref
     needs: [ relax_generated, relax_db ]
     params: { }
 
@@ -97,12 +97,12 @@ stages:
 
   all_dedup:
     op: deduplicate
-    needs: parse_raw
+    needs: [parse_raw]
     params: { }
 
   estimate_raw:
     op: estimate
-    needs: parse_raw
+    needs: [parse_raw]
     params: {}
 
   stable:
@@ -112,7 +112,7 @@ stages:
 
   stable_dedup:
     op: deduplicate
-    needs: stable
+    needs: [stable]
     params:
       check_clusters_file: true
       check_dist_matrix_file: true
