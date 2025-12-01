@@ -371,9 +371,9 @@ def op_parse_raw(
     if len(ds) == 0:
         raise AssertionError("parse_raw produced an empty dataset")
 
-    if ds.metadata is None:
-        ds.metadata = {}
-    ds.metadata["message"] = f"loaded {len(ds)} structures"
+    # if ds.metadata is None:
+    #     ds.metadata = {}
+    # ds.metadata["message"] = f"loaded {len(ds)} structures"
 
     return ds
 
@@ -387,7 +387,9 @@ def op_discard_bad_density(ctx: Context,
     def is_structure_ok(entry):
         return check_density_sanity_pmg(entry.structure)[0]
     parent: CrystalDataset = next(iter(inputs.values()))
-    return parent.filter(is_structure_ok, message=f"Dataset {parent.dataset_id} cleared from pathological structures")
+    ds = parent.filter(is_structure_ok)
+    ds.metadata["message"] = f"Dataset {parent.dataset_id} cleared from {len(parent) - len(ds)} pathological structures"
+    return ds
 
 
 # --- symmetrize_raw ----------------------------------------------

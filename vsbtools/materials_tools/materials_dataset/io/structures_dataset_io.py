@@ -126,27 +126,22 @@ class StructureDatasetIO:
         entries: list[CrystalEntry] = []
 
         # 1) structures already on disk (outside archives)
+        total = 0
+        bad = 0
         for file in _iter_structure_files(self.root, self.patterns):
             batch_metadata = get_batch_metadata(self.root, self.batch_metadata_file) if \
                 self.batch_metadata_file else None
             struct = _safe_structure_from_file(file)
+            total += 1
             if struct:
                 entries.append(CrystalEntry(id=next(self._id_iter), structure=struct,
                                             metadata={"source": self.source_name, "file": file.name}))
+            else:
+                bad += 1
 
-        # # 2) structures inside archives (if requested)
-        # if use_archives:
-        #     with exploded_zip_tree(self.root) as tmp_root:
-        #         batch_metadata = _get_batch_metadata(tmp_root, self.batch_metadata_file) if \
-        #             self.batch_metadata_file else None
-        #         for file in _iter_structure_files(tmp_root, self.patterns):
-        #             struct = _safe_structure_from_file(file)
-        #             if struct:
-        #                 entries.append(CrystalEntry(id=next(self._id_iter), structure=struct,
-        #                                             metadata={"source": self.source_name, "file": file.name }))
         if elements:
             entries = [e for e in entries if not (set(e.composition.as_data_dict()["elements"]) - set(elements))]
-        msg = message or f"Structures collected from {self.root}"
+        msg = message or f"{total - bad} structures out of {total} files collected from {self.root}"
         return CrystalDataset(entries, message=msg, supplementary_metadata={'batch_metadata': batch_metadata})
 
     def load_from_multiimage_poscar(
