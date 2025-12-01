@@ -2,9 +2,9 @@ from enum import IntEnum
 
 class LegacyStage(IntEnum):
     parse_raw = 0
-    symmetrize_raw = 1
+    symmetrize = 1
     poll_db = 2
-    augment_raw_by_db = 3
+    augment_by_ref = 3
     estimate = 4
     filter_hull = 5
     deduplicate = 6

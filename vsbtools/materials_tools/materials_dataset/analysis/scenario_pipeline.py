@@ -380,7 +380,7 @@ def op_parse_raw(
 
 # --- discard_bad_density -----------------------------------------
 @op("discard_bad_density")
-def discard_bad_density(ctx: Context,
+def op_discard_bad_density(ctx: Context,
                         inputs: Dict[str, CrystalDataset],
                         params: Dict[str, Any]) -> CrystalDataset:
     from ...geom_utils.structure_checks import check_density_sanity_pmg
@@ -392,8 +392,8 @@ def discard_bad_density(ctx: Context,
 
 # --- symmetrize_raw ----------------------------------------------
 
-@op("symmetrize_raw")
-def op_symmetrize_raw(
+@op("symmetrize")
+def op_symmetrize(
     ctx: Context,
     inputs: Dict[str, CrystalDataset],
     params: Dict[str, Any],
@@ -542,7 +542,7 @@ def op_estimate(
 # --- relax ---------------------------------------------------------
 
 @op("relax")
-def relax(
+def op_relax(
     ctx: Context,
     inputs: Dict[str, CrystalDataset],
     params: Dict[str, Any],
