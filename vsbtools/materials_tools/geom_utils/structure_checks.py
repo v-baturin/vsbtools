@@ -24,6 +24,7 @@ except ImportError:  # ASE not installed; functions will raise if used
 try:
     from pymatgen.core import Structure  # type: ignore
     from pymatgen.core.periodic_table import Element  # type: ignore
+    from pymatgen.analysis.molecule_structure_comparator import CovalentRadius
 except ImportError:  # pymatgen not installed; functions will raise if used
     Structure = Any
     Element = None
@@ -205,7 +206,7 @@ def _pmg_radius_from_Z(Z: int) -> float:
     if Element is None:
         raise ImportError("pymatgen is not available.")
     el = Element.from_Z(int(Z))
-    r = el.covalent_radius
+    r = CovalentRadius.radius[el.name]
     if r is None:
         r = el.atomic_radius or 1.0  # conservative fallback
     return float(r)
