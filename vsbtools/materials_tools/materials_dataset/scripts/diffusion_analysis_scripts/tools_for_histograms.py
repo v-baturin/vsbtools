@@ -15,6 +15,7 @@ from ....ext_software_io.mattergen_tools.parsers import input_parameters_to_dict
 from ...scripts.diffusion_analysis_scripts.mattergen_bridge import (mattergen_cell_frac_types_fn_collection,
                                                                     mattergen_chemgraph_fn_collection,
                                                                     structure_to_tensors, entry2chemgraph)
+from ...analysis.pipeline_legacy import LEGACY_INDEX_TO_NAME, LEGACY_NAME_TO_INDEX
 
 
 def load_yaml_with_batch_data(yaml_fname):
@@ -36,7 +37,8 @@ def graph_name_from_ds(ds: CrystalDataset):
         return "reference"
     return None
 
-def get_average_cn_gen_dirs(processed_repos_root: Path, system: str, guidance_name: str, bond: str, target: float | int | None = None):
+def get_environment_gen_dirs(processed_repos_root: Path, system: str, guidance_name: str,
+                             bond: str = None, target: float | int | None = None):
     normalized_system = '-'.join(sorted(system.split('-')))
     search_dir = processed_repos_root / normalized_system
     gen_paths = []
@@ -50,7 +52,9 @@ def get_average_cn_gen_dirs(processed_repos_root: Path, system: str, guidance_na
         if (dataset_info["metadata"]["batch_metadata"]["guidance"] == 'None' or
                 (set(dataset_info["metadata"]["batch_metadata"]["guidance"].keys()) == {guidance_name,} and
                 bond in dataset_info["metadata"]["batch_metadata"]["guidance"][guidance_name].keys() and
-                (not target or dataset_info["metadata"]["batch_metadata"]["guidance"][guidance_name][bond] == target))):
+                (not target or dataset_info["metadata"]["batch_metadata"]["guidance"][guidance_name][bond] == target
+                 or (isinstance(dataset_info["metadata"]["batch_metadata"]["guidance"][guidance_name][bond], list) and
+                     dataset_info["metadata"]["batch_metadata"]["guidance"][guidance_name][bond][0] == target)))):
             gen_paths.append(gen_path)
         continue
     return gen_paths

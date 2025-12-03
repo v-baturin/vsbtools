@@ -5,8 +5,8 @@ from pathlib import Path
 from pymatgen.core import Structure, Element
 from ase.io import read as ase_read
 from ....crystal_entry import CrystalEntry
-from ..tools_for_histograms import (get_average_cn_gen_dirs, collect_stage_dataset_dict, histo_data_collection,
-                                    get_entry_fn, plot_multihistogram)
+from ..tools_for_histograms import (get_environment_gen_dirs, get_volume_pa_gen_dirs, collect_stage_dataset_dict,
+                                    histo_data_collection, get_entry_fn, plot_multihistogram)
 from matplotlib import pyplot as plt
 PROCESSED_PATH = Path("/home/vsbat/SYNC/00__WORK/2025-2026_MOLTEN_SALTS/MG_postprocess_pipelines/PROCESSED")
 
@@ -18,10 +18,13 @@ class hist_tools_Test(unittest.TestCase):
         self.sio2_stich = Path("/home/vsbat/SYNC/00__WORK/2025-2026_MOLTEN_SALTS/MG_postprocess_pipelines/PROCESSED/O-Si/O-Si__guidance_environment_mode_huber_Si-O_6__diffusion_loss_weight_1-1-True__algo_0/2_x381aa8ac05cce031/POSCARS/agm002170463POSCAR")
         self.sio2_quartz = Path("/home/vsbat/SYNC/00__WORK/2025-2026_MOLTEN_SALTS/MG_postprocess_pipelines/PROCESSED/O-Si/O-Si__guidance_environment_mode_huber_Si-O_6__diffusion_loss_weight_1-1-True__algo_0/2_x381aa8ac05cce031/POSCARS/agm002228342POSCAR")
         self.system_sio = "Si-O"
+        self.system_licoo = "Li-Co-O"
+        self.system_cupsi = "Cu-P-Si"
+        self.system_bfend = "B-Fe-Nd"
         self.system_b = "B"
 
     def test_get_average_cn_gen_dirs(self):
-        dirs = get_average_cn_gen_dirs(PROCESSED_PATH, self.system_sio, guidance_name='environment', bond='Si-O', target=4)
+        dirs = get_environment_gen_dirs(PROCESSED_PATH, self.system_sio, guidance_name='environment', bond='Si-O', target=4)
         self.assertEqual(len(dirs), 2)
 
     def test_get_entry_fn(self):
@@ -41,9 +44,9 @@ class hist_tools_Test(unittest.TestCase):
         print(cns)
 
     def test_collect_stage_dataset_dict(self):
-        dirs = get_average_cn_gen_dirs(PROCESSED_PATH, self.system_sio, guidance_name='environment', bond='Si-O', target=6)
+        dirs = get_environment_gen_dirs(PROCESSED_PATH, self.system_sio, guidance_name='environment', bond='Si-O', target=6)
         print(f"found {len(dirs)} dirs")
-        ds_dict = collect_stage_dataset_dict(dirs, "symmetrize_raw", "poll_db", add_guid_des=True)
+        ds_dict = collect_stage_dataset_dict(dirs, "symmetrize_raw", "poll_db", add_guid_descr=True)
         hdc = histo_data_collection(ds_dict, callable_name='compute_mean_coordination', callable_params={"type_A": 14,
                                                                                                          "type_B": 8},
                                     max_bincenter=10)
@@ -51,12 +54,67 @@ class hist_tools_Test(unittest.TestCase):
         print(hdc)
         plt.show()
 
+    def test_licoo(self):
+        dirs = get_environment_gen_dirs(PROCESSED_PATH, self.system_licoo, guidance_name='environment', bond='Co-O', target=4)
+        print(f"found {len(dirs)} dirs")
+        ds_dict = collect_stage_dataset_dict(dirs, "symmetrize_raw", "poll_db", add_guid_descr=True)
+        hdc = histo_data_collection(ds_dict, callable_name='compute_mean_coordination', callable_params={"type_A": 27,
+                                                                                                         "type_B": 8},
+                                    max_bincenter=10)
+        plot_multihistogram(multidata=hdc, target=4, max_bincenter=10)
+        print(hdc)
+        plt.show()
+
+
+    def test_cupsi(self):
+        dirs = get_environment_gen_dirs(PROCESSED_PATH, self.system_cupsi, guidance_name='environment', bond='Cu-P', target=3)
+        print(f"found {len(dirs)} dirs")
+        ds_dict = collect_stage_dataset_dict(dirs, "symmetrize_raw", "poll_db", add_guid_descr=True)
+        hdc = histo_data_collection(ds_dict, callable_name='compute_mean_coordination', callable_params={"type_A": 29,
+                                                                                                         "type_B": 15},
+                                    max_bincenter=10)
+        plot_multihistogram(multidata=hdc, target=3, max_bincenter=10)
+        print(hdc)
+        plt.show()
+
+    def test_bfend(self):
+        system = "B-Fe-Nd"
+        bond = "B-Fe"
+        target = 3
+        type_A, type_B = (Element(e).Z for e in bond.split('-'))
+        dirs = get_environment_gen_dirs(PROCESSED_PATH, system=system, guidance_name='environment', bond=bond,
+                                        target=target)
+        print(f"found {len(dirs)} dirs")
+        ds_dict = collect_stage_dataset_dict(dirs, "symmetrize_raw", "poll_db", add_guid_descr=True)
+        hdc = histo_data_collection(ds_dict, callable_name='compute_mean_coordination', callable_params={"type_A": type_A,
+                                                                                                         "type_B": type_B},
+                                    max_bincenter=10)
+        plot_multihistogram(multidata=hdc, target=target, max_bincenter=10)
+        print(hdc)
+        plt.show()
+
+    def test_cusipca(self):
+        system = "Cu-Si-P-Ca"
+        bond = "Cu-P"
+        target = 4
+        type_A, type_B = (Element(e).Z for e in bond.split('-'))
+        dirs = get_environment_gen_dirs(PROCESSED_PATH, system=system, guidance_name='environment', bond=bond,
+                                        target=target)
+        print(f"found {len(dirs)} dirs")
+        ds_dict = collect_stage_dataset_dict(dirs, "symmetrize_raw", "poll_db", add_guid_descr=True)
+        hdc = histo_data_collection(ds_dict, callable_name='compute_mean_coordination', callable_params={"type_A": type_A,
+                                                                                                         "type_B": type_B},
+                                    max_bincenter=10)
+        plot_multihistogram(multidata=hdc, target=target, max_bincenter=10)
+        print(hdc)
+        plt.show()
+
     def test_custom_bins(self):
-        sys_dir = PROCESSED_PATH / self.system_b
-        dirs = list(sys_dir.glob("B_*"))
-        ds_dict = collect_stage_dataset_dict(dirs, "deduplicate_all", "poll_db", add_guid_des=True)
+        target = 6.8
+        dirs = get_volume_pa_gen_dirs(PROCESSED_PATH, 'B', 'volume_pa', target=target)
+        ds_dict = collect_stage_dataset_dict(dirs, "deduplicate_all", "poll_db", add_guid_descr=True)
         hdc = histo_data_collection(ds_dict, callable_name='volume_pa', callable_params={}, auto_adjust_bins=True,
                                     n_bins=10, integer_bins = False)
-        plot_multihistogram(multidata=hdc, target=6, max_bincenter=10, show_gaussian=True)
+        plot_multihistogram(multidata=hdc, target=target, max_bincenter=10, show_gaussian=True)
         plt.show()
         print(list(dirs))
