@@ -128,7 +128,7 @@ def calculate_values(ds_dict: dict, callable_name, fn=None, callable_params=None
     return values_dict
 
 
-def values_2_histo_data(values, bin_centers=None, bins = None, integer_bins = True, max_bincenter=None, norm=True, **kwargs):
+def values_2_histo_data(values, bin_centers=None, bins = None, integer_bins = True, norm=True, **kwargs):
 
     if integer_bins:
         if bin_centers is None:
@@ -159,15 +159,18 @@ def histo_data_collection(ds_dict, callable_name, callable_params=None, fn=None,
         kwargs['bins'] = bins
         kwargs['bin_centers'] = bin_centers
     for name, values in values_dict.items():
-        hist_data = dict(zip(("bin_centers", "counts"), values_2_histo_data(values, **kwargs)))
-        hist_data['label'] = name
+        if len(values) > 0:
+            hist_data = dict(zip(("bin_centers", "counts"), values_2_histo_data(values, **kwargs)))
+            hist_data['label'] = name
+        else:
+            hist_data = {'label': name, "bin_centers": None, "counts": None}
         histo_collection.append(hist_data)
     return histo_collection
 
 
 
 def plot_multihistogram(multidata, target=None, title='', max_bincenter=None,
-                        show_gaussian=False, gaussian_fill_alpha=0.2, gaussian_edge_lw=2.5):
+                        show_gaussian=False, gaussian_fill_alpha=0.2, gaussian_edge_lw=2.5, **kwargs):
     """
     Plot side-by-side histograms for multidata:
     multidata::  list of dictionaries: [{'label': str, 'bin_centers': iterable[floats], 'counts': iterable[floats]}]
@@ -175,18 +178,20 @@ def plot_multihistogram(multidata, target=None, title='', max_bincenter=None,
     Gaussian (PDF) per dataset with the same surface (=1 after normalization),
     mean, and variance. Gaussian fills are excluded from the legend; edges are emphasized.
     """
+    keep = [i for i, d in enumerate(multidata) if d["bin_centers"] is not None]
+    kept_multidata = [multidata[kpt] for kpt in keep]
     max_bincenter = max_bincenter or np.inf
-    ex_data = multidata[0]['bin_centers']
-    delta = ex_data[1] - ex_data[0]
+    example_data = multidata[keep[0]]['bin_centers']
+    delta = example_data[1] - example_data[0]
 
     cmap = plt.get_cmap('tab20c')
-    n_data = len(multidata)
+    n_data = len(keep)
     width = 0.8 * delta / max(n_data, 1)
     offsets = np.linspace(-0.4 * delta + width/2, 0.4 * delta - width/2, n_data)
 
     plt.figure(figsize=(12, 6))
 
-    all_bincenters = np.unique(np.concatenate([np.asarray(d['bin_centers']) for d in multidata]))
+    all_bincenters = np.unique(np.concatenate([np.asarray(d['bin_centers']) for d in kept_multidata]))
 
     if max_bincenter is not None:
         all_bincenters = all_bincenters[all_bincenters <= max_bincenter]
@@ -197,6 +202,10 @@ def plot_multihistogram(multidata, target=None, title='', max_bincenter=None,
     last_tick_with_plus = False
 
     for i, dataset in enumerate(multidata):
+        if i not in keep:
+            plt.bar([], [], color="k", label=f"{dataset['label']}: No data")
+
+    for i, dataset in enumerate(kept_multidata):
         bin_centers = np.asarray(dataset['bin_centers'], dtype=float)
         counts_raw  = np.asarray(dataset['counts'], dtype=float)
 
