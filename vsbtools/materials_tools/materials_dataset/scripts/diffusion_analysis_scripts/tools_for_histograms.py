@@ -59,8 +59,6 @@ def get_environment_gen_dirs(processed_repos_root: Path, system: str, guidance_n
         continue
     return gen_paths
 
-def collect_stage_dataset_dict(gen_dirs, stage, ref_stage, add_guid_des=False):
-    ds_dict = dict()  #
 def get_volume_pa_gen_dirs(processed_repos_root: Path, system: str, guidance_name: str, target: float | int | None = None):
     normalized_system = '-'.join(sorted(system.split('-')))
     search_dir = processed_repos_root / normalized_system
@@ -80,11 +78,15 @@ def get_volume_pa_gen_dirs(processed_repos_root: Path, system: str, guidance_nam
     return gen_paths
 
 
+def collect_stage_dataset_dict(gen_dirs, stage, ref_stage, add_guid_descr=False):
+    ds_dict = dict()
+    ds = None
     for stage_yml in gen_dirs[0].rglob("manifest.yaml"):
         stage_desc = load_yaml_with_batch_data(stage_yml)
         if stage_desc["metadata"]["pipeline_stage"] in (ref_stage, LEGACY_NAME_TO_INDEX.get(ref_stage, None)):
             ds_dict["reference"] = read(stage_yml)
     for gen_dir in gen_dirs:
+        name = None
         for stage_yml in gen_dir.rglob("manifest.yaml"):
             stage_desc = load_yaml_with_batch_data(stage_yml)
             if stage_desc["metadata"]["pipeline_stage"] in (stage, LEGACY_NAME_TO_INDEX.get(stage, None)):
@@ -94,11 +96,12 @@ def get_volume_pa_gen_dirs(processed_repos_root: Path, system: str, guidance_nam
                 if 'guidance' in bmd and bmd['guidance'] not in (None, 'None'):
                     dlw = bmd.get("diffusion_loss_weight", ['', '', ''])
                     name = ", ".join([f"{param}={val}" for param, val in zip(["$\\kappa$", "$\\gamma$", "norm"], dlw)])
-                    if add_guid_des:
+                    if add_guid_descr:
                         name += (", " + "_".join(f"{k}_{v}" for k, v in bmd['guidance'].items()))
                 else:
                     name = 'Non-guided'
-        ds_dict[name] = ds
+        if name is not None:
+            ds_dict[name] = ds
     return ds_dict
 
 def get_entry_fn(fn_name, **params):
@@ -268,7 +271,7 @@ def plot_multihistogram(multidata, target=None, title='', max_bincenter=None,
                             alpha=1.0, zorder=3, label='_nolegend_')
 
     if target is not None and all_bincenters.min() <= target <= all_bincenters.max():
-        plt.axvspan(target - 0.5 * delta, target + 0.5 * delta, color='orange', alpha=0.3, zorder=0, label='Target')
+        plt.axvspan(target - 0.5 * delta, target + 0.5 * delta, color='orange', alpha=0.3, zorder=0, label=f'Target={target}')
     tick_labels = [f"{x:.2f}" for x in all_bincenters]
     if last_tick_with_plus:
         tick_labels[-1] += "+"
@@ -304,7 +307,7 @@ def plot_multihistogram(multidata, target=None, title='', max_bincenter=None,
 if __name__ == "__main__":
     procesed_dir = Path("/home/vsbat/SYNC/00__WORK/2025-2026_MOLTEN_SALTS/MG_postprocess_pipelines/PROCESSED")
     system = "Si-O"
-    dirs = get_average_cn_gen_dirs(processed_repos_root=procesed_dir, system=system, bond='Si-O', target=4)
+    dirs = get_environment_gen_dirs(processed_repos_root=procesed_dir, system=system, bond='Si-O', target=4)
 
 
 
