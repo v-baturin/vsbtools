@@ -109,12 +109,22 @@ class hist_tools_Test(unittest.TestCase):
         print(hdc)
         plt.show()
 
-    def test_custom_bins(self):
+    def test_auto_bins(self):
         target = 6.8
         dirs = get_volume_pa_gen_dirs(PROCESSED_PATH, 'B', 'volume_pa', target=target)
         ds_dict = collect_stage_dataset_dict(dirs, "deduplicate_all", "poll_db", add_guid_descr=True)
         hdc = histo_data_collection(ds_dict, callable_name='volume_pa', callable_params={}, auto_adjust_bins=True,
-                                    n_bins=10, integer_bins = False)
+                                    n_bins=10, integer_bins=False)
+        plot_multihistogram(multidata=hdc, target=target, max_bincenter=10, show_gaussian=True)
+        plt.show()
+        print(list(dirs))
+
+    def test_custom_bins(self):
+        target = 6.8
+        dirs = get_volume_pa_gen_dirs(PROCESSED_PATH, 'B', 'volume_pa', target=target)
+        ds_dict = collect_stage_dataset_dict(dirs, "deduplicate_all", "poll_db", add_guid_descr=True)
+        hdc = histo_data_collection(ds_dict, callable_name='volume_pa', callable_params={}, auto_adjust_bins=False,
+                                    bin_centers=np.linspace(7.5, 12, 10), n_bins=10, integer_bins = False)
         plot_multihistogram(multidata=hdc, target=target, max_bincenter=10, show_gaussian=True)
         plt.show()
         print(list(dirs))

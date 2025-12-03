@@ -1,3 +1,4 @@
+import warnings
 from typing import List, Dict
 from pathlib import Path
 import pandas as pd
@@ -142,24 +143,34 @@ def calculate_values(ds_dict: dict, callable_name, fn=None, callable_params=None
     else:
         raise RuntimeError("Provide either callable or callable params (not both)")
     for name, ds in ds_dict.items():
-        summary_df = summary.collect_summary_df(ds, native_columns=("id", "composition", "energy"), callables=callables)
-        df = summary_df.loc[
-            summary_df['composition'].apply(len).eq(len(ds.elements))]  # We take only system having all elements
-        values = pd.to_numeric(df[callable_name], errors='coerce').to_numpy().astype(float)
+        summary_df = summary.collect_summary_df(ds, native_columns=("id", "composition", "energy", "metadata.duplicates"), callables=callables)
+        summary_df = summary_df.loc[
+            summary_df['composition'].apply(len).eq(len(ds.elements))].copy()  # We take only system having all elements
+        # summary.print_pretty_df(summary_df, f"{ds.base_path.name}._table.txt")
+        values = pd.to_numeric(summary_df[callable_name], errors='coerce').to_numpy().astype(float)
         values_dict[name] = values[~np.isnan(values)]
     return values_dict
 
 
-def values_2_histo_data(values, bin_centers=None, bins = None, integer_bins = True, norm=True, **kwargs):
+def values_2_histo_data(values, name=None, bin_centers=None, bins = None, integer_bins = True, n_bins=10, norm=True, **kwargs):
 
-    if integer_bins:
-        if bin_centers is None:
+    if bin_centers is None:
+        if bins is not None:
+            warnings.warn("bin_centers will be calculated automatically, provided bins will be discarded")
+            bins = None
+        if integer_bins:
             bin_centers = np.arange(np.floor(values.min()), np.ceil(values.max()) + 1)
-        half_shift = 0.5
-        if bins is None:
-            bins = np.hstack((bin_centers - 0.5, [bin_centers[-1] + 0.5]))
-    else:
+        else:
+            bin_centers = np.linspace(values.min(), values.max(), n_bins)
+
+    if bins is None:
         half_shift = 0.5 * (bin_centers[1] - bin_centers[0])
+        bins = np.hstack((bin_centers - half_shift, [bin_centers[-1] + half_shift]))
+        if bins[0] > values.min():
+            warnings.warn(f"Dataset {name}: values outside leftmost bin edge ({values[values < bins[0]]})")
+        if bins[-1] < values.max():
+            warnings.warn(f"Dataset {name}: values outside rightmost bin edge ({values[values > bins[-1]]})")
+
     # cap by max_bincenter but keep an overflow bin
     counts, _ = np.histogram(values, bins=bins)
     if norm:
@@ -182,7 +193,7 @@ def histo_data_collection(ds_dict, callable_name, callable_params=None, fn=None,
         kwargs['bin_centers'] = bin_centers
     for name, values in values_dict.items():
         if len(values) > 0:
-            hist_data = dict(zip(("bin_centers", "counts"), values_2_histo_data(values, **kwargs)))
+            hist_data = dict(zip(("bin_centers", "counts"), values_2_histo_data(values, name, **kwargs)))
             hist_data['label'] = name
         else:
             hist_data = {'label': name, "bin_centers": None, "counts": None}
@@ -280,29 +291,6 @@ def plot_multihistogram(multidata, target=None, title='', max_bincenter=None,
         plt.title(title)
     plt.legend(fontsize='small', loc='upper left')
     plt.tight_layout()
-
-
-# def ds_dict_from_path(repo_path, system, guidance_target_bond: str, guidance_target_cn: int, guidance_type = 'environment', batch_treatments: list | None = None):
-#     if batch_treatments is None:
-#         batch_treatments = ['all', 'deduplicated', 'stable', 'stable_deduplicated']
-#     datasets_dict = get_environment_datasets_dict(repo_path, system, guidance_type, guidance_target_bond, guidance_target_cn, batch_treatments)
-#     labels = ['reference', 'non-guided', *[k for k in datasets_dict['all'].keys() if k not in ['reference', 'non-guided']]]
-#     return labels, datasets_dict
-
-# def plot_multihist_for_treatment(ds_dict, target_bond, target_cn, title='', max_bin_center=10, guidance_type = 'environment', show_gaussian=True):
-#     multidata = []
-#     for lbl in labels:
-#         bin_centers, counts = ds_2_histo_data(ds_dict[batch_treatment][lbl], guidance_type, {"guidance_target_bond": target_bond}, max_bincenter=max_bin_center)
-#         # print(lbl, bin_centers, counts, sum(counts))
-#         multidata.append({'label': lbl, 'bin_centers': bin_centers, 'counts': counts})
-#         # print(f"{lbl}: max_bincenter = {bin_centers.max()}")
-#
-#
-#     plot_multihistogram(multidata, target=target_cn, max_bincenter=max_bin_center, show_gaussian=show_gaussian)
-#     plt.title(title)
-#     plt.show()
-
-# _GEN_FOLDER_FILTERS = {"average_cn": get_average_cn_folders, }
 
 if __name__ == "__main__":
     procesed_dir = Path("/home/vsbat/SYNC/00__WORK/2025-2026_MOLTEN_SALTS/MG_postprocess_pipelines/PROCESSED")
