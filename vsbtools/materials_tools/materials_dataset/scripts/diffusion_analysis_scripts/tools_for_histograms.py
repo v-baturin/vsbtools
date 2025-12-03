@@ -61,6 +61,25 @@ def get_environment_gen_dirs(processed_repos_root: Path, system: str, guidance_n
 
 def collect_stage_dataset_dict(gen_dirs, stage, ref_stage, add_guid_des=False):
     ds_dict = dict()  #
+def get_volume_pa_gen_dirs(processed_repos_root: Path, system: str, guidance_name: str, target: float | int | None = None):
+    normalized_system = '-'.join(sorted(system.split('-')))
+    search_dir = processed_repos_root / normalized_system
+    gen_paths = []
+    for gen_path in search_dir.glob(f"{normalized_system}*"):
+        for stage_yaml in gen_path.rglob("manifest.yaml"):
+            dataset_info = load_yaml_with_batch_data(stage_yaml)
+            if dataset_info["metadata"]["pipeline_stage"] in [0, 'parse_raw']:
+                break
+        else:
+            continue
+        if dataset_info["metadata"]["batch_metadata"]["guidance"] == 'None' or \
+                (set(dataset_info["metadata"]["batch_metadata"]["guidance"].keys()) == {guidance_name,} and
+                dataset_info["metadata"]["batch_metadata"]["guidance"][guidance_name] == target):
+            gen_paths.append(gen_path)
+        continue
+    return gen_paths
+
+
     for stage_yml in gen_dirs[0].rglob("manifest.yaml"):
         stage_desc = load_yaml_with_batch_data(stage_yml)
         if stage_desc["metadata"]["pipeline_stage"] in (ref_stage, LEGACY_NAME_TO_INDEX.get(ref_stage, None)):
