@@ -42,7 +42,12 @@ with exploded_zip_tree(structures_source_path) as tmp_inbox:
     # Reuse already processed stages from repo (legacy numeric metadata)
     for node in repo.list_nodes():
         ds, meta = repo.load_node(node)
-        stage_name = pipeline.scenario.resolve_stage_name_from_metadata(ds)
+        try:
+            stage_name = pipeline.scenario.resolve_stage_name_from_metadata(ds)
+        except KeyError:
+            # Stage exists in the repo but is not described in the current scenario.
+            # Ignore it for this run.
+            continue
         ctx.outputs[stage_name] = ds
 
     # Run only missing stages (pipeline.run() should skip those already in ctx.outputs)
