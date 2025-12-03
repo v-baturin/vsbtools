@@ -17,7 +17,7 @@ from ..io.uspex_bridge import USPEXBridge
 from ..energy_estimation import nn_estimator, mattersim_bridge
 from ..analysis.phase_diagram_tools import PhaseDiagramTools
 
-from .pipeline_legacy import LEGACY_INDEX_TO_NAME, LEGACY_NAME_TO_INDEX
+from .pipeline_legacy import LEGACY_INDEX_TO_NAME, LEGACY_NAME_TO_INDEX, LEGACY_DICTIONARY
 
 # --- global constants / toolkit registry ---------------------------
 
@@ -124,6 +124,7 @@ class Scenario:
     # Legacy mapping: numeric index <-> stage name
     legacy_index_to_name: Dict[int, str] = field(init=False, default_factory=dict)
     legacy_name_to_index: Dict[str, int] = field(init=False, default_factory=dict)
+    legacy_name_dictionary: Dict[str, str] = field(init=False, default_factory=dict)
 
     @staticmethod
     def from_mapping(cfg: Dict[str, Any]) -> "Scenario":
@@ -153,6 +154,7 @@ class Scenario:
         # Base mapping from legacy module
         self.legacy_index_to_name.update(LEGACY_INDEX_TO_NAME)
         self.legacy_name_to_index.update(LEGACY_NAME_TO_INDEX)
+        self.legacy_name_dictionary.update(LEGACY_DICTIONARY)
 
         # Optional overrides from scenario (if you decide to use legacy_index in StageSpec)
         for name, spec in self.stages.items():
@@ -184,6 +186,8 @@ class Scenario:
         if isinstance(raw, str):
             if raw in self.stages:
                 return raw
+            elif raw in self.legacy_name_dictionary:
+                return self.legacy_name_dictionary[raw]
             # maybe it's a stringified integer; try legacy mapping
             try:
                 idx = int(raw)
