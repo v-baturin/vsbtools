@@ -63,12 +63,12 @@ def collect_stage_dataset_dict(gen_dirs, stage, ref_stage, add_guid_des=False):
     ds_dict = dict()  #
     for stage_yml in gen_dirs[0].rglob("manifest.yaml"):
         stage_desc = load_yaml_with_batch_data(stage_yml)
-        if stage_desc["metadata"]["pipeline_stage"] == ref_stage:
+        if stage_desc["metadata"]["pipeline_stage"] in (ref_stage, LEGACY_NAME_TO_INDEX.get(ref_stage, None)):
             ds_dict["reference"] = read(stage_yml)
     for gen_dir in gen_dirs:
         for stage_yml in gen_dir.rglob("manifest.yaml"):
             stage_desc = load_yaml_with_batch_data(stage_yml)
-            if stage_desc["metadata"]["pipeline_stage"] == stage:
+            if stage_desc["metadata"]["pipeline_stage"] in (stage, LEGACY_NAME_TO_INDEX.get(stage, None)):
                 ds = read(stage_yml)
             elif stage_desc["metadata"]["pipeline_stage"] in (0, 'parse_raw'):
                 bmd = stage_desc["metadata"]["batch_metadata"]
