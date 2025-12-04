@@ -81,6 +81,36 @@ def describe_predicate(fn):
         qname = getattr(fn, "__qualname__", None)
         return qname if qname and "<lambda>" not in qname else repr(fn)
 
+def is_subtree(a, b):
+    """
+    Return True if b is a subtree of a.
+
+    A "subtree" here means: there exists some node in `a`
+    (possibly `a` itself) whose value is structurally equal to `b`.
+    Nodes can be:
+      - dict: children are its values
+      - list: children are its elements
+      - any other type: leaf
+    """
+    # If the current node matches, we are done
+    if a == b:
+        return True
+
+    # If `a` is a dict, recurse on all its values
+    if isinstance(a, dict):
+        for v in a.values():
+            if is_subtree(v, b):
+                return True
+
+    # If `a` is a list, recurse on all its elements
+    elif isinstance(a, list):
+        for item in a:
+            if is_subtree(item, b):
+                return True
+
+    # For leaves, we already checked a == b and it failed
+    return False
+
 if __name__ == '__main__':
     for o in odometer((2,2,2), (-1,-1,-1)):
         print(o)
