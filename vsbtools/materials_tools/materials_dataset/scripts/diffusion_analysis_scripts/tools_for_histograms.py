@@ -202,7 +202,7 @@ def histo_data_collection(ds_dict, callable_name, callable_params=None, fn=None,
     Returns list of dictionaries: [{'label': str, 'bin_centers': iterable[floats], 'counts': iterable[floats]}]
     """
     histo_collection = []
-    values_dict = calculate_values(ds_dict, callable_name, callable_params=callable_params, fn=fn)
+    values_dict = calculate_values(ds_dict, callable_name, callable_params=callable_params)
     if auto_adjust_bins:
         extremities = np.unique(np.concatenate([np.asarray([v.min(), v.max()]) for v in values_dict.values()]))
         bin_centers = np.linspace(extremities.min(), extremities.max(), n_bins)
