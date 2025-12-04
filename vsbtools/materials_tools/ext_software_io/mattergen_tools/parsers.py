@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import List, Any
+from ....genutils.misc import serialize_structure
 import yaml, re
 
 STANDARD_PARAM_DICT_KEYS = ['chemical_system', 'guidance', 'diffusion_loss_weight', 'algo']
@@ -11,49 +12,7 @@ SafeLoaderWithNone.add_implicit_resolver(
     list("~nN"),
 )
 
-_MULTI_US = re.compile(r"_+")
 
-def _fmt_num(x: Any) -> str:
-    if isinstance(x, float) and x.is_integer():
-        return str(int(x))
-    return str(x)
-
-def _sanitize_token(s: str) -> str:
-    # Turn any run of braces/brackets/parentheses/quotes/spaces into "_"
-    s = re.sub(r"[{}\[\]\(\)\"'\s]+", "_", s.strip())
-    s = _MULTI_US.sub("_", s)
-    return s
-
-def serialize_structure(obj: Any) -> str:
-    """
-    Dicts: key and value concatenated with '_'
-    Lists/Tuples: elements joined with '-'
-    Scalars: sanitized; hyphens and dots are preserved
-    Leading/trailing '_' are stripped at the end.
-    """
-    def ser(x: Any) -> str:
-        if isinstance(x, dict):
-            parts: list[str] = []
-            for k, v in x.items():  # preserves insertion order
-                k_str = _sanitize_token(str(k))
-                v_str = ser(v)
-                parts.append(k_str if not v_str else f"{k_str}_{v_str}")
-            return "_".join(p for p in parts if p)
-        if isinstance(x, (list, tuple)):
-            items = [ser(e) for e in x]
-            items = [i for i in items if i]  # drop empties
-            return "-".join(items)
-        if x is None:
-            return "None"
-        if isinstance(x, bool):
-            return "True" if x else "False"
-        if isinstance(x, (int, float)):
-            return _fmt_num(x)
-        return _sanitize_token(str(x))
-
-    s = ser(obj)
-    s = _MULTI_US.sub("_", s).strip("_")
-    return s
 
 
 def input_parameters_to_dict(inp_par_file: Path | str | None = None, raw: str | None = None):
