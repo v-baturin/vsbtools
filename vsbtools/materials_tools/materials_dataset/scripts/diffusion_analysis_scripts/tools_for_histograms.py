@@ -6,6 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import yaml
 import torch
+from .....genutils.misc import is_subtree
 from ...crystal_dataset import CrystalDataset
 from ...io.yaml_csv_poscars import read
 from ...analysis import (
@@ -74,6 +75,24 @@ def get_volume_pa_gen_dirs(processed_repos_root: Path, system: str, guidance_nam
         if dataset_info["metadata"]["batch_metadata"]["guidance"] == 'None' or \
                 (set(dataset_info["metadata"]["batch_metadata"]["guidance"].keys()) == {guidance_name,} and
                 dataset_info["metadata"]["batch_metadata"]["guidance"][guidance_name] == target):
+            gen_paths.append(gen_path)
+        continue
+    return gen_paths
+
+
+def get_generation_dirs(processed_repos_root: Path, system: str, guidance_sub_dict: Dict, include_non_guided: bool = True):
+    normalized_system = '-'.join(sorted(system.split('-')))
+    search_dir = processed_repos_root / normalized_system
+    gen_paths = []
+    for gen_path in search_dir.glob(f"{normalized_system}*"):
+        for stage_yaml in gen_path.rglob("manifest.yaml"):
+            dataset_info = load_yaml_with_batch_data(stage_yaml)
+            if dataset_info["metadata"]["pipeline_stage"] in [0, 'parse_raw']:
+                break
+        else:
+            continue
+        if (dataset_info["metadata"]["batch_metadata"]["guidance"] == 'None' and include_non_guided) or \
+            is_subtree(dataset_info["metadata"]["batch_metadata"], guidance_sub_dict):
             gen_paths.append(gen_path)
         continue
     return gen_paths
