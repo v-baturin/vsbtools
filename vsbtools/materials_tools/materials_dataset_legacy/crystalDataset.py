@@ -631,7 +631,7 @@ class CrystalDataset(list[CrystalEntry]):
         best_representatives, clusters, best_idx = remove_duplicate_entries(self.uspex_entry_list, fitness_list,
                                                                             check_clusters_file=check_clusters_file,
                                                                             check_dist_matrix_file=check_dist_matrix_file,
-                                                                            tol_Fp=tol_FP,
+                                                                            tol_FP=tol_FP,
                                                                             enforce_compositions_separation=enforce_compositions_separation,
                                                                             compositions_list=reduced_compositions,
                                                                             elements=self.elements,

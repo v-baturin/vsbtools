@@ -24,7 +24,7 @@ def remove_duplicate_entries(entries: list, fitness_list=None, threshold=np.inf,
                              out_path: Path| None = None,
                              clusters_file=None, dist_matrix_file=None,
                              check_clusters_file=False, check_dist_matrix_file=False,
-                             legacy=True, tol_Fp=0.08, enforce_compositions_separation=False,
+                             legacy=True, tol_FP=0.08, enforce_compositions_separation=False,
                              compositions_list=None,
                              **kwargs) -> tuple[Any, Any, Any]:
 
@@ -35,7 +35,7 @@ def remove_duplicate_entries(entries: list, fitness_list=None, threshold=np.inf,
         rho = lambda x:None
 
     best_representatives, clusters, best_idc = remove_duplicates(entries, dist_fn=rho,
-                                                                 intercluster_mindistance=tol_Fp,
+                                                                 intercluster_mindistance=tol_FP,
                                                                  fitness_list=fitness_list,
                                                                  threshold=threshold, data_path=data_path,
                                                                  clusters_file=clusters_file,

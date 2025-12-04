@@ -46,7 +46,7 @@ with exploded_zip_tree(structures_source_path) as tmp_inbox:
     pipeline = gp.PPPipeline(source_path=tmp_inbox, processed_stages=processed_stages, elements=elements_set,
                              toolkit_options={"structure_parser": {"batch_metadata_file": BATCH_METADATA_FILE},
                                               "symmetry": {"a_sym_prec": 1e-3, "e_sym_prec": 1e-3},
-                                              "similarity": {"tol_fp": 0.04}},
+                                              "similarity": {"tol_FP": 0.04}},
                              stages_options={gp.PostprocessStage.poll_db: polling_db_options,
                                              gp.PostprocessStage.filter_hull: {'max_ehull': max_ehull}},
                              root_source_name='Mattergen')
