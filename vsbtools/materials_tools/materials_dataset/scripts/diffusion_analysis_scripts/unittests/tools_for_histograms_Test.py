@@ -1,9 +1,11 @@
+from typing import Callable, Dict
 import unittest
 import torch
 import numpy as np
 from pathlib import Path
 from pymatgen.core import Structure, Element
 from ase.io import read as ase_read
+from ....crystal_dataset import CrystalDataset
 from ....crystal_entry import CrystalEntry
 from ..tools_for_histograms import (get_environment_gen_dirs, get_volume_pa_gen_dirs, collect_stage_dataset_dict,
                                     histo_data_collection, get_entry_fn, plot_multihistogram)
@@ -11,6 +13,20 @@ from matplotlib import pyplot as plt
 PROCESSED_PATH = Path("/home/vsbat/SYNC/00__WORK/2025-2026_MOLTEN_SALTS/MG_postprocess_pipelines/PROCESSED")
 
 
+def count_entries_around_target(ds: CrystalDataset, function: Callable, target_value: float, half_width: float = 0.5, profile: str = "rect", **kwargs):
+    if profile.startswith("rect"):
+        filt_predicate = lambda e: target_value - half_width <= function(e) <= target_value + half_width and len(e.composition) == len(ds.elements)
+    else:
+        raise RuntimeError(f"profile: {profile} not implemented")
+    return len([e for e in ds if filt_predicate(e)])
+
+
+def print_ds_dict_guidance_resume(ds_dict: Dict, function: Callable, target: float, half_width: float, **kwargs):
+    fractions_in_target_dict = dict()
+    for k, ds in ds_dict.items():
+        fractions_in_target_dict[k] = count_entries_around_target(ds, function, target, half_width, **kwargs) / len(ds)
+        print(f"{fractions_in_target_dict[k]:1%} of {k} in ({target:.2f}{chr(int("00B1", 16))}{half_width:.2f})")
+    return fractions_in_target_dict
 
 class hist_tools_Test(unittest.TestCase):
 
@@ -128,3 +144,29 @@ class hist_tools_Test(unittest.TestCase):
         plot_multihistogram(multidata=hdc, target=target, max_bincenter=10, show_gaussian=True)
         plt.show()
         print(list(dirs))
+
+    def test_histogram_correctness(self):
+        system = "Si-O"
+        bond = "Si-O"
+        target = 4
+        dirs = get_environment_gen_dirs(PROCESSED_PATH, system=system, guidance_name='environment', bond=bond,
+                                        target=target)
+        print(f"found {len(dirs)} dirs")
+        ds_dict = collect_stage_dataset_dict(dirs, "symmetrize_raw", "poll_db", add_guid_descr=True)
+
+        type_A, type_B = (Element(el).Z for el in bond.split('-'))
+        callable_name = 'compute_mean_coordination'
+        callable_params = {"type_A": type_A, "type_B": type_B}
+
+        hdc = histo_data_collection(ds_dict, callable_name=callable_name, callable_params=callable_params)
+        idx_non_guided = [i for i, hist_data in enumerate(hdc) if hist_data['label'] == 'Non-guided' ][0]
+        print(hdc[idx_non_guided]['counts'][hdc[idx_non_guided]['bin_centers']==target])
+        # plot_multihistogram(multidata=hdc, target=target, max_bincenter=10)
+        function = get_entry_fn(callable_name, **callable_params)
+        half_width = 0.5
+        ds_name = 'Non-guided'
+        fract_dict = print_ds_dict_guidance_resume(ds_dict, function, target=target, half_width=0.5)
+        # TODO: finalize testcase, add self.assertequal or smth
+        # target_entries = [e for e in ds_dict[ds_name] if target-half_width <= function(e) <= target + half_width]
+        # print(len(target_entries))
+        # plt.show()
