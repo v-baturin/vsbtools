@@ -35,8 +35,8 @@ def _prepare_for_yaml_write(dct: dict):
             _prepare_for_yaml_write(v)
         elif isinstance(v, Path):
             dct[k] = v.as_posix()
-        elif isinstance(v, float):
-            dct[k] = f"{v:.4f}"
+        # elif isinstance(v, float):
+        #     dct[k] = f"{v:.4f}"
 
 
 def read(manifest_yaml: str | Path) -> CrystalDataset:
