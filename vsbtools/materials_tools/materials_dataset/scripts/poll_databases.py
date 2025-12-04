@@ -2,13 +2,17 @@ import os
 from typing import Dict
 from collections import defaultdict
 from pathlib import Path
+from ....genutils.misc import serialize_structure, is_substructure
 from ..crystal_dataset import CrystalDataset
 from ..io.yaml_csv_poscars import read, write
 from ..io.preset_loaders import load_from_alexandria, load_from_oqmd, load_from_materials_project
 from ..analysis.phase_diagram_tools import PhaseDiagramTools
 
-
+HOME = Path.home()
+CACHE_DIR = HOME / ".cache" / "vsbtools" / "DB_caches"
+CACHE_DIR.mkdir(parents=True, exist_ok=True)
 MAX_EHULL = 0.02  # Maximum energy above hull in eV/atom for filtering
+TOL_FP = 0.008
 LOADERS = {"al": load_from_alexandria, "oq": load_from_oqmd, "mp": load_from_materials_project,
            "ma": load_from_materials_project}  # List of database clients to fetch data from
 # ------------------------------------------------------------------ #
@@ -17,25 +21,36 @@ def poll_databases(elements,
                    database_names=None,
                    pref_db: str = 'al',
                    do_ehull_filtering=True,
-                   do_deduplication=True,
                    max_ehull=None,
+                   do_deduplication=True,
+                   tol_FP: float | None = None,
                    loader_kwargs: Dict | None =None,
-                   cache_base_path: Path | None = None,
+                   cache_root_path: Path | None = None,
                    **kwargs):
     """
     Fetch data from Alexandria, OQMD, and Materials Project databases.
     Data is first taken from the reference database (Alexandria) then only the structures unseen in the reference DB
     are added.
     """
-    cache_base_path = Path(os.getcwd()) / "db_cache" if cache_base_path is None else Path(cache_base_path)
+
+    parameters_dict: Dict[str, str|float|int] = {'e_hull_filtering': do_ehull_filtering, 'deduplication': do_deduplication}
+    if do_deduplication:
+        tol_FP = TOL_FP if tol_FP is None else tol_FP
+        parameters_dict['tol_FP'] = tol_FP
+
+    if do_ehull_filtering:
+        max_ehull = MAX_EHULL if max_ehull is None else max_ehull
+        parameters_dict['max_ehull'] = max_ehull
+
+    cache_root_path = cache_root_path if cache_root_path is not None else CACHE_DIR
+    cache_name = f"{'-'.join(sorted(elements))}__{serialize_structure(parameters_dict)}"
+    cache_base_path = cache_root_path / cache_name
+
     if cache_base_path is not None and (cache_base_path / "manifest.yaml").exists():
         polled_db = read(cache_base_path / "manifest.yaml")
         try:
             if set(polled_db.elements) == set(elements) and \
-                polled_db.metadata["deduplication"] == do_deduplication and \
-                polled_db.metadata["e_hull_filtering"] == do_ehull_filtering:
-                if do_ehull_filtering:
-                    assert abs(float(polled_db.metadata["max_ehull"]) - max_ehull) < 1e-4
+                is_substructure(polled_db.metadata, parameters_dict):
                 print(f"Data for elements {' '.join(elements)} read from cache")
                 return polled_db
         except (AssertionError, KeyError):
@@ -48,8 +63,8 @@ def poll_databases(elements,
     if do_deduplication:
         from ..analysis.similarity_tools import SimilarityTools
         from ..io.uspex_bridge import USPEXBridge
-        ub = USPEXBridge(elements)
-        similarity_tk = SimilarityTools(ub.fp_dist)
+        ub = USPEXBridge(elements, tol_FP=tol_FP)
+        similarity_tk = SimilarityTools(ub.fp_dist, tol_FP=tol_FP)
 
     pref_db = pref_db[:2].casefold()
     database_names = database_names or ['alexandria', 'oqmd', 'MatProj']  # Default databases to fetch data from
@@ -87,8 +102,6 @@ def poll_databases(elements,
     msg = (f"Gathered from {', '.join(database_names)} databases "
            f"with elements: {', '.join(elements)}")
     ds = CrystalDataset([e.copy_with(**{'energy': None}) for e in reference_data], message=msg)
-    ds.metadata["deduplication"] = do_deduplication
-    ds.metadata["e_hull_filtering"] = do_ehull_filtering
-    ds.metadata["max_ehull"] = max_ehull
+    ds.metadata = {**ds.metadata, **parameters_dict}
     write(ds, enforce_base_path=cache_base_path)
     return ds
