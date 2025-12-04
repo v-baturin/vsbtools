@@ -9,8 +9,8 @@ from ....genutils.duplicate_analysis import remove_duplicates
 DEBUG = False
 
 class SimilarityTools:
-    def __init__(self, dist_fn: Callable[[CrystalEntry, CrystalEntry], float], tol_fp: float = 0.08) -> None:
-        self.tol_fp = tol_fp
+    def __init__(self, dist_fn: Callable[[CrystalEntry, CrystalEntry], float], tol_FP: float = 0.08) -> None:
+        self.tol_FP = tol_FP
         self.dist = dist_fn
 
     def is_duplicate(self, a: CrystalEntry, b: CrystalEntry) -> bool:
