@@ -23,6 +23,7 @@ def poll_databases(elements,
                    do_ehull_filtering=True,
                    max_ehull=None,
                    do_deduplication=True,
+                   similarity_tk=None,
                    tol_FP: float | None = None,
                    loader_kwargs: Dict | None =None,
                    cache_root_path: Path | None = None,
@@ -35,8 +36,7 @@ def poll_databases(elements,
 
     parameters_dict: Dict[str, str|float|int] = {'e_hull_filtering': do_ehull_filtering, 'deduplication': do_deduplication}
     if do_deduplication:
-        tol_FP = TOL_FP if tol_FP is None else tol_FP
-        parameters_dict['tol_FP'] = tol_FP
+        parameters_dict['tol_FP'] = similarity_tk.tol_FP if tol_FP is None else tol_FP
 
     if do_ehull_filtering:
         max_ehull = MAX_EHULL if max_ehull is None else max_ehull
@@ -56,15 +56,9 @@ def poll_databases(elements,
         except (AssertionError, KeyError):
             print("Incorrect db file")
         print("Failed to read cached DB")
-        
-    
-    if loader_kwargs is None: loader_kwargs = dict()
 
-    if do_deduplication:
-        from ..analysis.similarity_tools import SimilarityTools
-        from ..io.uspex_bridge import USPEXBridge
-        ub = USPEXBridge(elements, tol_FP=tol_FP)
-        similarity_tk = SimilarityTools(ub.fp_dist, tol_FP=tol_FP)
+
+    if loader_kwargs is None: loader_kwargs = dict()
 
     pref_db = pref_db[:2].casefold()
     database_names = database_names or ['alexandria', 'oqmd', 'MatProj']  # Default databases to fetch data from
@@ -92,13 +86,15 @@ def poll_databases(elements,
         if do_ehull_filtering:
             loaded_ds = loaded_ds.filter(lambda e: pd_tools.height_above_hull_pa(e) < max_ehull)
         if do_deduplication:
-            unseen = similarity_tk.get_unseen_in_ref(loaded_ds, reference_data)
+            unseen = similarity_tk.get_unseen_in_ref(loaded_ds, reference_data, tol_FP=tol_FP)
             loaded_ds = unseen
         reference_data = reference_data.merge(loaded_ds)
+
     if do_deduplication:
         os.makedirs(cache_base_path, exist_ok=True)
         reference_data.override_base_path(cache_base_path)
-        reference_data, _, _ = similarity_tk.deduplicate(reference_data)
+        reference_data, _, _ = similarity_tk.deduplicate(reference_data, tol_FP=tol_FP)
+
     msg = (f"Gathered from {', '.join(database_names)} databases "
            f"with elements: {', '.join(elements)}")
     ds = CrystalDataset([e.copy_with(**{'energy': None}) for e in reference_data], message=msg)

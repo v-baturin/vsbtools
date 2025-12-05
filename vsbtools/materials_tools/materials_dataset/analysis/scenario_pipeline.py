@@ -433,6 +433,9 @@ def op_poll_db(
 
     # optional additional estimation
     estimate_energies = bool(params.pop("estimate_energies", False))
+    if params.get("do_deduplication", False):
+        stk = ctx.get_tool("similarity")
+        params["similarity_tk"] = stk # Must have methods get_unseen_in_ref() and deduplicate()
 
     # remaining parameters are passed directly to poll_databases
     db = poll_databases(elements, **params)
