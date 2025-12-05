@@ -23,7 +23,7 @@ class SimilarityTools:
 
     def deduplicate(self, ds: CrystalDataset,
                     check_clusters_file=False, clusters_file: Path = None, check_dist_matrix_file=False,
-                    dist_matrix_file=None, fitness_list=None,
+                    dist_matrix_file=None, fitness_list=None, tol_FP: float = None,
                     enforce_compositions_separation=True, **kwargs) -> tuple[CrystalDataset, Any, Any]:
 
         """
@@ -34,6 +34,7 @@ class SimilarityTools:
         :param enforce_compositions_separation: If True, will enforce separation of compositions in clusters.
         :param fitness_list: List of fitness values (e.g., energies) for each entry.
         """
+        tol_FP = self.tol_FP if tol_FP is None else tol_FP
         try:
             fitness_list = fitness_list or [e.energy / e.natoms for e in ds]
         except TypeError:
@@ -48,7 +49,7 @@ class SimilarityTools:
         dist_matrix_file = dist_matrix_file or ds.base_path / f"{ds.dataset_id}_dist_matrix.pkl"
         best_representatives, clusters, best_idx = remove_duplicates(ds, dist_fn=self.dist,
                                                                      fitness_list=fitness_list,
-                                                                     intercluster_mindistance=self.tol_FP,
+                                                                     intercluster_mindistance=tol_FP,
                                                                      check_clusters_file=check_clusters_file,
                                                                      check_dist_matrix_file=check_dist_matrix_file,
                                                                      dist_matrix_file=dist_matrix_file,
@@ -62,11 +63,12 @@ class SimilarityTools:
                 ds[idx].metadata["duplicates"] |= set([ds[j].id for j in clusters[no] if j != idx])
         filtered_list = [ds[i] for i in best_idx]
 
-        message = f"Parent deduplicated with tol_FP={self.tol_FP} "
+        message = f"Parent deduplicated with tol_FP={tol_FP} "
         return CrystalDataset.from_parents(filtered_list, parents=(ds,), message=message, **kwargs), clusters, best_idx
 
 
-    def get_unseen_in_ref(self, ds: CrystalDataset, ref_ds: CrystalDataset):
+    def get_unseen_in_ref(self, ds: CrystalDataset, ref_ds: CrystalDataset, tol_FP=None):
+        tol_FP = self.tol_FP if tol_FP is None else tol_FP
         new_entries = []
         duplicates_counter = set()
         reproduced = set()
@@ -79,7 +81,7 @@ class SimilarityTools:
                 if duration > 10:
                     print(f"Fingerprint for i = {i} Took too long")
                     examined.structure.to_file(f"PROBLEM_POSCAR{i}", fmt='vasp')
-                if dist <= self.tol_FP:
+                if dist <= tol_FP:
                     duplicates_counter.add(j)
                     reproduced.add(reference.id)
                     if not "duplicates" in reference.metadata:

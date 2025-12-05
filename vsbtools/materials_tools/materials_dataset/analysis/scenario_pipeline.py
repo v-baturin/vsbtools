@@ -624,11 +624,14 @@ def op_deduplicate(
         raise AssertionError("deduplicate expects exactly one parent (filter_hull)")
     parent = next(iter(inputs.values()))
 
+    tol_FP = params.pop("tol_FP", None)
+
     similarity_tk: SimilarityTools = ctx.get_tool("similarity")
     ds, _, _ = similarity_tk.deduplicate(
         parent,
         check_clusters_file=bool(params.get("check_clusters_file", True)),
         check_dist_matrix_file=bool(params.get("check_dist_matrix_file", True)),
+        tol_FP=tol_FP
     )
 
     ds.parent_ids = [getattr(parent, "dataset_id", None)]
