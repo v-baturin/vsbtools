@@ -27,6 +27,7 @@ def load_yaml_with_batch_data(yaml_fname):
         ym_dict['metadata']['batch_metadata'] = yaml.safe_load(ym_dict['metadata']['batch_metadata'])
     return ym_dict
 
+
 def graph_name_from_ds(ds: CrystalDataset):
     if ds.metadata["pipeline_stage"] in [0, 'parse_raw']:
         param_dict_guided = input_parameters_to_dict(raw=ds.metadata["batch_metadata"])
@@ -39,48 +40,22 @@ def graph_name_from_ds(ds: CrystalDataset):
         return "reference"
     return None
 
-def get_environment_gen_dirs(processed_repos_root: Path, system: str, guidance_name: str,
-                             bond: str = None, target: float | int | None = None):
-    normalized_system = '-'.join(sorted(system.split('-')))
-    search_dir = processed_repos_root / normalized_system
-    gen_paths = []
-    for gen_path in search_dir.glob(f"{normalized_system}*"):
-        for stage_yaml in gen_path.rglob("manifest.yaml"):
-            dataset_info = load_yaml_with_batch_data(stage_yaml)
-            if dataset_info["metadata"]["pipeline_stage"] in [0, 'parse_raw']:
-                break
-        else:
-            continue
-        if (dataset_info["metadata"]["batch_metadata"]["guidance"] == 'None' or
-                (set(dataset_info["metadata"]["batch_metadata"]["guidance"].keys()) == {guidance_name,} and
-                bond in dataset_info["metadata"]["batch_metadata"]["guidance"][guidance_name].keys() and
-                (not target or dataset_info["metadata"]["batch_metadata"]["guidance"][guidance_name][bond] == target
-                 or (isinstance(dataset_info["metadata"]["batch_metadata"]["guidance"][guidance_name][bond], list) and
-                     dataset_info["metadata"]["batch_metadata"]["guidance"][guidance_name][bond][0] == target)))):
-            gen_paths.append(gen_path)
-        continue
-    return gen_paths
 
-def get_volume_pa_gen_dirs(processed_repos_root: Path, system: str, guidance_name: str, target: float | int | None = None):
-    normalized_system = '-'.join(sorted(system.split('-')))
-    search_dir = processed_repos_root / normalized_system
-    gen_paths = []
-    for gen_path in search_dir.glob(f"{normalized_system}*"):
-        for stage_yaml in gen_path.rglob("manifest.yaml"):
-            dataset_info = load_yaml_with_batch_data(stage_yaml)
-            if dataset_info["metadata"]["pipeline_stage"] in [0, 'parse_raw']:
-                break
-        else:
-            continue
-        if dataset_info["metadata"]["batch_metadata"]["guidance"] == 'None' or \
-                (set(dataset_info["metadata"]["batch_metadata"]["guidance"].keys()) == {guidance_name,} and
-                dataset_info["metadata"]["batch_metadata"]["guidance"][guidance_name] == target):
-            gen_paths.append(gen_path)
-        continue
-    return gen_paths
+def get_guidance_generation_dirs(processed_repos_root: Path, system: str, guidance_sub_dict: Dict, include_non_guided: bool = True):
+    """
+    Get a list of directories containing postprocessing pipelines corresponding to a mattergen-generated structures
+    with guidance corresponding to the guidance_sub_dict argument.
 
-
-def get_generation_dirs(processed_repos_root: Path, system: str, guidance_sub_dict: Dict, include_non_guided: bool = True):
+    Args:
+        processed_repos_root: pathlib.Path -- root of processed repositories
+        system: str -- dash('-') -separated elements (in any order), e.g. 'Ni-B-H'
+        guidance_sub_dict: Dict[str, str|Dict] -- sub-dictionary looked upon in the dataset_info["metadata"]["batch_metadata"]
+    Kwargs:
+        include_non_guided: bool -- whether the non-guided generation is included
+    sub_dict_examples:
+        environment (mean coordination number): {'guidance': {'environment': {'mode': 'huber', 'Si-O': 6}}}
+        volume_pa: {'guidance': {'volume_pa': 6.8}}
+    """
     normalized_system = '-'.join(sorted(system.split('-')))
     search_dir = processed_repos_root / normalized_system
     gen_paths = []
@@ -96,6 +71,17 @@ def get_generation_dirs(processed_repos_root: Path, system: str, guidance_sub_di
             gen_paths.append(gen_path)
         continue
     return gen_paths
+
+
+def get_volume_pa_gen_dirs(processed_repos_root: Path, system: str, guidance_name: str, target: float | int | None = None):
+    guidance_sub_dict = {'guidance': {guidance_name: target}}
+    return get_guidance_generation_dirs(processed_repos_root, system, guidance_sub_dict=guidance_sub_dict)
+
+
+def get_environment_gen_dirs(processed_repos_root: Path, system: str, guidance_name: str,
+                             bond: str = None, target: float | int | None = None):
+    guidance_sub_dict = {'guidance': {guidance_name: {bond: target}}}
+    return get_guidance_generation_dirs(processed_repos_root, system, guidance_sub_dict=guidance_sub_dict)
 
 
 def collect_stage_dataset_dict(gen_dirs, stage, ref_stage, add_guid_descr=False):
@@ -123,6 +109,7 @@ def collect_stage_dataset_dict(gen_dirs, stage, ref_stage, add_guid_descr=False)
         if name is not None:
             ds_dict[name] = ds
     return ds_dict
+
 
 def get_entry_fn(fn_name, **params):
     fn = lambda x: None
@@ -195,6 +182,7 @@ def values_2_histo_data(values, name=None, bin_centers=None, bins = None, intege
     if norm:
         counts = counts / counts.sum()
     return bin_centers, counts
+
 
 def histo_data_collection(ds_dict, callable_name, callable_params=None, fn=None, auto_adjust_bins=False, n_bins=None,
                           **kwargs):
