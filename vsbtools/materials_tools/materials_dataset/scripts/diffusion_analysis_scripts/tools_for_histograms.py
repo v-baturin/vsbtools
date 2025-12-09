@@ -160,7 +160,6 @@ def histo_data_collection(ds_dict, callable_name, callable_params=None, fn=None,
     return histo_collection
 
 
-
 def plot_multihistogram(multidata, target=None, title='', max_bincenter=None,
                         show_gaussian=False, gaussian_fill_alpha=0.2, gaussian_edge_lw=2.5, **kwargs):
     """
@@ -181,7 +180,7 @@ def plot_multihistogram(multidata, target=None, title='', max_bincenter=None,
     width = 0.8 * delta / max(n_data, 1)
     offsets = np.linspace(-0.4 * delta + width/2, 0.4 * delta - width/2, n_data)
 
-    plt.figure(figsize=(12, 6))
+    plt.figure(figsize=(8, 4))
 
     all_bincenters = np.unique(np.concatenate([np.asarray(d['bin_centers']) for d in kept_multidata]))
 

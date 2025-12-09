@@ -1,0 +1,57 @@
+comment: null
+dataset_id: x682a99d91d2d8da2
+entries_csv: data.csv
+metadata:
+  batch_metadata: 'output_path: results/Fe-Nd-B/env/modehuberB-Fe3/g0.5_k0.5_True_3-2_algFalse/run_78
+
+    pretrained_name: chemical_system
+
+    model_path: None
+
+    batch_size: 12
+
+    num_batches: 1
+
+    config_overrides: None
+
+    checkpoint_epoch: last
+
+    properties_to_condition_on: {''chemical_system'': ''Fe-Nd-B''}
+
+    sampling_config_path: None
+
+    sampling_config_name: default
+
+    sampling_config_overrides: None
+
+    record_trajectories: False
+
+    diffusion_guidance_factor: 2.0
+
+    strict_checkpoint_loading: True
+
+    target_compositions: None
+
+    guidance: {''environment'': {''mode'': ''huber'', ''B-Fe'': 3}}
+
+    diffusion_loss_weight: [0.5, 0.5, True]
+
+    print_loss: False
+
+    self_rec_steps: 3
+
+    back_step: 2
+
+    gpu_memory_gb: 13.5
+
+    algo: False
+
+    force_gpu: 1
+
+    '
+  created_on: 2025-12-05 00:56
+  message: 1008 structures out of 1008 files collected from /tmp/tmp_zip_file__llt_eye
+  pipeline_stage: parse_raw
+  pipeline_stage_index: '0'
+parent_ids: []
+poscars: POSCARS

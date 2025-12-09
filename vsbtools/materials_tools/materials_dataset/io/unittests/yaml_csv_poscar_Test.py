@@ -2,7 +2,7 @@ import unittest
 import filecmp
 import shutil
 from pathlib import Path
-from ..yaml_csv_poscars import read, write
+from ..yaml_csv_poscars import read, write, load_yaml_recursively
 from ..preset_loaders import load_mattersim_estimated_set
 
 PATH_WITH_TESTS = Path(__file__).parent
@@ -40,3 +40,7 @@ class yaml_csv_poscars_Test(unittest.TestCase):
         self.assertFalse(mismatch)
         shutil.rmtree(res_path_1)
         shutil.rmtree(res_path_2)
+
+    def test_recursive_yaml_read(self):
+        meta_dict = load_yaml_recursively(yaml_fname=PATH_WITH_TESTS / "manifest_batch_meta.yaml")
+        print(meta_dict)
