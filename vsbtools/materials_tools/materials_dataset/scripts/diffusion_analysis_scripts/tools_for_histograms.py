@@ -99,18 +99,14 @@ def collect_stage_dataset_dict(gen_dirs, stage, ref_stage, add_guid_descr=False)
 def calculate_values(ds_dict: dict, callable_name, fn=None, callable_params=None):
     values_dict = dict()
     if callable_params is not None and fn is None:
-        callables = {callable_name: get_entry_fn(callable_name, **callable_params)}
+        predicate =  get_entry_fn(callable_name, **callable_params)
     elif fn is not None and callable_params is None:
-        callables = {callable_name: fn}
+        predicate = fn
     else:
         raise RuntimeError("Provide either callable or callable params (not both)")
     for name, ds in ds_dict.items():
-        summary_df = summary.collect_summary_df(ds, native_columns=("id", "composition", "energy", "metadata.duplicates"), callables=callables)
-        summary_df = summary_df.loc[
-            summary_df['composition'].apply(len).eq(len(ds.elements))].copy()  # We take only system having all elements
-        # summary.print_pretty_df(summary_df, f"{ds.base_path.name}._table.txt")
-        values = pd.to_numeric(summary_df[callable_name], errors='coerce').to_numpy().astype(float)
-        values_dict[name] = values[~np.isnan(values)]
+        ds_all_elements = [entry for entry in ds if len(entry.composition) == len(ds.elements)]
+        values_dict[name] = np.array([predicate(entry) for entry in ds_all_elements])
     return values_dict
 
 
