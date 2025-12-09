@@ -4,15 +4,11 @@ from pathlib import Path
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import yaml
-import torch
 from .....genutils.misc import is_subtree
 from ...crystal_dataset import CrystalDataset
 from ...io.yaml_csv_poscars import read, load_yaml_recursively
 from ....ext_software_io.mattergen_tools.parsers import input_parameters_to_dict
-from ...scripts.diffusion_analysis_scripts.mattergen_bridge import (mattergen_cell_frac_types_fn_collection,
-                                                                    mattergen_chemgraph_fn_collection,
-                                                                    structure_to_tensors, entry2chemgraph)
+from ...scripts.diffusion_analysis_scripts.mattergen_bridge import get_entry_fn
 from ...analysis.pipeline_legacy import LEGACY_INDEX_TO_NAME, LEGACY_NAME_TO_INDEX
 
 
@@ -98,34 +94,6 @@ def collect_stage_dataset_dict(gen_dirs, stage, ref_stage, add_guid_descr=False)
             ds_dict[name] = ds
     return ds_dict
 
-
-def get_entry_fn(fn_name, **params):
-    fn = lambda x: None
-    if fn_name in ("environment", "average_cn"):
-        fn_params = {type_X: at_sym for type_X, at_sym in
-                                  zip(['type_A', 'type_B'], params.pop("guidance_target_bond").split('-'))}
-        def fn(entry):
-            return at_env.analyze_average_environment_in_entry(entry, **{**fn_params, **fn_params}).cpu().item()
-    elif fn_name == "dominant_environment":
-        fn_params = {type_X: at_sym for type_X, at_sym in
-                                  zip(['type_A', 'type_B'], params["guidance_target_bond"].split('-'))}
-        fn_params_cp = fn_params.copy()
-        fn_params_cp["target"] = params["guidance_target_cn"]
-        def fn(entry):
-            return at_env.analyze_target_coordination_share_in_entry(entry, **fn_params_cp).cpu().item()
-
-    elif fn_name in mattergen_chemgraph_fn_collection:
-        def fn(entry):
-            x = entry2chemgraph(entry)
-            return mattergen_chemgraph_fn_collection[fn_name](x, t=None, **params).cpu().detach().numpy()[0]  # x is a batch normally, so to have a result of entry we need [0]
-    elif fn_name in mattergen_cell_frac_types_fn_collection:
-        def fn(entry):
-            cell, frac, types = structure_to_tensors(entry.structure)
-            return mattergen_cell_frac_types_fn_collection[fn_name](cell, frac, types,
-                                                                    num_atoms=torch.tensor([len(types)],
-                                                                                           device = cell.device),
-                                                                    **params).cpu().detach().numpy()
-    return fn
 
 
 def calculate_values(ds_dict: dict, callable_name, fn=None, callable_params=None):

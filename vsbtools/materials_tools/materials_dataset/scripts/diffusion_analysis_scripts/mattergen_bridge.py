@@ -69,3 +69,18 @@ def entry2tensors(entry):
 
 def entry2chemgraph(entry):
     return structure_to_single_chemgraph(entry.structure)
+
+def get_entry_fn(fn_name, **params):
+    fn = lambda x: None
+    if fn_name in mattergen_chemgraph_fn_collection:
+        def fn(entry):
+            x = entry2chemgraph(entry)
+            return mattergen_chemgraph_fn_collection[fn_name](x, t=None, **params).cpu().detach().numpy()[0]  # x is a batch normally, so to have a result of entry we need [0]
+    elif fn_name in mattergen_cell_frac_types_fn_collection:
+        def fn(entry):
+            cell, frac, types = structure_to_tensors(entry.structure)
+            return mattergen_cell_frac_types_fn_collection[fn_name](cell, frac, types,
+                                                                    num_atoms=torch.tensor([len(types)],
+                                                                                           device = cell.device),
+                                                                    **params).cpu().detach().numpy().item()
+    return fn
