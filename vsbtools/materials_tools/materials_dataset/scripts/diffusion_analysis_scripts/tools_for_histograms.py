@@ -8,24 +8,12 @@ import yaml
 import torch
 from .....genutils.misc import is_subtree
 from ...crystal_dataset import CrystalDataset
-from ...io.yaml_csv_poscars import read
-from ...analysis import (
-    atomic_environment_analysis as at_env,
-    summary
-)
+from ...io.yaml_csv_poscars import read, load_yaml_recursively
 from ....ext_software_io.mattergen_tools.parsers import input_parameters_to_dict
 from ...scripts.diffusion_analysis_scripts.mattergen_bridge import (mattergen_cell_frac_types_fn_collection,
                                                                     mattergen_chemgraph_fn_collection,
                                                                     structure_to_tensors, entry2chemgraph)
 from ...analysis.pipeline_legacy import LEGACY_INDEX_TO_NAME, LEGACY_NAME_TO_INDEX
-
-
-def load_yaml_with_batch_data(yaml_fname):
-    with open(yaml_fname) as ym_fid:
-        ym_dict = yaml.safe_load(ym_fid.read())
-    if 'batch_metadata' in ym_dict['metadata']:
-        ym_dict['metadata']['batch_metadata'] = yaml.safe_load(ym_dict['metadata']['batch_metadata'])
-    return ym_dict
 
 
 def graph_name_from_ds(ds: CrystalDataset):
@@ -61,7 +49,7 @@ def get_guidance_generation_dirs(processed_repos_root: Path, system: str, guidan
     gen_paths = []
     for gen_path in search_dir.glob(f"{normalized_system}*"):
         for stage_yaml in gen_path.rglob("manifest.yaml"):
-            dataset_info = load_yaml_with_batch_data(stage_yaml)
+            dataset_info = load_yaml_recursively(stage_yaml)
             if dataset_info["metadata"]["pipeline_stage"] in [0, 'parse_raw']:
                 break
         else:
@@ -88,13 +76,13 @@ def collect_stage_dataset_dict(gen_dirs, stage, ref_stage, add_guid_descr=False)
     ds_dict = dict()
     ds = None
     for stage_yml in gen_dirs[0].rglob("manifest.yaml"):
-        stage_desc = load_yaml_with_batch_data(stage_yml)
+        stage_desc = load_yaml_recursively(stage_yml)
         if stage_desc["metadata"]["pipeline_stage"] in (ref_stage, LEGACY_NAME_TO_INDEX.get(ref_stage, None)):
             ds_dict["reference"] = read(stage_yml)
     for gen_dir in gen_dirs:
         name = None
         for stage_yml in gen_dir.rglob("manifest.yaml"):
-            stage_desc = load_yaml_with_batch_data(stage_yml)
+            stage_desc = load_yaml_recursively(stage_yml)
             if stage_desc["metadata"]["pipeline_stage"] in (stage, LEGACY_NAME_TO_INDEX.get(stage, None)):
                 ds = read(stage_yml)
             elif stage_desc["metadata"]["pipeline_stage"] in (0, 'parse_raw'):

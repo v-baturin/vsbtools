@@ -6,6 +6,35 @@ import yaml
 from pymatgen.core import Structure
 from ..crystal_dataset import CrystalDataset, CrystalEntry
 
+def load_yaml_recursively(yaml_fname=None, raw=None, ym_dict=None):
+    if yaml_fname is not None:
+        with open(yaml_fname) as ym_fid:
+            raw = ym_fid.read()
+    if raw is not None:
+        ym_dict = yaml.safe_load(raw)
+    if ym_dict is None:
+        return None
+
+    # Only iterate mappings
+    if not isinstance(ym_dict, dict):
+        return ym_dict
+
+    for k, v in list(ym_dict.items()):
+        if isinstance(v, str):
+            try:
+                loaded = yaml.safe_load(v)
+            except yaml.YAMLError:
+                continue
+            if isinstance(loaded, dict):
+                ym_dict[k] = load_yaml_recursively(ym_dict=loaded)
+            else:
+                # keep original string if it doesn't load to a mapping
+                ym_dict[k] = v
+        elif isinstance(v, dict):
+            ym_dict[k] = load_yaml_recursively(ym_dict=v)
+
+    return ym_dict
+
 
 def _get_str_value_for_csv(e: CrystalEntry, attr_name):
     if attr_name == 'structure':
@@ -35,16 +64,13 @@ def _prepare_for_yaml_write(dct: dict):
             _prepare_for_yaml_write(v)
         elif isinstance(v, Path):
             dct[k] = v.as_posix()
-        # elif isinstance(v, float):
-        #     dct[k] = f"{v:.4f}"
 
 
 def read(manifest_yaml: str | Path) -> CrystalDataset:
     manifest_yaml = Path(manifest_yaml)
     def _rebase_path(pth: Path, base: Path):
         return pth if pth.is_absolute() else base / pth
-    with open(manifest_yaml, 'rt') as ds_h:
-        dataset_info = yaml.safe_load(ds_h.read())
+    dataset_info = load_yaml_recursively(yaml_fname=manifest_yaml)
     dataset_info.pop("comment")
     _remove_private_keys(dataset_info)
     entry_descr_csv = _rebase_path(Path(dataset_info.pop('entries_csv')), manifest_yaml.parent)
