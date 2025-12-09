@@ -35,7 +35,7 @@ with exploded_zip_tree(structures_source_path) as tmp_inbox:
     processed_stages = dict()
     graph = repo.build_graph()
     for node in repo.list_nodes():
-        ds, meta = repo.load_node(node)
+        ds = repo.load_node(node)
         processed_stages[gp.PostprocessStage(int(ds.metadata["pipeline_stage"]))] = ds
 
     polling_db_options: Dict[str, Any] = dict(do_ehull_filtering=True, do_deduplication=True, max_ehull=max_ehull)
