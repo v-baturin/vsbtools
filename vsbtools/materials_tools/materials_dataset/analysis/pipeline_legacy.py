@@ -11,7 +11,8 @@ class LegacyStage(IntEnum):
     deduplicate = 6
     postprocess_dft = 7
 
-LEGACY_DICTIONARY: Dict["old_name", "new_name"] = {'augment_raw_by_db': "augment_by_ref",
+LEGACY_DICTIONARY: Dict["old_name", "new_name"] = {'augment_raw_by_db': "merge_base_into_ref",
+                                                   "augment_by_ref": "merge_base_into_ref",
                                                    'symmetrize_raw': "symmetrize"}
 LEGACY_INDEX_TO_NAME = {st.value: st.name for st in LegacyStage}
 LEGACY_NAME_TO_INDEX = {st.name: st.value for st in LegacyStage}

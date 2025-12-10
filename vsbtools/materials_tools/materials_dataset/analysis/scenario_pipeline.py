@@ -448,7 +448,6 @@ def op_poll_db(
 
     # parent_ids is empty as in the original code
     estimated.parent_ids = []
-
     msg0 = (db.metadata or {}).get("message", "").strip()
     msg1 = (estimated.metadata or {}).get("message", "").strip()
     estimated.metadata = dict(estimated.metadata or {})
@@ -464,14 +463,21 @@ def op_poll_db(
 
 # --- augment_raw_by_db -------------------------------------------
 
-@op("augment_raw_by_ref")
-def op_augment_by_ref(
+@op("merge_base_into_ref")
+def op_merge_ref(
     ctx: Context,
     inputs: Dict[str, CrystalDataset],
     params: Dict[str, Any],
 ) -> CrystalDataset:
     if len(inputs) != 2:
         raise AssertionError("augment_raw_by_db expects exactly two parents")
+
+    """
+    params:
+        base_parent -- name of base parent
+        ref_parent -- name of reference parent
+        merge -- if True, base entry is removed if it reproduces an entry from reference  
+    """
 
     parent_names = list(inputs.keys())
 
@@ -518,9 +524,14 @@ def op_augment_by_ref(
     labeled_db = CrystalDataset(labeled_entries, **ref_parameters)
     labeled_db.metadata = meta
 
-    merged = labeled_db.merge(augmentation)
+    if params.get("merge", False):
+        merged = labeled_db.merge(augmentation)
+        action_str = "merged into"
+    else:
+        merged = labeled_db.merge(base_ds)
+        action_str = "added to"
     merged.metadata = dict(merged.metadata or {})
-    merged.metadata["message"] = "Merged DB data into generated set"
+    merged.metadata["message"] = f"Base dataset {action_str} reference set. {augmentation.metadata['message']}"
     merged.metadata["reproducibility"] = augmentation.metadata.get("reproducibility")
 
     merged.parent_ids = [
