@@ -20,7 +20,7 @@ def load_yaml_recursively(yaml_fname=None, raw=None, ym_dict=None):
         return ym_dict
 
     for k, v in list(ym_dict.items()):
-        if isinstance(v, str):
+        if isinstance(v, str) and k not in ['message']:
             try:
                 loaded = yaml.safe_load(v)
             except yaml.YAMLError:
