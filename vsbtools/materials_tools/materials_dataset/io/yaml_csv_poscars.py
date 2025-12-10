@@ -119,11 +119,8 @@ def read_csv_poscars(csv_file, poscars_dir=None, use_fname_as_id=True) -> Crysta
                 entry_data['structure'] = Structure.from_file(poscars_dir / entry_data['structure'])
             for l in labels:
                 if 'metadata.' in l:
-                    try:
-                        val = entry_data.pop(l)
-                    except:
-                        print('hi')
-                    if val in ['True', 'False']:
+                    val = entry_data.pop(l)
+                    if val in ['True', 'False', 'set()']:
                         val = eval(val)
                     elif val in ['NA', 'None']:
                         val = None
