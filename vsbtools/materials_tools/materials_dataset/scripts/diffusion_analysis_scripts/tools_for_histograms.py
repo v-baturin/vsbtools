@@ -12,6 +12,8 @@ from ...scripts.diffusion_analysis_scripts.mattergen_bridge import get_entry_fn
 from ...analysis.pipeline_legacy import LEGACY_INDEX_TO_NAME, LEGACY_NAME_TO_INDEX
 
 
+DEFAULT_PLOT_PRIORITY = ['reference', 'Non-guided']
+
 def graph_name_from_ds(ds: CrystalDataset):
     if ds.metadata["pipeline_stage"] in [0, 'parse_raw']:
         param_dict_guided = input_parameters_to_dict(raw=ds.metadata["batch_metadata"])
@@ -161,7 +163,10 @@ def histo_data_collection(ds_dict, callable_name, callable_params=None, fn=None,
 
 
 def plot_multihistogram(multidata, target=None, title='', max_bincenter=None,
-                        show_gaussian=False, gaussian_fill_alpha=0.2, gaussian_edge_lw=2.5, **kwargs):
+                        show_gaussian=False, gaussian_fill_alpha=0.2, gaussian_edge_lw=2.5,
+                        apply_standard_order=True,
+                        custom_priority=None,
+                        **kwargs):
     """
     Plot side-by-side histograms for multidata:
     multidata::  list of dictionaries: [{'label': str, 'bin_centers': iterable[floats], 'counts': iterable[floats]}]
@@ -169,7 +174,20 @@ def plot_multihistogram(multidata, target=None, title='', max_bincenter=None,
     Gaussian (PDF) per dataset with the same surface (=1 after normalization),
     mean, and variance. Gaussian fills are excluded from the legend; edges are emphasized.
     """
-    keep = [i for i, d in enumerate(multidata) if d["bin_centers"] is not None]
+    if apply_standard_order:
+        priority = DEFAULT_PLOT_PRIORITY if custom_priority is None else custom_priority
+        order = {lab: i for i, lab in enumerate(priority)}
+
+        def sort_key(d):
+            lab = d.get("label")
+            if lab in order:
+                return 0, order[lab]  # priority group, in given order
+            return 1, 0
+
+        multidata = sorted(multidata, key=sort_key)
+
+
+    keep = [i for i, d in enumerate(multidata) if d["bin_centers"] is not None]  # Processing empty dataset gracefully
     kept_multidata = [multidata[kpt] for kpt in keep]
     max_bincenter = max_bincenter or np.inf
     example_data = multidata[keep[0]]['bin_centers']
