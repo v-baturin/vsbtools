@@ -1,7 +1,7 @@
 from typing import Dict, Callable
 from pymatgen.core import Element
+from ....genutils.pareto_tools import pareto_subdataframe_indices
 from ..crystal_dataset import CrystalDataset
-from ..energy_estimation.mattersim_bridge import estimate_entry_energy
 from .diffusion_analysis_scripts.mattergen_bridge import get_target_value_fn, get_loss_fn, clear_globals
 from ..analysis import (
     phase_diagram_tools as pdt,
@@ -21,7 +21,8 @@ def build_energy_vs_property_table(name_ds_dict: Dict[str, CrystalDataset],
                                    raw_stage: str = 'parse_raw',
                                    ref_stage: str = 'poll_db',
                                    target_stages: list | str | None = 'deduplicate_all',
-                                   callables: Dict[str, Callable] | None = None):
+                                   callables: Dict[str, Callable] | None = None,
+                                   max_pareto_front: int | None = None):
     """
     For given dict builds tables containing the values of target property
     """
@@ -67,6 +68,14 @@ def build_energy_vs_property_table(name_ds_dict: Dict[str, CrystalDataset],
         summary.print_pretty_df(summary_df, name_ds_dict[stage].base_path / 'table.txt', sort_by='e_hull/at')
 
         summary_df.to_csv(name_ds_dict[stage].base_path / "summary.csv")
+
+        if max_pareto_front is not None and 'guidance_loss' in callables:
+            fronts_idx, rank = pareto_subdataframe_indices(summary_df, ['e_hull/at', 'guidance_loss'],  max_pareto_front)
+            for i, idx_pf in enumerate(fronts_idx):
+                summary_df.iloc[idx_pf].to_csv(name_ds_dict[stage].base_path / f"pf_{i+1}.csv")
+                summary.print_pretty_df(summary_df.iloc[idx_pf], name_ds_dict[stage].base_path / f"pf_{i+1}_table.txt",
+                                        sort_by='e_hull/at')
+
 
     return callables
 
