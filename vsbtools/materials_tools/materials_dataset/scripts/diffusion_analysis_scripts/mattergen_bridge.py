@@ -17,7 +17,7 @@ else:
 sys.path.append(mgen_path.as_posix())
 from mattergen.common.data.chemgraph import ChemGraph
 from mattergen.diffusion.diffusion_loss import (volume, volume_pa, compute_mean_coordination, compute_target_share,
-                                                _soft_neighbor_counts_per_A_single)
+                                                _soft_neighbor_counts_per_A_single, LOSS_REGISTRY, clear_globals)
 
 mattergen_chemgraph_fn_collection = {"volume": volume, "volume_pa": volume_pa}
 
@@ -83,4 +83,12 @@ def get_target_value_fn(fn_name, **params):
                                                                     num_atoms=torch.tensor([len(types)],
                                                                                            device = cell.device),
                                                                     **params).cpu().detach().numpy().item()
+    return fn
+
+def get_loss_fn(fn_name, **params):
+    assert fn_name in LOSS_REGISTRY, f"Loss function: {fn_name} not implemented"
+    def fn(entry):
+        assert 'target' in params, "{target: target_dict} is required for loss calculation"
+        x = entry2chemgraph(entry)
+        return LOSS_REGISTRY[fn_name](x, t=None, **params).cpu().detach().numpy().item()
     return fn

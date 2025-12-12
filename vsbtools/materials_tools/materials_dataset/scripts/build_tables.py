@@ -1,15 +1,15 @@
 from typing import Dict, Callable
 from pymatgen.core import Element
 from ..crystal_dataset import CrystalDataset
-from .diffusion_analysis_scripts.mattergen_bridge import get_entry_fn
+from ..energy_estimation.mattersim_bridge import estimate_entry_energy
+from .diffusion_analysis_scripts.mattergen_bridge import get_target_value_fn, get_loss_fn, clear_globals
 from ..analysis import (
-    scenario_pipeline as sp,
-    generation_postprocess as gp,
     phase_diagram_tools as pdt,
     symmetry_tools as st,
-    atomic_environment_analysis as at_env,
     summary
 )
+
+NOT_IMPLEMENTED_LOSSES = ["energy"]
 
 guidance_vs_target_properties = {"environment": "compute_mean_coordination",
                                  "dominant_environment": "compute_target_share",
@@ -27,6 +27,7 @@ def build_energy_vs_property_table(name_ds_dict: Dict[str, CrystalDataset],
     """
 
     if callables is None:
+        clear_globals()
         callables = dict()
         target_stages = [target_stages] if isinstance(target_stages, str) else target_stages
 
@@ -42,13 +43,17 @@ def build_energy_vs_property_table(name_ds_dict: Dict[str, CrystalDataset],
                 if '-' not in bond:
                     continue
                 params = dict(zip(('type_A', 'type_B'), [Element(e).Z for e in bond.split('-')]))
+                target = name_ds_dict[raw_stage].metadata['batch_metadata']['guidance'][guidance_name][bond]
+                if isinstance(target, list) and len(target) == 2:
+                    params['r_cut'] = target[1]
                 if guidance_name == "dominant_environment":
                     params['target'] = name_ds_dict[raw_stage].metadata['batch_metadata']['guidance'][guidance_name][bond][0]
                 fn = get_target_value_fn(fn_name, **params)
                 callables[bond] = fn
         elif guidance_name == 'volume_pa':
-            callables[guidance_name] = get_entry_fn(fn_name, **{})
             callables[guidance_name] = get_target_value_fn(fn_name, **{})
+        if guidance_name not in NOT_IMPLEMENTED_LOSSES:
+            callables['guidance_loss'] = get_loss_fn(guidance_name, target=name_ds_dict[raw_stage].metadata['batch_metadata']['guidance'][guidance_name])
 
     pd_tk = pdt.PhaseDiagramTools(name_ds_dict[ref_stage])
     callables["e_hull/at"] = pd_tk.height_above_hull_pa

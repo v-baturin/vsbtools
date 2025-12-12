@@ -80,7 +80,7 @@ class SimilarityTools:
                 duration = time.time() - tic
                 if duration > 10:
                     print(f"Fingerprint for i = {i} Took too long")
-                    examined.structure.to_file(f"PROBLEM_POSCAR{i}", fmt='vasp')
+                    examined.structure.to_file(f"PROBLEM_POSCAR{i}", fmt='poscar')
                 if dist <= tol_FP:
                     duplicates_counter.add(j)
                     reproduced.add(reference.id)
