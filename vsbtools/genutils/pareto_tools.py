@@ -44,6 +44,56 @@ def pareto_gen(costs, return_mask=False):
             init_cost = np.hstack(non_efficient)
             i_front += 1
 
+def pareto_subdataframe_indices(df, cols):
+    """
+    Non-dominated sorting (all objectives in `cols` are minimized).
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Input dataframe.
+    cols : list of str
+        Columns to use as objectives, e.g. ['a0', 'a1', ..., 'aN'].
+
+    Returns
+    -------
+    fronts_idx : list of np.ndarray
+        fronts_idx[0] is the index positions (iloc) of the first Pareto front,
+        fronts_idx[1] is the second front, etc.
+    rank : np.ndarray of int, shape (len(df),)
+        rank[i] is the Pareto front number (1, 2, 3, ...) of row i.
+    """
+    data = df[cols].to_numpy()
+    n = data.shape[0]
+
+    remaining = np.arange(n)       # positions 0..n-1
+    fronts_idx = []
+    rank = np.empty(n, dtype=int)  # will hold front number for each point
+
+    current_front = 1
+    while remaining.size > 0:
+        M = data[remaining]  # currently remaining objectives
+
+        # i dominates j if i <= j in all dims and < in at least one (minimization)
+        all_le = np.all(M[:, None, :] <= M[None, :, :], axis=2)
+        any_lt = np.any(M[:, None, :] < M[None, :, :], axis=2)
+        dominates = all_le & any_lt
+
+        # j is dominated if exists i that dominates j
+        is_dominated = dominates.any(axis=0)
+
+        # non-dominated subset among 'remaining'
+        front = remaining[~is_dominated]
+
+        fronts_idx.append(front)
+        rank[front] = current_front
+
+        # keep only dominated points for next iteration
+        remaining = remaining[is_dominated]
+        current_front += 1
+
+    return fronts_idx, rank
+
 
 if __name__ == '__main__':
     from matplotlib import pyplot as plt
@@ -53,7 +103,7 @@ if __name__ == '__main__':
     pfronts = pareto_gen(pts)
     plt.plot(pts[:, 0], pts[:, 1], 'o')
     for pf in pfronts:
-        current_front = pts[pf]
-        sorted_front = current_front[current_front[:, 0].argsort()]
+        curr_front = pts[pf]
+        sorted_front = curr_front[curr_front[:, 0].argsort()]
         plt.plot(sorted_front[:, 0], sorted_front[:, 1], '-')
     plt.show()
