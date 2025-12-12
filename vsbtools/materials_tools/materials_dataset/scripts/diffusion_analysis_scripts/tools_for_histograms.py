@@ -8,7 +8,7 @@ from .....genutils.misc import is_subtree
 from ...crystal_dataset import CrystalDataset
 from ...io.yaml_csv_poscars import read, load_yaml_recursively
 from ....ext_software_io.mattergen_tools.parsers import input_parameters_to_dict
-from ...scripts.diffusion_analysis_scripts.mattergen_bridge import get_entry_fn
+from ...scripts.diffusion_analysis_scripts.mattergen_bridge import get_target_value_fn
 from ...analysis.pipeline_legacy import LEGACY_INDEX_TO_NAME, LEGACY_NAME_TO_INDEX
 
 
@@ -101,7 +101,7 @@ def collect_stage_dataset_dict(gen_dirs, stage, ref_stage, add_guid_descr=False)
 def calculate_values(ds_dict: dict, callable_name, fn=None, callable_params=None):
     values_dict = dict()
     if callable_params is not None and fn is None:
-        predicate =  get_entry_fn(callable_name, **callable_params)
+        predicate =  get_target_value_fn(callable_name, **callable_params)
     elif fn is not None and callable_params is None:
         predicate = fn
     else:

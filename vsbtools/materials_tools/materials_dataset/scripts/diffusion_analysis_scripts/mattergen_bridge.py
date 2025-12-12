@@ -70,7 +70,7 @@ def entry2tensors(entry):
 def entry2chemgraph(entry):
     return structure_to_single_chemgraph(entry.structure)
 
-def get_entry_fn(fn_name, **params):
+def get_target_value_fn(fn_name, **params):
     fn = lambda x: None
     if fn_name in mattergen_chemgraph_fn_collection:
         def fn(entry):

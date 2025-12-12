@@ -44,10 +44,11 @@ def build_energy_vs_property_table(name_ds_dict: Dict[str, CrystalDataset],
                 params = dict(zip(('type_A', 'type_B'), [Element(e).Z for e in bond.split('-')]))
                 if guidance_name == "dominant_environment":
                     params['target'] = name_ds_dict[raw_stage].metadata['batch_metadata']['guidance'][guidance_name][bond][0]
-                fn = get_entry_fn(fn_name, **params)
+                fn = get_target_value_fn(fn_name, **params)
                 callables[bond] = fn
         elif guidance_name == 'volume_pa':
             callables[guidance_name] = get_entry_fn(fn_name, **{})
+            callables[guidance_name] = get_target_value_fn(fn_name, **{})
 
     pd_tk = pdt.PhaseDiagramTools(name_ds_dict[ref_stage])
     callables["e_hull/at"] = pd_tk.height_above_hull_pa
