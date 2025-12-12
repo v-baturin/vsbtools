@@ -2,7 +2,7 @@ import numpy as np
 
 
 # Faster than is_pareto_efficient_simple, but less readable.
-def pareto_gen(costs, return_mask=False):
+def pareto_gen(costs, return_mask=False, max_front = None):
     """
     Find the pareto-efficient points
     :param costs: An (n_points, n_costs) array
@@ -14,9 +14,11 @@ def pareto_gen(costs, return_mask=False):
     i_front= 0
     init_cost = np.arange(costs.shape[0])
     n_points = costs.shape[0]
+    if max_front is None:
+        max_front = np.inf
      # Next index in the is_efficient array to search for
     residue = costs
-    while len(residue) > 0:
+    while len(residue) > 0 and i_front < max_front:
         next_point_index = 0
         residue = []
         non_efficient = []
@@ -44,7 +46,7 @@ def pareto_gen(costs, return_mask=False):
             init_cost = np.hstack(non_efficient)
             i_front += 1
 
-def pareto_subdataframe_indices(df, cols):
+def pareto_subdataframe_indices(df, cols, max_front=None):
     """
     Non-dominated sorting (all objectives in `cols` are minimized).
 
@@ -54,6 +56,8 @@ def pareto_subdataframe_indices(df, cols):
         Input dataframe.
     cols : list of str
         Columns to use as objectives, e.g. ['a0', 'a1', ..., 'aN'].
+    max_front : int
+        Highest pareto front to output
 
     Returns
     -------
@@ -71,7 +75,7 @@ def pareto_subdataframe_indices(df, cols):
     rank = np.empty(n, dtype=int)  # will hold front number for each point
 
     current_front = 1
-    while remaining.size > 0:
+    while remaining.size > 0 and (max_front is None or current_front <= max_front):
         M = data[remaining]  # currently remaining objectives
 
         # i dominates j if i <= j in all dims and < in at least one (minimization)
