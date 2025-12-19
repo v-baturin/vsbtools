@@ -7,10 +7,10 @@ from pymatgen.core import Structure
 host = socket.gethostname()
 MATTERGEN_PYTHON_PATHS = {'nina': "/home/vsbat/work/mattergen/mattergenbis_vb",
                           "taurus": "/home/vsbat/my_git_projects/mattergenbis_vb",
-                          "serpens": "/home/vsbat/work/venvs/mattersim/bin/python"}
+                          "serpens": "/home/vsbat/git_packages/mattergenbis_vb"}
 
 if host not in MATTERGEN_PYTHON_PATHS:
-    mgen_path = Path(input("Enter full path to mattersim-containing virtual environment")) / "bin/python"
+    mgen_path = Path(input("Enter full path containing mattergen package"))
 else:
     mgen_path = Path(MATTERGEN_PYTHON_PATHS[host])
 
