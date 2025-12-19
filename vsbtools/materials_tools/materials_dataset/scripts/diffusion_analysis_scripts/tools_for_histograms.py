@@ -1,9 +1,10 @@
 import warnings
 from typing import List, Dict
 from pathlib import Path
-import pandas as pd
+import re
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.patches import Patch
 from .....genutils.misc import is_subtree
 from ...crystal_dataset import CrystalDataset
 from ...io.yaml_csv_poscars import read, load_yaml_recursively
@@ -267,6 +268,252 @@ def plot_multihistogram(multidata, target=None, title='', max_bincenter=None,
         plt.title(title)
     plt.legend(fontsize='small', loc='upper left')
     plt.tight_layout()
+
+def plot_multihistogram_new(multidata, target=None, title='', max_bincenter=None,
+                        show_gaussian=False, gaussian_fill_alpha=0.2, gaussian_edge_lw=2.5,
+                        apply_standard_order=True,
+                        custom_priority=None,
+                        **kwargs):
+    """
+    Plot side-by-side histograms for multidata:
+    multidata:: list of dicts:
+      {'label': str, 'bin_centers': iterable[float] | None, 'counts': iterable[float] | None}
+
+    Missing datasets (bin_centers or counts is None) are still shown in the legend
+    using proxy handles with the intended color.
+
+    Color grouping:
+      Labels matching any of special_label_patterns use special_cmap; others use other_cmap.
+      (Configured via kwargs; see below.)
+    """
+
+    # --- optional config via kwargs (doesn't break existing calls) ---
+    special_label_patterns = kwargs.pop("special_label_patterns", ("Non-guided", "reference"))
+    special_cmap_name      = kwargs.pop("special_cmap", "copper")
+    other_cmap_name        = kwargs.pop("other_cmap", "ocean")
+    pattern_case_sensitive = kwargs.pop("pattern_case_sensitive", False)
+    missing_suffix         = kwargs.pop("missing_suffix", ": No data")
+    bar_kwargs             = kwargs.pop("bar_kwargs", {})       # extra kwargs passed to ax.bar
+    legend_kwargs          = kwargs.pop("legend_kwargs", {})    # extra kwargs passed to ax.legend
+
+    # --- ordering ---
+    if apply_standard_order:
+        priority = DEFAULT_PLOT_PRIORITY if custom_priority is None else custom_priority
+        order = {lab: i for i, lab in enumerate(priority)}
+
+        def sort_key(d):
+            lab = d.get("label")
+            if lab in order:
+                return 0, order[lab]
+            return 1, 0
+
+        multidata = sorted(multidata, key=sort_key)
+
+    n_all = len(multidata)
+
+    # --- classify labels into color groups ---
+    flags = 0 if pattern_case_sensitive else re.IGNORECASE
+    pat = "|".join(re.escape(p) for p in special_label_patterns if p)
+    special_re = re.compile(pat, flags=flags) if pat else None
+
+    def is_special(label: str) -> bool:
+        if special_re is None:
+            return False
+        return special_re.search(label or "") is not None
+
+    special_idx = [i for i, d in enumerate(multidata) if is_special(d.get("label", ""))]
+    special_set = set(special_idx)
+    other_idx = [i for i in range(n_all) if i not in special_set]
+
+    NCOLOR = kwargs.pop("ncolor", 4)
+
+    cmap_special = plt.get_cmap(special_cmap_name)
+    cmap_other = plt.get_cmap(other_cmap_name)
+
+    def discrete_palette(cmap, n=NCOLOR):
+        # sample midpoints: 0.05, 0.15, ..., 0.95 (for n=10) -> avoids extremes
+        return [cmap((n - k - 0.5) / n) for k in range(n)]
+
+    pal_special = discrete_palette(cmap_special, NCOLOR)
+    pal_other = discrete_palette(cmap_other, NCOLOR)
+
+    color_list = [None] * len(multidata)
+
+    # sequential assignment within each group (wrap around if group > NCOLOR)
+    for k, i in enumerate(special_idx):
+        color_list[i] = pal_special[k % NCOLOR]
+
+    for k, i in enumerate(other_idx):
+        color_list[i] = pal_other[k % NCOLOR]
+
+    # --- identify non-empty datasets ---
+    keep = []
+    for i, d in enumerate(multidata):
+        bc = d.get("bin_centers")
+        ct = d.get("counts")
+        if bc is None or ct is None:
+            continue
+        bc = np.asarray(bc, dtype=float)
+        ct = np.asarray(ct, dtype=float)
+        if bc.size == 0 or ct.size == 0:
+            continue
+        keep.append(i)
+
+    fig, ax = plt.subplots(figsize=(8, 4))
+
+    legend_handles, legend_labels = [], []
+
+    # If nothing to plot: still show legend with correct colors
+    if len(keep) == 0:
+        for i, d in enumerate(multidata):
+            label = d.get("label", f"#{i}")
+            color = color_list[i]
+            legend_handles.append(Patch(facecolor=color, edgecolor='black', alpha=0.8))
+            legend_labels.append(f"{label}{missing_suffix}" if missing_suffix else label)
+        if title:
+            ax.set_title(title)
+        ax.legend(legend_handles, legend_labels, fontsize='small', loc='upper left', **legend_kwargs)
+        fig.tight_layout()
+        return fig, ax
+
+    max_bincenter_val = np.inf if max_bincenter is None else float(max_bincenter)
+
+    # Geometry from the first non-empty dataset
+    example_bc = np.asarray(multidata[keep[0]]["bin_centers"], dtype=float)
+    if example_bc.size >= 2:
+        delta = float(example_bc[1] - example_bc[0])
+        if delta == 0:
+            delta = 1.0
+    else:
+        delta = 1.0
+
+    kept_pos = {idx: pos for pos, idx in enumerate(keep)}
+    n_kept = len(keep)
+
+    width = 0.8 * delta / max(n_kept, 1)
+    offsets = np.linspace(-0.4 * delta + width/2, 0.4 * delta - width/2, n_kept)
+
+    # Union of bin centers (for axis range/ticks/gaussian x grid)
+    all_bincenters = np.unique(np.concatenate([
+        np.asarray(multidata[i]["bin_centers"], dtype=float) for i in keep
+    ]))
+    all_bincenters = all_bincenters[np.isfinite(all_bincenters)]
+    all_bincenters.sort()
+    all_bincenters = all_bincenters[all_bincenters <= max_bincenter_val]
+
+    if all_bincenters.size == 0:
+        # Still show legend; nothing sensible to place on x-axis.
+        for i, d in enumerate(multidata):
+            label = d.get("label", f"#{i}")
+            color = color_list[i]
+            legend_handles.append(Patch(facecolor=color, edgecolor='black', alpha=0.8))
+            legend_labels.append(f"{label}{missing_suffix}" if missing_suffix else label)
+        if title:
+            ax.set_title(title)
+        ax.legend(legend_handles, legend_labels, fontsize='small', loc='upper left', **legend_kwargs)
+        fig.tight_layout()
+        return fig, ax
+
+    x_min, x_max = all_bincenters.min() - 0.5 * delta, all_bincenters.max() + 0.5 * delta
+    x_line = np.linspace(x_min, x_max, 800)
+
+    last_tick_with_plus = False
+
+    # --- plot in the same order as multidata so legend order is stable ---
+    for i, dataset in enumerate(multidata):
+        label = dataset.get("label", f"#{i}")
+        color = color_list[i]
+
+        if i not in kept_pos:
+            # proxy legend entry for missing dataset
+            legend_handles.append(Patch(facecolor=color, edgecolor='black', alpha=0.8))
+            legend_labels.append(f"{label}{missing_suffix}" if missing_suffix else label)
+            continue
+
+        pos = kept_pos[i]
+
+        bin_centers = np.asarray(dataset["bin_centers"], dtype=float)
+        counts_raw  = np.asarray(dataset["counts"], dtype=float)
+
+        # Trim & accumulate tail into last bin if max_bincenter is active
+        if np.isfinite(max_bincenter_val) and bin_centers.size > 0 and max_bincenter_val <= bin_centers.max():
+            mask = bin_centers <= max_bincenter_val
+            if np.any(mask):
+                extra = counts_raw[~mask]
+                bin_centers = bin_centers[mask]
+                counts_raw = counts_raw[mask]
+                if extra.size > 0:
+                    counts_raw[-1] += extra.sum()
+                    last_tick_with_plus = True
+            # if nothing passes mask, treat as effectively missing-on-plot but keep legend entry
+            else:
+                legend_handles.append(Patch(facecolor=color, edgecolor='black', alpha=0.8))
+                legend_labels.append(f"{label}{missing_suffix}" if missing_suffix else label)
+                continue
+
+        total = counts_raw.sum()
+        counts = counts_raw / total if total > 0 else counts_raw
+
+        mu = float(np.sum(bin_centers * counts)) if counts.sum() > 0 else float("nan")
+
+        bars = ax.bar(
+            bin_centers + offsets[pos], counts, width=width,
+            align="center",
+            edgecolor="black", linewidth=0.5,
+            color=color, alpha=0.8, zorder=2,
+            **bar_kwargs
+        )
+
+        legend_handles.append(bars[0])
+        if np.isfinite(mu):
+            legend_labels.append(f"{label}, $\\mu$={mu:.2f}")
+        else:
+            legend_labels.append(label)
+
+        # Gaussian overlay (excluded from legend)
+        if show_gaussian and counts.sum() > 0:
+            var = float(np.sum((bin_centers - mu) ** 2 * counts))
+            sigma = float(np.sqrt(max(var, 0.0)))
+
+            if sigma > 0:
+                y = (1.0 / (sigma * np.sqrt(2*np.pi))) * np.exp(-0.5 * ((x_line - mu) / sigma) ** 2)
+                ax.fill_between(
+                    x_line, y, 0,
+                    facecolor=color, edgecolor="none",
+                    alpha=gaussian_fill_alpha, zorder=1, label="_nolegend_"
+                )
+                ax.plot(
+                    x_line, y,
+                    color=color, linewidth=gaussian_edge_lw,
+                    alpha=1.0, zorder=3, label="_nolegend_"
+                )
+            else:
+                eps = 0.15
+                ax.axvspan(mu - eps, mu + eps, facecolor=color, edgecolor="none",
+                           alpha=gaussian_fill_alpha, zorder=1, label="_nolegend_")
+                ax.axvline(mu, color=color, linewidth=gaussian_edge_lw,
+                           alpha=1.0, zorder=3, label="_nolegend_")
+
+    # Target span (add to legend explicitly because we use manual handles)
+    if target is not None and all_bincenters.min() <= target <= all_bincenters.max():
+        span = ax.axvspan(target - 0.5 * delta, target + 0.5 * delta,
+                          color="#4287f5", alpha=0.3, zorder=0)
+        legend_handles.append(span)
+        legend_labels.append(f"Target={target}")
+
+    tick_labels = [f"{x:.2f}" for x in all_bincenters]
+    if last_tick_with_plus and tick_labels:
+        tick_labels[-1] += "+"
+
+    ax.set_xticks(all_bincenters)
+    ax.set_xticklabels(tick_labels)
+
+    if title:
+        ax.set_title(title)
+
+    ax.legend(legend_handles, legend_labels, fontsize="small", loc="upper left", **legend_kwargs)
+    fig.tight_layout()
+    return fig, ax
 
 if __name__ == "__main__":
     procesed_dir = Path("/home/vsbat/SYNC/00__WORK/2025-2026_MOLTEN_SALTS/MG_postprocess_pipelines/PROCESSED")
