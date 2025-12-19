@@ -77,7 +77,7 @@ class hist_tools_Test(unittest.TestCase):
         hdc = histo_data_collection(ds_dict, callable_name='compute_mean_coordination', callable_params={"type_A": 27,
                                                                                                          "type_B": 8},
                                     max_bincenter=10)
-        plot_multihistogram(multidata=hdc, target=4, max_bincenter=10)
+        plot_multihistogram_new(multidata=hdc, target=4, max_bincenter=10)
         print(hdc)
         plt.show()
 
@@ -119,7 +119,7 @@ class hist_tools_Test(unittest.TestCase):
         ds_dict = collect_stage_dataset_dict(dirs, "symmetrize_raw", "poll_db", add_guid_descr=True)
         hdc = histo_data_collection(ds_dict, callable_name='compute_mean_coordination',
                                     callable_params={"type_A": type_A, "type_B": type_B})
-        plot_multihistogram(multidata=hdc, target=target, max_bincenter=10)
+        plot_multihistogram_new(multidata=hdc, target=target, max_bincenter=10)
         print(hdc)
         plt.show()
 
@@ -168,3 +168,6 @@ class hist_tools_Test(unittest.TestCase):
         # target_entries = [e for e in ds_dict[ds_name] if target-half_width <= function(e) <= target + half_width]
         # print(len(target_entries))
         # plt.show()
+
+    # def test_empty_histogram(self):
+    #     system = "Cu-Si-P-Ca"
