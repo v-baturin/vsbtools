@@ -3,8 +3,7 @@ from typing import List, Dict
 from pathlib import Path
 import re
 import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.patches import Patch
+
 from .....genutils.misc import is_subtree
 from ...crystal_dataset import CrystalDataset
 from ...io.yaml_csv_poscars import read, load_yaml_recursively
@@ -12,6 +11,14 @@ from ....ext_software_io.mattergen_tools.parsers import input_parameters_to_dict
 from ...scripts.diffusion_analysis_scripts.mattergen_bridge import get_target_value_fn
 from ...analysis.pipeline_legacy import LEGACY_INDEX_TO_NAME, LEGACY_NAME_TO_INDEX
 
+import matplotlib.pyplot as plt
+from matplotlib.patches import Patch
+from ....visualisation_utils.formatting import cm2inch
+
+plt.rcParams['xtick.major.pad'] = '0'
+plt.rcParams['ytick.major.pad'] = '0.'
+plt.rcParams['xtick.labelsize'] = 7
+plt.rcParams['ytick.labelsize'] = 7
 
 DEFAULT_PLOT_PRIORITY = ['reference', 'Non-guided']
 
@@ -163,113 +170,113 @@ def histo_data_collection(ds_dict, callable_name, callable_params=None, fn=None,
     return histo_collection
 
 
+# def plot_multihistogram(multidata, target=None, title='', max_bincenter=None,
+#                         show_gaussian=False, gaussian_fill_alpha=0.2, gaussian_edge_lw=2.5,
+#                         apply_standard_order=True,
+#                         custom_priority=None,
+#                         **kwargs):
+#     """
+#     Plot side-by-side histograms for multidata:
+#     multidata::  list of dictionaries: [{'label': str, 'bin_centers': iterable[floats], 'counts': iterable[floats]}]
+#     If show_gaussian is True, overlay a filled
+#     Gaussian (PDF) per dataset with the same surface (=1 after normalization),
+#     mean, and variance. Gaussian fills are excluded from the legend; edges are emphasized.
+#     """
+#     if apply_standard_order:
+#         priority = DEFAULT_PLOT_PRIORITY if custom_priority is None else custom_priority
+#         order = {lab: i for i, lab in enumerate(priority)}
+#
+#         def sort_key(d):
+#             lab = d.get("label")
+#             if lab in order:
+#                 return 0, order[lab]  # priority group, in given order
+#             return 1, 0
+#
+#         multidata = sorted(multidata, key=sort_key)
+#
+#
+#     keep = [i for i, d in enumerate(multidata) if d["bin_centers"] is not None]  # Processing empty dataset gracefully
+#     kept_multidata = [multidata[kpt] for kpt in keep]
+#     max_bincenter = max_bincenter or np.inf
+#     example_data = multidata[keep[0]]['bin_centers']
+#     delta = example_data[1] - example_data[0]
+#
+#     cmap = plt.get_cmap('tab20c')
+#     n_data = len(keep)
+#     width = 0.8 * delta / max(n_data, 1)
+#     offsets = np.linspace(-0.4 * delta + width/2, 0.4 * delta - width/2, n_data)
+#
+#     plt.figure(figsize=cm2inch((8.1, 4)))
+#
+#     all_bincenters = np.unique(np.concatenate([np.asarray(d['bin_centers']) for d in kept_multidata]))
+#
+#     if max_bincenter is not None:
+#         all_bincenters = all_bincenters[all_bincenters <= max_bincenter]
+#
+#     x_min, x_max = all_bincenters.min() - 0.5 * delta, all_bincenters.max() + 0.5 * delta
+#     x_line = np.linspace(x_min, x_max, 800)
+#
+#     last_tick_with_plus = False
+#
+#     for i, dataset in enumerate(multidata):
+#         if i not in keep:
+#             plt.bar([], [], color="k", label=f"{dataset['label']}: No data")
+#
+#     for i, dataset in enumerate(kept_multidata):
+#         bin_centers = np.asarray(dataset['bin_centers'], dtype=float)
+#         counts_raw  = np.asarray(dataset['counts'], dtype=float)
+#
+#         if max_bincenter is not None and max_bincenter <= bin_centers.max():
+#             mask = bin_centers <= max_bincenter
+#             bin_centers = bin_centers[mask]
+#             extra_counts_raw = counts_raw[~mask]
+#             counts_raw = counts_raw[mask]
+#             counts_raw[-1] += extra_counts_raw.sum()
+#             last_tick_with_plus = True
+#
+#
+#         total = counts_raw.sum()
+#         counts = counts_raw / total if total > 0 else counts_raw
+#
+#         mu = np.sum(bin_centers * counts)
+#
+#         color = cmap(i / max(n_data, 1))
+#         # Bars: keep default-ish edges (focus is on Gaussian edges)
+#         plt.bar(bin_centers + offsets[i], counts, width=width, label=f"{dataset['label']}, $\\mu=${mu:.2f}",
+#                 align='center', edgecolor='black', linewidth=0.5, color=color, alpha=0.8, zorder=2)
+#
+#         if show_gaussian and counts.sum() > 0:
+#             mu = np.sum(bin_centers * counts)
+#             var = np.sum((bin_centers - mu)**2 * counts)
+#             sigma = np.sqrt(max(var, 0.0))
+#
+#             if sigma > 0:
+#                 y = (1.0 / (sigma * np.sqrt(2*np.pi))) * np.exp(-0.5 * ((x_line - mu)/sigma)**2)
+#                 # Filled area (no legend), then a thick outline for visibility
+#                 plt.fill_between(x_line, y, 0, facecolor=color, edgecolor='none',
+#                                  alpha=gaussian_fill_alpha, zorder=1, label='_nolegend_')
+#                 plt.plot(x_line, y, color=color, linewidth=gaussian_edge_lw,
+#                          alpha=1.0, zorder=3, label='_nolegend_')
+#             else:
+#                 # Degenerate distribution: translucent slab + thick central line
+#                 eps = 0.15
+#                 plt.axvspan(mu - eps, mu + eps, facecolor=color, edgecolor='none',
+#                             alpha=gaussian_fill_alpha, zorder=1, label='_nolegend_')
+#                 plt.axvline(mu, color=color, linewidth=gaussian_edge_lw,
+#                             alpha=1.0, zorder=3, label='_nolegend_')
+#
+#     if target is not None and all_bincenters.min() <= target <= all_bincenters.max():
+#         plt.axvspan(target - 0.5 * delta, target + 0.5 * delta, color='orange', alpha=0.3, zorder=0, label=f'Target={target}')
+#     tick_labels = [f"{x:.2f}" for x in all_bincenters]
+#     if last_tick_with_plus:
+#         tick_labels[-1] += "+"
+#     plt.xticks(all_bincenters, tick_labels)
+#     if title:
+#         plt.title(title)
+#     plt.legend(fontsize='small', loc='upper left')
+#     plt.tight_layout()
+
 def plot_multihistogram(multidata, target=None, title='', max_bincenter=None,
-                        show_gaussian=False, gaussian_fill_alpha=0.2, gaussian_edge_lw=2.5,
-                        apply_standard_order=True,
-                        custom_priority=None,
-                        **kwargs):
-    """
-    Plot side-by-side histograms for multidata:
-    multidata::  list of dictionaries: [{'label': str, 'bin_centers': iterable[floats], 'counts': iterable[floats]}]
-    If show_gaussian is True, overlay a filled
-    Gaussian (PDF) per dataset with the same surface (=1 after normalization),
-    mean, and variance. Gaussian fills are excluded from the legend; edges are emphasized.
-    """
-    if apply_standard_order:
-        priority = DEFAULT_PLOT_PRIORITY if custom_priority is None else custom_priority
-        order = {lab: i for i, lab in enumerate(priority)}
-
-        def sort_key(d):
-            lab = d.get("label")
-            if lab in order:
-                return 0, order[lab]  # priority group, in given order
-            return 1, 0
-
-        multidata = sorted(multidata, key=sort_key)
-
-
-    keep = [i for i, d in enumerate(multidata) if d["bin_centers"] is not None]  # Processing empty dataset gracefully
-    kept_multidata = [multidata[kpt] for kpt in keep]
-    max_bincenter = max_bincenter or np.inf
-    example_data = multidata[keep[0]]['bin_centers']
-    delta = example_data[1] - example_data[0]
-
-    cmap = plt.get_cmap('tab20c')
-    n_data = len(keep)
-    width = 0.8 * delta / max(n_data, 1)
-    offsets = np.linspace(-0.4 * delta + width/2, 0.4 * delta - width/2, n_data)
-
-    plt.figure(figsize=(8, 4))
-
-    all_bincenters = np.unique(np.concatenate([np.asarray(d['bin_centers']) for d in kept_multidata]))
-
-    if max_bincenter is not None:
-        all_bincenters = all_bincenters[all_bincenters <= max_bincenter]
-
-    x_min, x_max = all_bincenters.min() - 0.5 * delta, all_bincenters.max() + 0.5 * delta
-    x_line = np.linspace(x_min, x_max, 800)
-
-    last_tick_with_plus = False
-
-    for i, dataset in enumerate(multidata):
-        if i not in keep:
-            plt.bar([], [], color="k", label=f"{dataset['label']}: No data")
-
-    for i, dataset in enumerate(kept_multidata):
-        bin_centers = np.asarray(dataset['bin_centers'], dtype=float)
-        counts_raw  = np.asarray(dataset['counts'], dtype=float)
-
-        if max_bincenter is not None and max_bincenter <= bin_centers.max():
-            mask = bin_centers <= max_bincenter
-            bin_centers = bin_centers[mask]
-            extra_counts_raw = counts_raw[~mask]
-            counts_raw = counts_raw[mask]
-            counts_raw[-1] += extra_counts_raw.sum()
-            last_tick_with_plus = True
-
-
-        total = counts_raw.sum()
-        counts = counts_raw / total if total > 0 else counts_raw
-
-        mu = np.sum(bin_centers * counts)
-
-        color = cmap(i / max(n_data, 1))
-        # Bars: keep default-ish edges (focus is on Gaussian edges)
-        plt.bar(bin_centers + offsets[i], counts, width=width, label=f"{dataset['label']}, $\\mu=${mu:.2f}",
-                align='center', edgecolor='black', linewidth=0.5, color=color, alpha=0.8, zorder=2)
-
-        if show_gaussian and counts.sum() > 0:
-            mu = np.sum(bin_centers * counts)
-            var = np.sum((bin_centers - mu)**2 * counts)
-            sigma = np.sqrt(max(var, 0.0))
-
-            if sigma > 0:
-                y = (1.0 / (sigma * np.sqrt(2*np.pi))) * np.exp(-0.5 * ((x_line - mu)/sigma)**2)
-                # Filled area (no legend), then a thick outline for visibility
-                plt.fill_between(x_line, y, 0, facecolor=color, edgecolor='none',
-                                 alpha=gaussian_fill_alpha, zorder=1, label='_nolegend_')
-                plt.plot(x_line, y, color=color, linewidth=gaussian_edge_lw,
-                         alpha=1.0, zorder=3, label='_nolegend_')
-            else:
-                # Degenerate distribution: translucent slab + thick central line
-                eps = 0.15
-                plt.axvspan(mu - eps, mu + eps, facecolor=color, edgecolor='none',
-                            alpha=gaussian_fill_alpha, zorder=1, label='_nolegend_')
-                plt.axvline(mu, color=color, linewidth=gaussian_edge_lw,
-                            alpha=1.0, zorder=3, label='_nolegend_')
-
-    if target is not None and all_bincenters.min() <= target <= all_bincenters.max():
-        plt.axvspan(target - 0.5 * delta, target + 0.5 * delta, color='orange', alpha=0.3, zorder=0, label=f'Target={target}')
-    tick_labels = [f"{x:.2f}" for x in all_bincenters]
-    if last_tick_with_plus:
-        tick_labels[-1] += "+"
-    plt.xticks(all_bincenters, tick_labels)
-    if title:
-        plt.title(title)
-    plt.legend(fontsize='small', loc='upper left')
-    plt.tight_layout()
-
-def plot_multihistogram_new(multidata, target=None, title='', max_bincenter=None,
                         show_gaussian=False, gaussian_fill_alpha=0.2, gaussian_edge_lw=2.5,
                         apply_standard_order=True,
                         custom_priority=None,
@@ -359,7 +366,7 @@ def plot_multihistogram_new(multidata, target=None, title='', max_bincenter=None
             continue
         keep.append(i)
 
-    fig, ax = plt.subplots(figsize=(8, 4))
+    fig, ax = plt.subplots(figsize=cm2inch((8.1, 10)))
 
     legend_handles, legend_labels = [], []
 
@@ -372,7 +379,9 @@ def plot_multihistogram_new(multidata, target=None, title='', max_bincenter=None
             legend_labels.append(f"{label}{missing_suffix}" if missing_suffix else label)
         if title:
             ax.set_title(title)
-        ax.legend(legend_handles, legend_labels, fontsize='small', loc='upper left', **legend_kwargs)
+        if not legend_kwargs.get("loc", False):
+            legend_kwargs["loc"] = "upper left"
+        ax.legend(legend_handles, legend_labels, fontsize='small', **legend_kwargs)
         fig.tight_layout()
         return fig, ax
 
@@ -501,17 +510,24 @@ def plot_multihistogram_new(multidata, target=None, title='', max_bincenter=None
         legend_handles.append(span)
         legend_labels.append(f"Target={target}")
 
-    tick_labels = [f"{x:.2f}" for x in all_bincenters]
-    if last_tick_with_plus and tick_labels:
-        tick_labels[-1] += "+"
-
+# ------ setting ticks
+    xtick_labels = [f"{x:.2f}" if x != int (x) else f"{int(x)}" for x in all_bincenters]
+    if last_tick_with_plus and xtick_labels:
+        xtick_labels[-1] += "+"
+    current_yticks = ax.get_yticks()
+    ytick_labels = [f"{y * 100:.0f}" for y in current_yticks]
+    ytick_labels[np.where(current_yticks == current_yticks.max())[0][0]] = '%'
     ax.set_xticks(all_bincenters)
-    ax.set_xticklabels(tick_labels)
+    ax.set_xticklabels(xtick_labels)
+    ax.set_yticks(current_yticks)
+    ax.set_yticklabels(ytick_labels)
 
+# ------ setting title
     if title:
         ax.set_title(title)
-
-    ax.legend(legend_handles, legend_labels, fontsize="small", loc="upper left", **legend_kwargs)
+    if not legend_kwargs.get("loc", False):
+        legend_kwargs["loc"] = "upper left"
+    ax.legend(legend_handles, legend_labels, fontsize='small', **legend_kwargs)
     fig.tight_layout()
     return fig, ax
 
