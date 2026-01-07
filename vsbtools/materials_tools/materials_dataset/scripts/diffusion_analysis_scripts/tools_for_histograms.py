@@ -511,7 +511,8 @@ def plot_multihistogram(multidata, target=None, title='', max_bincenter=None,
         legend_labels.append(f"Target={target}")
 
 # ------ setting ticks
-    xtick_labels = [f"{x:.2f}" if x != int (x) else f"{int(x)}" for x in all_bincenters]
+    xtick_labels = [f"{x:.2f}".rstrip('0').rstrip('.') for x in all_bincenters] if any([x != int (x) for x in all_bincenters]) \
+        else ([f"{int(x)}" for x in all_bincenters])
     if last_tick_with_plus and xtick_labels:
         xtick_labels[-1] += "+"
     current_yticks = ax.get_yticks()
