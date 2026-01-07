@@ -29,7 +29,7 @@ class USPEXBridge:
     def __eq__(self, other):
         return isinstance(other, USPEXBridge) and self._sig == other._sig
 
-    @lru_cache(maxsize=5000)
+    @lru_cache(maxsize=15000)
     def uspex_entry_from_de(self, de_entry: CrystalEntry) -> "Entry":
         types, coords, cell = ([atomistic.atomType(s.species_string) for s in de_entry.structure],
                                de_entry.structure.cart_coords,
