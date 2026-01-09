@@ -115,7 +115,7 @@ def calculate_values(ds_dict: dict, callable_name, fn=None, callable_params=None
     else:
         raise RuntimeError("Provide either callable or callable params (not both)")
     for name, ds in ds_dict.items():
-        ds_all_elements = [entry for entry in ds if len(entry.composition) == len(ds.elements)]
+        ds_all_elements = [entry for entry in ds if len(entry.composition) == len(ds.elements)] # only max number of elements
         values_dict[name] = np.array([predicate(entry) for entry in ds_all_elements])
     return values_dict
 
@@ -511,11 +511,15 @@ def plot_multihistogram(multidata, target=None, title='', max_bincenter=None,
         legend_labels.append(f"Target={target}")
 
 # ------ setting ticks
-    xtick_labels = [f"{x:.2f}" if x != int (x) else f"{int(x)}" for x in all_bincenters]
+    xtick_labels = [f"{x:.2f}".rstrip('0').rstrip('.') for x in all_bincenters] if any([x != int (x) for x in all_bincenters]) \
+        else ([f"{int(x)}" for x in all_bincenters])
     if last_tick_with_plus and xtick_labels:
         xtick_labels[-1] += "+"
     current_yticks = ax.get_yticks()
+    current_yticks = current_yticks[(current_yticks<=1.) | (current_yticks == max(current_yticks))]
     ytick_labels = [f"{y * 100:.0f}" for y in current_yticks]
+    print(current_yticks)
+    print(ytick_labels)
     ytick_labels[np.where(current_yticks == current_yticks.max())[0][0]] = '%'
     ax.set_xticks(all_bincenters)
     ax.set_xticklabels(xtick_labels)
