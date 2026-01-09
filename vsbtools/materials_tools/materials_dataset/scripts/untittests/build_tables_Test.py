@@ -29,4 +29,4 @@ class yaml_csv_poscars_Test(unittest.TestCase):
             ds = read(manifest_yaml)
             ds_dict[ds.metadata["pipeline_stage"]] = ds
         print(ds_dict.keys())
-        build_energy_vs_property_table(ds_dict)
+        build_energy_vs_property_table(ds_dict, max_pareto_front=2)
