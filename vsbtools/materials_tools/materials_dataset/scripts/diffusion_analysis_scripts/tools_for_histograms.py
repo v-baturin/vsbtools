@@ -27,7 +27,7 @@ def graph_name_from_ds(ds: CrystalDataset):
         param_dict_guided = input_parameters_to_dict(raw=ds.metadata["batch_metadata"])
         # print(param_dict_guided)
         if 'guidance' in param_dict_guided and param_dict_guided['guidance'] is not None:
-            return ", ".join([f"{param}={val}" for param, val in zip(["$\\kappa$", "$\\gamma$", "norm"], param_dict_guided.get("diffusion_loss_weight", ['', '', '']))])
+            return ", ".join([f"{param}={val}" for param, val in zip(["$k$", "$g$", "norm"], param_dict_guided.get("diffusion_loss_weight", ['', '', '']))])
         else:
             return "non-guided"
     elif ds.metadata["pipeline_stage"] in [2, "poll_db"]:
@@ -95,7 +95,7 @@ def collect_stage_dataset_dict(gen_dirs, stage, ref_stage, add_guid_descr=False)
                 bmd = stage_desc["metadata"]["batch_metadata"]
                 if 'guidance' in bmd and bmd['guidance'] not in (None, 'None'):
                     dlw = bmd.get("diffusion_loss_weight", ['', '', ''])
-                    name = ", ".join([f"{param}={val}" for param, val in zip(["$\\kappa$", "$\\gamma$", "norm"], dlw)])
+                    name = ", ".join([f"{param}={val}" for param, val in zip(["$k$", "$g$", "norm"], dlw)])
                     if add_guid_descr:
                         name += (", " + "_".join(f"{k}_{v}" for k, v in bmd['guidance'].items()))
                 else:
