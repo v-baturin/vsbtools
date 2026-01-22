@@ -1,5 +1,7 @@
 from typing import Dict, Callable
 from pymatgen.core import Element, Composition
+
+from vsbtools.materials_tools.ext_software_io.mattergen_tools.parsers import fname_friendly_serialize
 from ....genutils.pareto_tools import pareto_subdataframe_indices
 from ..crystal_dataset import CrystalDataset
 from .diffusion_analysis_scripts.mattergen_bridge import get_target_value_fn, get_loss_fn, clear_globals
@@ -26,6 +28,7 @@ def build_energy_vs_property_table(name_ds_dict: Dict[str, CrystalDataset],
     """
     For given dict builds tables containing the values of target property
     """
+    gl_name = 'placeholder'
 
     if callables is None:
         clear_globals()
@@ -54,7 +57,9 @@ def build_energy_vs_property_table(name_ds_dict: Dict[str, CrystalDataset],
         elif guidance_name == 'volume_pa':
             callables[guidance_name] = get_target_value_fn(fn_name, **{})
         if guidance_name not in NOT_IMPLEMENTED_LOSSES:
-            callables['guidance_loss'] = get_loss_fn(guidance_name, target=name_ds_dict[raw_stage].metadata['batch_metadata']['guidance'][guidance_name])
+            target = name_ds_dict[raw_stage].metadata['batch_metadata']['guidance'][guidance_name]
+            gl_name = f'loss_{guidance_name}_{fname_friendly_serialize(target, target.keys()) if isinstance(target, dict) else target}'
+            callables[gl_name] = get_loss_fn(guidance_name, target=target)
 
     pd_tk = pdt.PhaseDiagramTools(name_ds_dict[ref_stage])
     callables["e_hull/at"] = pd_tk.height_above_hull_pa
@@ -69,9 +74,9 @@ def build_energy_vs_property_table(name_ds_dict: Dict[str, CrystalDataset],
 
         summary_df.to_csv(name_ds_dict[stage].base_path / "summary.csv")
 
-        if max_pareto_front is not None and 'guidance_loss' in callables:
+        if max_pareto_front is not None and gl_name in callables:
             max_el_db = summary_df[summary_df['composition'].apply(lambda x: len(Composition(x))) == len(name_ds_dict[stage].elements)]
-            fronts_idx, rank = pareto_subdataframe_indices(max_el_db, ['e_hull/at', 'guidance_loss'],  max_pareto_front)
+            fronts_idx, rank = pareto_subdataframe_indices(max_el_db, ['e_hull/at', gl_name],  max_pareto_front)
             for i, idx_pf in enumerate(fronts_idx):
                 max_el_db.iloc[idx_pf].to_csv(name_ds_dict[stage].base_path / f"pf_{i+1}.csv")
                 summary.print_pretty_df(max_el_db.iloc[idx_pf], name_ds_dict[stage].base_path / f"pf_{i+1}_table.txt",
