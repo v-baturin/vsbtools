@@ -16,7 +16,7 @@ except ModuleNotFoundError as _err_pt:
     _Pt = None
     _PRETTYTABLE_ERROR = _err_pt
 
-DEBUG = True
+DEBUG = False
 
 # -- helpers -------------------------------------------------------------
 def _value_from_native(entry, col: str) -> Any:
