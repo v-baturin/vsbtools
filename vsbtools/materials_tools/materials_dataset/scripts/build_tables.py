@@ -1,3 +1,5 @@
+import os
+import shutil
 from typing import Dict, Callable
 from pymatgen.core import Element, Composition
 
@@ -81,6 +83,12 @@ def build_energy_vs_property_table(name_ds_dict: Dict[str, CrystalDataset],
                 max_el_db.iloc[idx_pf].to_csv(name_ds_dict[stage].base_path / f"pf_{i+1}.csv")
                 summary.print_pretty_df(max_el_db.iloc[idx_pf], name_ds_dict[stage].base_path / f"pf_{i+1}_table.txt",
                                         sort_by='e_hull/at')
+                pf_dir = name_ds_dict[stage].base_path / f"pf_{i+1}"
+                os.makedirs(pf_dir, exist_ok=True)
+                for k, idx in enumerate(idx_pf):
+                    shutil.copy2(name_ds_dict[stage].base_path / "POSCARS" / f"{max_el_db.iloc[idx].id}POSCAR",
+                                 pf_dir / f"{k+1}_{max_el_db.iloc[idx].id}POSCAR")
+
 
 
     return callables
