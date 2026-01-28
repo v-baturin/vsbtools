@@ -77,7 +77,7 @@ def build_energy_vs_property_table(name_ds_dict: Dict[str, CrystalDataset],
         summary_df.to_csv(name_ds_dict[stage].base_path / "summary.csv")
 
         if max_pareto_front is not None and gl_name in callables:
-            max_el_db = summary_df[summary_df['composition'].apply(lambda x: len(Composition(x))) == len(name_ds_dict[stage].elements)]
+            max_el_db = summary_df[summary_df['composition'].apply(lambda x: len(Composition(x))) == len(name_ds_dict[stage].elements)].sort_values('e_hull/at')
             fronts_idx, rank = pareto_subdataframe_indices(max_el_db, ['e_hull/at', gl_name],  max_pareto_front)
             for i, idx_pf in enumerate(fronts_idx):
                 max_el_db.iloc[idx_pf].to_csv(name_ds_dict[stage].base_path / f"pf_{i+1}.csv")
