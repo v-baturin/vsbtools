@@ -104,15 +104,18 @@ def collect_summary_df(
     return df
 
 def print_pretty_df(df, dump_path, columns=None, sort_by=None, pretty=True, ):
-    df["_int_ID"] = df["id"].str.extract(r'(\d+)(?!.*\d)')[0].astype(int)
-    if isinstance(sort_by, list):
-        sort_by.append("_int_ID")
-    elif sort_by:
-        sort_by = [sort_by, "_int_ID"]
-    else:
-        sort_by = ["_int_ID"]
+    df = df.assign(
+        _int_ID=df["id"].str.extract(r"(\d+)(?!.*\d)")[0].astype("Int64")
+    )
 
-    df = df.sort_values(by=sort_by)
+    if isinstance(sort_by, list):
+        sort_keys = [*sort_by, "_int_ID"]
+    elif sort_by:
+        sort_keys = [sort_by, "_int_ID"]
+    else:
+        sort_keys = ["_int_ID"]
+
+    df = df.sort_values(by=sort_keys)
     df.drop(columns="_int_ID", inplace=True)
     if not columns:
         columns = list(df.columns)
