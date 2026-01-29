@@ -15,10 +15,11 @@ else:
     other_python = Path(MATTERSIM_PYTHON_PATHS[host])
 
 HERE = Path(__file__).resolve().parent
-energy_cli_single   = (Path(__file__).parent / "mattersim_helper_single.py").as_posix()
-energy_worker = (Path(__file__).parent / "mattersim_helper_batch.py").as_posix()
-relax_cli_single = HERE / "mattersim_relaxer_helper_single.py"
-relax_worker = HERE / "mattersim_relaxer_helper_batch.py"
+helpers_path = HERE / "mattersim_helpers"
+energy_cli_single   = (helpers_path / "mattersim_helper_single.py").as_posix()
+energy_worker = (helpers_path / "mattersim_helper_batch.py").as_posix()
+relax_cli_single = helpers_path / "mattersim_relaxer_helper_single.py"
+relax_worker = helpers_path / "mattersim_relaxer_helper_batch.py"
 
 
 
