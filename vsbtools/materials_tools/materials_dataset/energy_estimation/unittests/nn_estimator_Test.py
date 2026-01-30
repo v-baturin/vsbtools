@@ -6,14 +6,15 @@ from ...io.structures_dataset_io import StructureDatasetIO
 
 PATH_WITH_TESTS = Path(__file__).parent
 PATH_WITH_DATASETS = PATH_WITH_TESTS / "../../unittests_datasets"
+AVAILABLE_ESTIMATORS = {"mattersim": mattersim_bridge, "grace": grace_bridge}
 
 class NNEstimator_Test(unittest.TestCase):
 
     def setUp(self):
         self.poscars = PATH_WITH_DATASETS / "POSCARS"
         self.dataset = StructureDatasetIO(self.poscars).load_from_directory()
-        NNEstimator.register_model("mattersim", mattersim_bridge)
-        NNEstimator.register_model("grace", grace_bridge)
+        for name, bridge in AVAILABLE_ESTIMATORS.items():
+            NNEstimator.register_model(name, bridge)
         self.estimator = NNEstimator()
 
     def test_single_entry_estimation(self):
