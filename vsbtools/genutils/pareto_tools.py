@@ -98,6 +98,60 @@ def pareto_subdataframe_indices(df, cols, max_front=None):
 
     return fronts_idx, rank
 
+def add_pf_idx(df, col1, col2, pf_col="pf_idx"):
+    """
+    Add Pareto front index for 2D minimization (col1, col2).
+
+    Pareto dominance definition (strong dominance):
+      Point j is dominated if there exists i such that:
+          df[col1][i] < df[col1][j]  AND  df[col2][i] < df[col2][j]
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Input dataframe (modified in place).
+    col1, col2 : str
+        Names of the two columns to minimize.
+    pf_col : str, default "pf_idx"
+        Name of the output column with Pareto front numbers.
+
+    Returns
+    -------
+    df : pandas.DataFrame
+        Same dataframe, with an extra integer column `pf_col`
+        where 1 = first (best) front, 2 = second, etc.
+    """
+    # Extract the 2D data as a NumPy array (in current row order)
+    vals = df[[col1, col2]].to_numpy()
+    n = vals.shape[0]
+
+    remaining = np.arange(n)             # positions 0..n-1 (iloc-style)
+    pf_idx = np.empty(n, dtype=int)      # Pareto front index for each row
+    current_front = 1
+
+    while remaining.size > 0:
+        M = vals[remaining]              # shape (k, 2) for currently remaining points
+
+        # i dominates j if both coordinates are strictly smaller (strong dominance)
+        better_1 = M[:, None, 0] < M[None, :, 0]
+        better_2 = M[:, None, 1] < M[None, :, 1]
+        dominates = better_1 & better_2  # (i, j) True when i dominates j
+
+        # j is dominated if any i dominates j
+        is_dominated = dominates.any(axis=0)
+
+        # non-dominated among remaining form the current front
+        front = remaining[~is_dominated]
+        pf_idx[front] = current_front
+
+        # prepare for next front
+        remaining = remaining[is_dominated]
+        current_front += 1
+
+    # Add / overwrite the Pareto-front column (position-wise assignment)
+    df[pf_col] = pf_idx
+    return df
+
 
 if __name__ == '__main__':
     from matplotlib import pyplot as plt
