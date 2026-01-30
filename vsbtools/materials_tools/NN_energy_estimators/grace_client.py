@@ -7,7 +7,7 @@ from ase.io import read, write
 host = socket.gethostname()
 GRACE_PYTHON_PATHS = {'nina': "/home/vsbat/work/python_venvs/grace_potential/bin/python",
                           # "taurus": "/home/vsbat/work/venvs/GRACE_venv/bin/python",
-                          # "serpens": "/home/vsbat/work/venvs/GRACE/bin/python"
+                      "serpens": "/home/vsbat/work/venvs/grace/bin/python"
                           }
 
 if host not in GRACE_PYTHON_PATHS:
