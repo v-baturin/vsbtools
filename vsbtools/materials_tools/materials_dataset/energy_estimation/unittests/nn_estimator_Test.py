@@ -1,7 +1,7 @@
 from pathlib import Path
 import unittest
 from ..nn_estimator import NNEstimator
-from .. import mattersim_bridge
+from .. import mattersim_bridge, grace_bridge
 from ...io.structures_dataset_io import StructureDatasetIO
 
 PATH_WITH_TESTS = Path(__file__).parent
@@ -13,10 +13,12 @@ class NNEstimator_Test(unittest.TestCase):
         self.poscars = PATH_WITH_DATASETS / "POSCARS"
         self.dataset = StructureDatasetIO(self.poscars).load_from_directory()
         NNEstimator.register_model("mattersim", mattersim_bridge)
+        NNEstimator.register_model("grace", grace_bridge)
         self.estimator = NNEstimator()
 
     def test_single_entry_estimation(self):
         self.assertAlmostEqual(self.estimator.estimate_entry_energy(self.dataset[2]), -44.0794, places=3)
+        self.estimator.estimate_entry_energy(self.dataset[2], model='grace')
 
     def test_batch_estimation(self):
         ds2 = self.estimator.estimate_dataset_energies(self.dataset)
