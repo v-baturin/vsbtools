@@ -1,4 +1,3 @@
-import torch
 import sys, io
 from ase.io import read
 # --- temporary hijack of stdout so import-time banners go to stderr ----------
@@ -9,13 +8,12 @@ class _Stdout2Stderr(io.TextIOBase):
 _orig_stdout = sys.stdout
 sys.stdout   = _Stdout2Stderr()      # anything printed during imports → stderr
 # ---------------------------------------------------------
-from mattersim.forcefield import MatterSimCalculator
+from tensorpotential.calculator import grace_fm
+calc = grace_fm('GRACE-2L-OMAT')
 # restore clean stdout for our own protocol
 sys.stdout = _OrigStdout = _orig_stdout
 
 # energy_worker.py  –  read JSON atoms on stdin, emit energy per line
-device = "cuda" if torch.cuda.is_available() else "cpu"
-calc = MatterSimCalculator(load_path="MatterSim-v1.0.0-5M.pth", device=device)
 
 for line in sys.stdin:                     # newline-delimited protocol
     line = line.strip()

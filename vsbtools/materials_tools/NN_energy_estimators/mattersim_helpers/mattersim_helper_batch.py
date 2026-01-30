@@ -26,5 +26,6 @@ for line in sys.stdin:                     # newline-delimited protocol
         atoms.calc = calc                  # attach the calculator
         e = atoms.get_potential_energy()  # get the energy
         print(e, flush=True)               # one float, one line
+        print(f"e = {e}", file=sys.stderr, flush=True)
     except Exception as err:
         print(f"ERR {err}", flush=True)

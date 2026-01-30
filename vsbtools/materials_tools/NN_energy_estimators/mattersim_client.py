@@ -72,12 +72,15 @@ class EnergyStream:
         return out
 
     def close(self):
-        self.proc.stdin.close()
+        if self.proc.stdin and not self.proc.stdin.closed:
+            self.proc.stdin.close()
+        if self.proc.stdout and not self.proc.stdout.closed:
+            self.proc.stdout.close()
         self.proc.wait()
 
-    # optional: make it a context-manager
     def __enter__(self):
         return self
+
     def __exit__(self, exc_type, exc, tb):
         self.close()
 

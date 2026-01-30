@@ -1,10 +1,10 @@
 # mattersim_relaxer_helper_single.py
 import sys
 import io
-
 import numpy as np
-import torch
 from ase.io import read, write
+from ase.optimize import BFGS
+from ase.filters import EXpCellFilter
 
 # --------------------------------------------------------------------------- #
 #  Redirect ALL normal stdout to stderr (imports + runtime)                   #
@@ -22,29 +22,28 @@ class _StdoutToStderr(io.TextIOBase):
 
 # from here on, any plain print() goes to stderr
 sys.stdout = _StdoutToStderr()
+from tensorpotential.calculator import grace_fm
+calc = grace_fm('GRACE-2L-OMAT')
 
-from mattersim.forcefield.potential import MatterSimCalculator
-from mattersim.applications.relax import Relaxer
 
-device = "cuda" if torch.cuda.is_available() else "cpu"
-
-# mattersim looks up the checkpoint in its own directory
-calc = MatterSimCalculator(load_path="MatterSim-v1.0.0-5M.pth", device=device)
-relaxer = Relaxer(
-    optimizer="BFGS",
-    filter="ExpCellFilter",
-    constrain_symmetry=False,
-)
 
 # --------------------------------------------------------------------------- #
 
 
 def relax_one(ats):
-    ats = ats.copy()
-    ats.positions += 0.1 * np.random.randn(len(ats), 3)
-    ats.calc = calc
+    atoms = ats.copy()
+    atoms.positions += 0.1 * np.random.randn(len(ats), 3)
+    atoms.calc = calc
 
-    flag, result = relaxer.relax(ats, steps=500)
+    atoms_ucf = EXpCellFilter(atoms)
+    dyn = BFGS(atoms_ucf, logfile="relax.log")
+    dyn.run(fmax=0.02, steps=500)
+
+    flag = dyn.converged()
+    if not flag:
+        result = ats
+    else:
+        result = atoms
     # print("relaxed" if flag else "relaxation failed")  # goes to stderr
     return result
 
