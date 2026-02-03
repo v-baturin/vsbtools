@@ -432,7 +432,7 @@ def op_poll_db(
     params.setdefault("max_ehull", MAX_EHULL_PA)
 
     # optional additional estimation
-    estimate_energies = bool(params.pop("estimate_energies", False))
+
     if params.get("do_deduplication", False):
         stk = ctx.get_tool("similarity")
         params["similarity_tk"] = stk # Must have methods get_unseen_in_ref() and deduplicate()
@@ -440,11 +440,22 @@ def op_poll_db(
     # remaining parameters are passed directly to poll_databases
     db = poll_databases(elements, **params)
 
-    if not estimate_energies:
+    do_relax = bool(params.get("do_relaxation", False))
+    estimate_energies = bool(params.pop("estimate_energies", False))
+
+    if do_relax or estimate_energies:
+        estimator = ctx.get_tool("estimator")
+    else:
         return db
 
-    estimator = ctx.get_tool("estimator")
-    estimated = estimator.estimate_dataset_energies(db)
+    estimated = db
+    msg = estimated.metadata["message"]
+    if do_relax:
+        estimated = estimator.relax_dataset(estimated, **params)
+        msg += f'. {estimated.metadata["message"]}'
+    if estimate_energies:
+        estimated = estimator.estimate_dataset_energies(estimated, **params)
+        msg += f'. {estimated.metadata["message"]}'
 
     # parent_ids is empty as in the original code
     estimated.parent_ids = []
