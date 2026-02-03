@@ -448,15 +448,8 @@ def op_poll_db(
 
     # parent_ids is empty as in the original code
     estimated.parent_ids = []
-    msg0 = (db.metadata or {}).get("message", "").strip()
-    msg1 = (estimated.metadata or {}).get("message", "").strip()
     estimated.metadata = dict(estimated.metadata or {})
-    if msg0 and msg1:
-        estimated.metadata["message"] = f"{msg0}. {msg1}"
-    elif msg0:
-        estimated.metadata["message"] = msg0
-    elif msg1:
-        estimated.metadata["message"] = msg1
+    estimated.metadata["message"] = msg
 
     return estimated
 
@@ -556,7 +549,7 @@ def op_estimate(
     parent = next(iter(inputs.values()))
 
     estimator = ctx.get_tool("estimator")
-    return estimator.estimate_dataset_energies(parent)
+    return estimator.estimate_dataset_energies(parent, **params)
 
 
 # --- relax ---------------------------------------------------------
@@ -572,7 +565,7 @@ def op_relax(
     parent = next(iter(inputs.values()))
 
     estimator = ctx.get_tool("estimator")
-    return estimator.relax_dataset(parent)
+    return estimator.relax_dataset(parent, **params)
 
 
 # --- filter_hull --------------------------------------------------
