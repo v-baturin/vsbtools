@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 import unittest
 
@@ -7,6 +8,7 @@ from ..nn_estimator import NNEstimator
 from .. import mattersim_bridge, grace_bridge
 from ...crystal_entry import CrystalEntry
 from ...io.structures_dataset_io import StructureDatasetIO, _safe_structure_from_file
+from ...io import write
 
 PATH_WITH_TESTS = Path(__file__).parent
 PATH_WITH_DATASETS = PATH_WITH_TESTS / "../../unittests_datasets"
@@ -41,3 +43,6 @@ class NNEstimator_Test(unittest.TestCase):
 
     def test_batch_relaxation(self):
         ds2 = self.estimator.relax_dataset(self.dataset, model_name='grace')
+        relaxed_path = PATH_WITH_TESTS / 'relaxed_grace'
+        os.makedirs(relaxed_path, exist_ok=True)
+        write(ds2,relaxed_path)

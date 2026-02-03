@@ -14,7 +14,7 @@ from .symmetry_tools import SymmetryToolkit
 from ..scripts.poll_databases import poll_databases
 from .similarity_tools import SimilarityTools
 from ..io.uspex_bridge import USPEXBridge
-from ..energy_estimation import nn_estimator, mattersim_bridge
+from ..energy_estimation import nn_estimator, mattersim_bridge, grace_bridge
 from ..analysis.phase_diagram_tools import PhaseDiagramTools
 
 from .pipeline_legacy import LEGACY_INDEX_TO_NAME, LEGACY_NAME_TO_INDEX, LEGACY_DICTIONARY
@@ -30,7 +30,7 @@ TOOLKIT_DICT: Dict[str, Any] = {
     "estimator":        nn_estimator.NNEstimator,
 }
 
-KNOWN_MODELS = {"mattersim": mattersim_bridge}
+KNOWN_MODELS = {"mattersim": mattersim_bridge, "grace": grace_bridge}
 MAX_EHULL_PA = 0.1
 
 

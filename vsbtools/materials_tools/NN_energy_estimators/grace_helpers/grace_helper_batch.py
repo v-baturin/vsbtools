@@ -1,4 +1,4 @@
-import sys, io
+import sys, io, os
 from ase.io import read
 # --- temporary hijack of stdout so import-time banners go to stderr ----------
 class _Stdout2Stderr(io.TextIOBase):
@@ -8,6 +8,10 @@ class _Stdout2Stderr(io.TextIOBase):
 _orig_stdout = sys.stdout
 sys.stdout   = _Stdout2Stderr()      # anything printed during imports → stderr
 # ---------------------------------------------------------
+
+os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"   # pick physical GPU #1
+
 from tensorpotential.calculator import grace_fm
 calc = grace_fm('GRACE-2L-OMAT')
 # restore clean stdout for our own protocol

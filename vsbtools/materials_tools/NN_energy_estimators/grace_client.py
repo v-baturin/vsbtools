@@ -6,7 +6,7 @@ from ase.io import read, write
 
 host = socket.gethostname()
 GRACE_PYTHON_PATHS = {'nina': "/home/vsbat/work/python_venvs/grace_potential/bin/python",
-                          # "taurus": "/home/vsbat/work/venvs/GRACE_venv/bin/python",
+                      "taurus": "/home/vsbat/work/venvs/tensorpotential_venv/bin/python",
                       "serpens": "/home/vsbat/work/venvs/grace/bin/python"
                           }
 
@@ -73,12 +73,15 @@ class EnergyStream:
         return out
 
     def close(self):
-        self.proc.stdin.close()
+        if self.proc.stdin and not self.proc.stdin.closed:
+            self.proc.stdin.close()
+        if self.proc.stdout and not self.proc.stdout.closed:
+            self.proc.stdout.close()
         self.proc.wait()
 
-    # optional: make it a context-manager
     def __enter__(self):
         return self
+
     def __exit__(self, exc_type, exc, tb):
         self.close()
 

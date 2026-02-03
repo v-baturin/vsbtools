@@ -1,11 +1,12 @@
 # mattersim_relaxer_helper_batch.py
 import sys
 import io
+import os
 import traceback
 import numpy as np
 from ase.io import read, write
 from ase.optimize import BFGS
-from ase.filters import ExpCellFilter
+from ase.filters import FrechetCellFilter
 
 # --------------------------------------------------------------------------- #
 #  Redirect ALL normal stdout to stderr (imports + runtime)                   #
@@ -23,6 +24,9 @@ class _StdoutToStderr(io.TextIOBase):
 
 sys.stdout = _StdoutToStderr()
 
+os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"   # pick physical GPU #1
+
 from tensorpotential.calculator import grace_fm
 calc = grace_fm('GRACE-2L-OMAT')
 
@@ -34,7 +38,7 @@ def relax_one(ats, fmax=0.02):
     atoms_new.positions += 0.1 * np.random.randn(len(ats), 3)
     atoms_new.calc = calc
 
-    atoms_ucf = ExpCellFilter(atoms_new)
+    atoms_ucf = FrechetCellFilter(atoms_new)
     dyn = BFGS(atoms_ucf, logfile="relax.log")
     flag = dyn.run(fmax=fmax, steps=500)
 
@@ -42,7 +46,7 @@ def relax_one(ats, fmax=0.02):
         result = ats
     else:
         result = atoms_new
-    print("relaxed" if flag else "relaxation failed, original structure returned")  # to stderr
+    print("relaxed with GRACE" if flag else "relaxation failed, original structure returned")  # to stderr
     return result
 
 

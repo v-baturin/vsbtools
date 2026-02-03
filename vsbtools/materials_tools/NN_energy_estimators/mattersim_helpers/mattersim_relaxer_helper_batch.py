@@ -46,7 +46,7 @@ def relax_one(ats):
     flag, result = relaxer.relax(ats, steps=500)
     if not flag:
         result = ats
-    print("relaxed" if flag else "relaxation failed, original structure returned")  # to stderr
+    print("relaxed with mattersim" if flag else "relaxation failed, original structure returned")  # to stderr
     return result
 
 
