@@ -1,11 +1,12 @@
 # mattersim_relaxer_helper_batch.py
 import sys
 import io
+import os
 import traceback
-
 import numpy as np
-import torch
 from ase.io import read, write
+from ase.optimize import BFGS
+from ase.filters import FrechetCellFilter
 
 # --------------------------------------------------------------------------- #
 #  Redirect ALL normal stdout to stderr (imports + runtime)                   #
@@ -23,30 +24,29 @@ class _StdoutToStderr(io.TextIOBase):
 
 sys.stdout = _StdoutToStderr()
 
-from mattersim.forcefield.potential import MatterSimCalculator
-from mattersim.applications.relax import Relaxer
+os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"   # pick physical GPU #1
 
-device = "cuda" if torch.cuda.is_available() else "cpu"
-
-calc = MatterSimCalculator(load_path="MatterSim-v1.0.0-5M.pth", device=device)
-relaxer = Relaxer(
-    optimizer="BFGS",
-    filter="ExpCellFilter",
-    constrain_symmetry=True,
-)
+from tensorpotential.calculator import grace_fm
+calc = grace_fm('GRACE-2L-OMAT')
 
 # --------------------------------------------------------------------------- #
 
 
-def relax_one(ats):
-    ats = ats.copy()
-    ats.positions += 0.1 * np.random.randn(len(ats), 3)
-    ats.calc = calc
+def relax_one(ats, fmax=0.02):
+    atoms_new = ats.copy()
+    atoms_new.positions += 0.1 * np.random.randn(len(ats), 3)
+    atoms_new.calc = calc
 
-    flag, result = relaxer.relax(ats, steps=500)
+    atoms_ucf = FrechetCellFilter(atoms_new)
+    dyn = BFGS(atoms_ucf, logfile="relax.log")
+    flag = dyn.run(fmax=fmax, steps=500)
+
     if not flag:
         result = ats
-    print("relaxed with mattersim" if flag else "relaxation failed, original structure returned")  # to stderr
+    else:
+        result = atoms_new
+    print("relaxed with GRACE" if flag else "relaxation failed, original structure returned")  # to stderr
     return result
 
 

@@ -14,7 +14,7 @@ from .symmetry_tools import SymmetryToolkit
 from ..scripts.poll_databases import poll_databases
 from .similarity_tools import SimilarityTools
 from ..io.uspex_bridge import USPEXBridge
-from ..energy_estimation import nn_estimator, mattersim_bridge
+from ..energy_estimation import nn_estimator, mattersim_bridge, grace_bridge
 from ..analysis.phase_diagram_tools import PhaseDiagramTools
 
 from .pipeline_legacy import LEGACY_INDEX_TO_NAME, LEGACY_NAME_TO_INDEX, LEGACY_DICTIONARY
@@ -30,7 +30,7 @@ TOOLKIT_DICT: Dict[str, Any] = {
     "estimator":        nn_estimator.NNEstimator,
 }
 
-KNOWN_MODELS = {"mattersim": mattersim_bridge}
+KNOWN_MODELS = {"mattersim": mattersim_bridge, "grace": grace_bridge}
 MAX_EHULL_PA = 0.1
 
 
@@ -432,7 +432,7 @@ def op_poll_db(
     params.setdefault("max_ehull", MAX_EHULL_PA)
 
     # optional additional estimation
-    estimate_energies = bool(params.pop("estimate_energies", False))
+
     if params.get("do_deduplication", False):
         stk = ctx.get_tool("similarity")
         params["similarity_tk"] = stk # Must have methods get_unseen_in_ref() and deduplicate()
@@ -440,23 +440,27 @@ def op_poll_db(
     # remaining parameters are passed directly to poll_databases
     db = poll_databases(elements, **params)
 
-    if not estimate_energies:
+    do_relax = bool(params.get("do_relaxation", False))
+    estimate_energies = bool(params.pop("estimate_energies", False))
+
+    if do_relax or estimate_energies:
+        estimator = ctx.get_tool("estimator")
+    else:
         return db
 
-    estimator = ctx.get_tool("estimator")
-    estimated = estimator.estimate_dataset_energies(db)
+    estimated = db
+    msg = estimated.metadata["message"]
+    if do_relax:
+        estimated = estimator.relax_dataset(estimated, **params)
+        msg += f'. {estimated.metadata["message"]}'
+    if estimate_energies:
+        estimated = estimator.estimate_dataset_energies(estimated, **params)
+        msg += f'. {estimated.metadata["message"]}'
 
     # parent_ids is empty as in the original code
     estimated.parent_ids = []
-    msg0 = (db.metadata or {}).get("message", "").strip()
-    msg1 = (estimated.metadata or {}).get("message", "").strip()
     estimated.metadata = dict(estimated.metadata or {})
-    if msg0 and msg1:
-        estimated.metadata["message"] = f"{msg0}. {msg1}"
-    elif msg0:
-        estimated.metadata["message"] = msg0
-    elif msg1:
-        estimated.metadata["message"] = msg1
+    estimated.metadata["message"] = msg
 
     return estimated
 
@@ -556,7 +560,7 @@ def op_estimate(
     parent = next(iter(inputs.values()))
 
     estimator = ctx.get_tool("estimator")
-    return estimator.estimate_dataset_energies(parent)
+    return estimator.estimate_dataset_energies(parent, **params)
 
 
 # --- relax ---------------------------------------------------------
@@ -572,7 +576,7 @@ def op_relax(
     parent = next(iter(inputs.values()))
 
     estimator = ctx.get_tool("estimator")
-    return estimator.relax_dataset(parent)
+    return estimator.relax_dataset(parent, **params)
 
 
 # --- filter_hull --------------------------------------------------

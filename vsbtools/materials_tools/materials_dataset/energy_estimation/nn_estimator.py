@@ -12,7 +12,7 @@ class NNEstimator:
     known_models: ClassVar[Dict[str, types.ModuleType]] = {}
     default_model: str = "mattersim"
 
-    def estimate_dataset_energies(self, dataset: CrystalDataset, model_name: str | None = None):
+    def estimate_dataset_energies(self, dataset: CrystalDataset, model_name: str | None = None, **kwargs):
         model_name = self.default_model if model_name is None else model_name
         if model_name not in self.known_models:
             raise ValueError(f"Unknown model: '{model_name}', available: {list(self.known_models.keys())}")
@@ -27,7 +27,7 @@ class NNEstimator:
     def estimate_entry_energy(self, e: CrystalEntry, model: str | None = "mattersim"):
         return self.known_models[model].estimate_entry_energy(e)
 
-    def relax_dataset(self, dataset: CrystalDataset, model_name: str | None = None):
+    def relax_dataset(self, dataset: CrystalDataset, model_name: str | None = None, **kwargs):
         model_name = self.default_model if model_name is None else model_name
         if model_name not in self.known_models:
             raise ValueError(f"Unknown model: '{model_name}', available: {list(self.known_models.keys())}")
@@ -45,7 +45,7 @@ class NNEstimator:
                 new_entries.append(entry.copy_with(**{"structure": Structure.from_ase_atoms(atoms),
                                                       "metadata": {**md, **{'relaxation_done': True}}}))
             else:
-                print(info)
+                print(f"id {entry.id} - Unreasonable structure after relaxation: {info}")
                 new_entries.append(entry.copy_with(**{"metadata": {**md, **{'relaxation_done': False}}}))
 
         msg = f"Structures relaxed with {model_name}"

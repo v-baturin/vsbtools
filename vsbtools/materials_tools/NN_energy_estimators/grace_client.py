@@ -5,29 +5,30 @@ from pathlib import Path
 from ase.io import read, write
 
 host = socket.gethostname()
-MATTERSIM_PYTHON_PATHS = {'nina': "/home/vsbat/work/mattergen/mattergenbis/.venv/bin/python",
-                          "taurus": "/home/vsbat/work/venvs/mattersim_venv/bin/python",
-                          "serpens": "/home/vsbat/work/venvs/mattersim/bin/python"}
+GRACE_PYTHON_PATHS = {'nina': "/home/vsbat/work/python_venvs/grace_potential/bin/python",
+                      "taurus": "/home/vsbat/work/venvs/tensorpotential_venv/bin/python",
+                      "serpens": "/home/vsbat/work/venvs/grace/bin/python"
+                          }
 
-if host not in MATTERSIM_PYTHON_PATHS:
-    other_python = Path(input("Enter full path to mattersim-containing virtual environment")) / "bin/python"
+if host not in GRACE_PYTHON_PATHS:
+    other_python = Path(input("Enter full path to grace-containing virtual environment")) / "bin/python"
 else:
-    other_python = Path(MATTERSIM_PYTHON_PATHS[host])
+    other_python = Path(GRACE_PYTHON_PATHS[host])
 
 HERE = Path(__file__).resolve().parent
-helpers_path = HERE / "mattersim_helpers"
-energy_cli_single   = (helpers_path / "mattersim_helper_single.py").as_posix()
-energy_worker = (helpers_path / "mattersim_helper_batch.py").as_posix()
-relax_cli_single = helpers_path / "mattersim_relaxer_helper_single.py"
-relax_worker = helpers_path / "mattersim_relaxer_helper_batch.py"
+helpers_path = HERE / "grace_helpers"
+energy_cli_single   = (helpers_path / "grace_helper_single.py").as_posix()
+energy_worker = (helpers_path / "grace_helper_batch.py").as_posix()
+relax_cli_single = helpers_path / "grace_relaxer_helper_single.py"
+relax_worker = helpers_path / "grace_relaxer_helper_batch.py"
 
 
 
-def get_energy(atms, mattersim_python=None):
+def get_energy(atms, grace_python=None):
     # ---- serialise the structure to an in-memory JSON string -------------
-    if mattersim_python is None:
-        mattersim_python = other_python
-    assert Path(mattersim_python).exists(), "Path to mattersim python virtual environment not found"
+    if grace_python is None:
+        grace_python = other_python
+    assert Path(grace_python).exists(), "Path to grace python virtual environment not found"
     buf = io.StringIO()
     write(buf, atms, format="json")
     json_atoms = buf.getvalue()
@@ -45,10 +46,10 @@ def get_energy(atms, mattersim_python=None):
 
 class EnergyStream:
     """Context-manager that streams Atoms objects to the other v-env."""
-    def __init__(self, mattersim_python=None):
-        if mattersim_python is None: mattersim_python = other_python
-        self.other_python = mattersim_python
-        assert Path(self.other_python).exists(), "Path to mattersim python virtual environment not found"
+    def __init__(self, grace_python=None):
+        if grace_python is None: grace_python = other_python
+        self.other_python = grace_python
+        assert Path(self.other_python).exists(), "Path to grace python virtual environment not found"
         self.proc = subprocess.Popen(
             [self.other_python, energy_worker],
             stdin=subprocess.PIPE,
@@ -86,7 +87,7 @@ class EnergyStream:
 
 def relax(ats):
     """
-    Relax a single ASE Atoms object using the external mattersim venv.
+    Relax a single ASE Atoms object using the external grace venv.
     """
     buf = io.StringIO()
     write(buf, ats, format="json")
@@ -101,17 +102,17 @@ def relax(ats):
 
     if proc.returncode != 0:
         sys.stderr.write(
-            f"[mattersim_relaxer] helper_single failed (code {proc.returncode})\n"
+            f"[grace_relaxer] helper_single failed (code {proc.returncode})\n"
         )
         if proc.stdout:
             sys.stderr.write("--- helper stdout ---\n" + proc.stdout + "\n")
         if proc.stderr:
             sys.stderr.write("--- helper stderr ---\n" + proc.stderr + "\n")
-        raise RuntimeError("mattersim_relaxer_helper_single.py failed")
+        raise RuntimeError("grace_relaxer_helper_single.py failed")
 
     if not proc.stdout.strip():
         sys.stderr.write(
-            "[mattersim_relaxer] helper_single returned success but stdout is empty.\n"
+            "[grace_relaxer] helper_single returned success but stdout is empty.\n"
         )
         if proc.stderr:
             sys.stderr.write("--- helper stderr ---\n" + proc.stderr + "\n")
@@ -126,7 +127,7 @@ def relax(ats):
 
 class RelaxStream:
     """
-    Stream many Atoms through a single external mattersim process.
+    Stream many Atoms through a single external grace process.
 
     Protocol:
       - stdin:  one ASE-JSON structure per line (newlines flattened to spaces)
@@ -153,7 +154,7 @@ class RelaxStream:
         while True:
             line = self.proc.stdout.readline()
             if not line:
-                raise RuntimeError("mattersim_relaxer_helper_batch terminated")
+                raise RuntimeError("grace_relaxer_helper_batch terminated")
             line = line.strip()
             if not line:
                 continue
