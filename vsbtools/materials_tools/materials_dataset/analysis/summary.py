@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 from typing import Any, Callable, Collection, Dict, List, Mapping, Sequence
 from prettytable import PrettyTable
 
@@ -27,22 +28,33 @@ def _value_from_native(entry, col: str) -> Any:
     return getattr(entry, col, None)
 
 
-def _rows_from_dataset(
-    ds, native_cols: Sequence[str], callables: Mapping[str, Callable]
-) -> List[Dict[str, Any]]:
+def _rows_from_dataset(ds,
+                       native_cols: Sequence[str],
+                       callables: Mapping[str, Callable]
+                       ) -> List[Dict[str, Any]]:
     rows: List[Dict[str, Any]] = []
 
     for e in ds:
         row: Dict[str, Any] = {col: _value_from_native(e, col) for col in native_cols}
 
+        failed_columns: set[str] = set()
+
         for name, fn in callables.items():
-            val = fn(e)
+            try:
+                val = fn(e)
+            except Exception as excpt:
+                warnings.warn(f"Cannot evaluate {name} for stage {ds.metadata['pipeline_stage']}: {excpt} ")
+                failed_columns.add(name)
+                continue
             if isinstance(val, dict):
                 # flatten dict into dotted sub-columns
                 for k, v in val.items():
                     row[f"{name}.{k}"] = v
             else:
                 row[name] = val
+
+        for name in failed_columns:
+            callables.pop(name, None)
 
         rows.append(row)
     return rows
@@ -114,6 +126,8 @@ def print_pretty_df(df, dump_path, columns=None, sort_by=None, pretty=True, ):
         sort_keys = [sort_by, "_int_ID"]
     else:
         sort_keys = ["_int_ID"]
+
+    sort_keys = [key for key in sort_keys if key in df.columns]
 
     df = df.sort_values(by=sort_keys)
     df.drop(columns="_int_ID", inplace=True)

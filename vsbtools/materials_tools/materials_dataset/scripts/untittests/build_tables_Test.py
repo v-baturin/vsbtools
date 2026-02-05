@@ -5,7 +5,7 @@ from ...scripts.diffusion_analysis_scripts.tools_for_histograms import \
     get_guidance_generation_dirs
 from ...io.yaml_csv_poscars import read
 
-from ..build_tables import build_energy_vs_property_table
+from ..build_tables import build_guidance_summary_table
 
 
 class yaml_csv_poscars_Test(unittest.TestCase):
@@ -29,4 +29,4 @@ class yaml_csv_poscars_Test(unittest.TestCase):
             ds = read(manifest_yaml)
             ds_dict[ds.metadata["pipeline_stage"]] = ds
         print(ds_dict.keys())
-        build_energy_vs_property_table(ds_dict, max_pareto_front=2)
+        build_guidance_summary_table(ds_dict, max_pareto_front=2)
