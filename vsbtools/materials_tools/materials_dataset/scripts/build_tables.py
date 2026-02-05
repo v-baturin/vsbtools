@@ -21,12 +21,12 @@ guidance_vs_target_properties = {"environment": "compute_mean_coordination",
                                  "energy": "energy"}
 
 
-def build_energy_vs_property_table(name_ds_dict: Dict[str, CrystalDataset],
-                                   raw_stage: str = 'parse_raw',
-                                   ref_stage: str = 'poll_db',
-                                   target_stages: list | str | None = 'deduplicate_all',
-                                   callables: Dict[str, Callable] | None = None,
-                                   max_pareto_front: int | None = None):
+def build_guidance_summary_table(name_ds_dict: Dict[str, CrystalDataset],
+                                 raw_stage: str = 'parse_raw',
+                                 ref_stage: str = 'poll_db',
+                                 target_stages: list | str | None = 'deduplicate_all',
+                                 callables: Dict[str, Callable] | None = None,
+                                 max_pareto_front: int | None = None):
     """
     For given dict builds tables containing the values of target property
     """
