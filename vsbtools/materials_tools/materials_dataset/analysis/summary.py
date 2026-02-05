@@ -127,6 +127,8 @@ def print_pretty_df(df, dump_path, columns=None, sort_by=None, pretty=True, ):
     else:
         sort_keys = ["_int_ID"]
 
+    sort_keys = [key for key in sort_keys if key in df.columns]
+
     df = df.sort_values(by=sort_keys)
     df.drop(columns="_int_ID", inplace=True)
     if not columns:
