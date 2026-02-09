@@ -28,7 +28,7 @@ os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"   # pick physical GPU #1
 
 from tensorpotential.calculator import grace_fm
-calc = grace_fm('GRACE-2L-OMAT')
+calc = grace_fm('GRACE-2L-OMAT-large-ft-AM')
 
 # --------------------------------------------------------------------------- #
 

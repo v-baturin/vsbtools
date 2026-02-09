@@ -40,11 +40,11 @@ relaxer = Relaxer(
 
 
 def relax_one(ats):
-    ats = ats.copy()
-    ats.positions += 0.1 * np.random.randn(len(ats), 3)
-    ats.calc = calc
+    atoms = ats.copy()
+    atoms.positions += 0.1 * np.random.randn(len(atoms), 3)
+    atoms.calc = calc
 
-    flag, result = relaxer.relax(ats, steps=500)
+    flag, result = relaxer.relax(atoms, steps=500)
     # print("relaxed" if flag else "relaxation failed")  # goes to stderr
     return result
 
