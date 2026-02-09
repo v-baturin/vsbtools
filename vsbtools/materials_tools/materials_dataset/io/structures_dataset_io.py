@@ -16,11 +16,12 @@ Zip handling (copy‑then‑explode with directory‑hierarchy preservation, aki
 """
 
 import logging
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable, Iterator, Sequence, Collection
 
-from pymatgen.core import Structure
+from pymatgen.core import Structure, Lattice
 from pymatgen.io.vasp import Poscar
 
 from ..crystal_dataset import CrystalDataset, CrystalEntry
@@ -54,6 +55,55 @@ def _iter_structure_files(root: Path, patterns: Sequence[str]) -> Iterator[Path]
     """Yield files in *root* matching any of *patterns* (via rglob)."""
     for pattern in patterns:
         yield from root.rglob(pattern)
+
+def _parse_extxyz_structures(extxyz_file: Path) -> list[Structure]:
+    lines = extxyz_file.read_text().splitlines()
+    idx = 0
+    structures: list[Structure] = []
+    lattice_re = re.compile(r'Lattice="([^"]+)"')
+
+    while idx < len(lines):
+        line = lines[idx].strip()
+        if not line:
+            idx += 1
+            continue
+        try:
+            natoms = int(line)
+        except ValueError as exc:
+            raise ValueError(f"Invalid atom count line in {extxyz_file}: {line}") from exc
+        if idx + 1 >= len(lines):
+            raise ValueError(f"Missing Lattice line after atom count in {extxyz_file}")
+
+        lattice_line = lines[idx + 1]
+        match = lattice_re.search(lattice_line)
+        if not match:
+            raise ValueError(f"Missing Lattice definition in {extxyz_file}: {lattice_line}")
+        lattice_vals = [float(x) for x in match.group(1).split()]
+        if len(lattice_vals) != 9:
+            raise ValueError(f"Expected 9 lattice values in {extxyz_file}, got {len(lattice_vals)}")
+        lattice = Lattice([
+            lattice_vals[0:3],
+            lattice_vals[3:6],
+            lattice_vals[6:9],
+        ])
+
+        start = idx + 2
+        end = start + natoms
+        if end > len(lines):
+            raise ValueError(f"Not enough atom lines in {extxyz_file} for natoms={natoms}")
+        species: list[str] = []
+        coords: list[list[float]] = []
+        for atom_line in lines[start:end]:
+            parts = atom_line.split()
+            if len(parts) < 4:
+                raise ValueError(f"Invalid atom line in {extxyz_file}: {atom_line}")
+            species.append(parts[0])
+            coords.append([float(parts[1]), float(parts[2]), float(parts[3])])
+
+        structures.append(Structure(lattice, species, coords, coords_are_cartesian=True))
+        idx = end
+
+    return structures
 
 def get_batch_metadata(root: Path, prov_file):
     prov_metadata = None
@@ -167,6 +217,29 @@ class StructureDatasetIO:
             for id_, ats in zip(ids, atoms_list)
         ]
         msg = message or f"Structures loaded from {poscars_file.as_posix()}"
+        return CrystalDataset(entries, message=msg)
+
+    def load_from_extxyz(
+        self,
+        extxyz_file: Path,
+        entries_ids_file: Path | None = None,
+        *,
+        message: str | None = None,
+    ) -> CrystalDataset:
+        """Return a dataset from an extended XYZ file."""
+        structures = _parse_extxyz_structures(extxyz_file)
+        if entries_ids_file:
+            ids = Path(entries_ids_file).read_text().splitlines()
+            if len(ids) != len(structures):
+                raise ValueError("Number of IDs does not match number of structures.")
+        else:
+            ids = [next(self._id_iter) for _ in range(len(structures))]
+
+        entries = [
+            CrystalEntry(id=id_, structure=struct)
+            for id_, struct in zip(ids, structures)
+        ]
+        msg = message or f"Structures loaded from {extxyz_file.as_posix()}"
         return CrystalDataset(entries, message=msg)
 
     # --------------------------------------------------------------------- #
