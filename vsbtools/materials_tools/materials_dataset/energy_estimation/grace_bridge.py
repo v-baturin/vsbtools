@@ -21,6 +21,7 @@ def relax_batch(dataset: CrystalDataset):
         new_structures = [None] * len(dataset)
         for i, e in enumerate(dataset):
             try:
+                print(f"Now relaxing structure with id = {e.id} ({e.poscarname}) from dataset id = {dataset.dataset_id}")
                 new_structures[i] = rs.relax(e.structure.to_ase_atoms())
             except RuntimeError as err:
                 print (f"Couldn't relax structure with id = {e.id} ({e.poscarname}) from dataset id = {dataset.dataset_id}")

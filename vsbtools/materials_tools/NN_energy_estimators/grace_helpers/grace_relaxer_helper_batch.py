@@ -57,8 +57,8 @@ for i, line in enumerate(sys.stdin):
 
     try:
         atoms = read(io.StringIO(line), format="json")
+        print(f"Now relaxing: {i}")
         relaxed = relax_one(atoms)
-        print(f"{i}")
         buf = io.StringIO()
         write(buf, relaxed, format="json")
         json_str = buf.getvalue().replace("\n", " ")  # one JSON per line
