@@ -258,7 +258,7 @@ def check_density_sanity_pmg(
 
 def check_min_dist_pmg(
     structure: "Structure",
-    min_ratio: float = 0.7,
+    min_ratio: float = 0.4,
 ) -> Tuple[bool, Dict[str, Any]]:
     """
     Check that interatomic distances exceed a covalent-radii threshold.

@@ -396,8 +396,21 @@ def op_discard_bad_density(ctx: Context,
     return ds
 
 
-# --- symmetrize_raw ----------------------------------------------
+# --- discard_bad_density -----------------------------------------
+@op("discard_close_atoms")
+def op_discard_close_atoms(ctx: Context,
+                        inputs: Dict[str, CrystalDataset],
+                        params: Dict[str, Any]) -> CrystalDataset:
+    from ...geom_utils.structure_checks import check_min_dist_pmg
+    def is_structure_ok(entry):
+        return check_min_dist_pmg(entry.structure)[0]
+    parent: CrystalDataset = next(iter(inputs.values()))
+    ds = parent.filter(is_structure_ok)
+    ds.metadata["message"] = f"Dataset {parent.dataset_id} cleared from {len(parent) - len(ds)} pathological structures"
+    return ds
 
+
+# --- symmetrize_raw ----------------------------------------------
 @op("symmetrize")
 def op_symmetrize(
     ctx: Context,
@@ -417,7 +430,7 @@ def op_symmetrize(
 @op("poll_db")
 def op_poll_db(
     ctx: Context,
-    inputs: Dict[str, CrystalDataset],
+    inputs: Dict[str, CrystalDataset], # needs parse_raw to get elements list
     params: Dict[str, Any],
 ) -> CrystalDataset:
     if len(inputs) != 1:
