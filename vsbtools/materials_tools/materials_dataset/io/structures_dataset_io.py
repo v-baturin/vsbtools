@@ -136,7 +136,7 @@ class StructureDatasetIO:
         on disk.  If *False* only files on disk are inspected.
     """
 
-    root: Path
+    root: Path | str | None = None
     patterns: Sequence[str] = ("*POSCAR*", "*.cif")
     id_prefix: str = ""
     expand_archives: bool = True
@@ -148,8 +148,10 @@ class StructureDatasetIO:
     # Initialisation                                                        #
     # --------------------------------------------------------------------- #
     def __post_init__(self) -> None:
-        if not self.root.is_dir():
-            raise FileNotFoundError(self.root)
+        if isinstance(self.root, str):
+            self.root = Path(self.root)
+        # if not self.root.is_dir():
+        #     raise FileNotFoundError(self.root)
         self._id_iter = _entry_id_sequence(self.id_prefix)
 
     # --------------------------------------------------------------------- #

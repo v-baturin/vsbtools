@@ -7,7 +7,7 @@ PATH_WITH_TESTS = Path(__file__).parent
 PATH_TEST_DATASET = PATH_WITH_TESTS / "../../unittests_datasets"
 
 
-class yaml_csv_poscars_Test(unittest.TestCase):
+class zipped_poscar_dir_read_Test(unittest.TestCase):
 
     def setUp(self) -> None:
         self.zipped_cifs = PATH_TEST_DATASET / 'zipped_cifs'
