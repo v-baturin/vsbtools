@@ -4,12 +4,14 @@ Structure sanity checks for ASE and pymatgen.
 Provides:
     check_structure_sanity_ase(atoms, ...)
     check_structure_sanity_pmg(structure, ...)
+    check_min_dist_pmg(structure, ...)
 """
 
 from __future__ import annotations
 
 import numpy as np
 from functools import lru_cache
+from itertools import product
 from typing import Any, Dict, Tuple
 
 # ---- Optional imports for each framework ------------------------------------
@@ -252,3 +254,99 @@ def check_density_sanity_pmg(
         max_ratio=max_ratio,
         min_plane_spacing=min_plane_spacing,
     )
+
+
+def check_min_dist_pmg(
+    structure: "Structure",
+    min_ratio: float = 0.7,
+) -> Tuple[bool, Dict[str, Any]]:
+    """
+    Check that interatomic distances exceed a covalent-radii threshold.
+
+    The threshold is min_ratio * (r1 + r2) for each pair (Z1, Z2),
+    with periodic boundary conditions applied, including self-images.
+    Returns (is_ok, info_dict).
+    """
+    if Element is None:
+        raise ImportError(
+            "pymatgen is not available or pymatgen.core.periodic_table.Element "
+            "could not be imported."
+        )
+
+    n_sites = len(structure)
+    if n_sites == 0:
+        info = {
+            "min_distance": np.inf,
+            "threshold": 0.0,
+            "min_ratio": float(min_ratio),
+            "Z1": None,
+            "Z2": None,
+            "r1": None,
+            "r2": None,
+            "reason": "Structure has no sites.",
+        }
+        return True, info
+
+    Z_array = np.asarray(structure.atomic_numbers, dtype=int)
+    radii = np.array([_pmg_radius_from_Z(int(Z)) for Z in Z_array], dtype=float)
+
+    min_delta = np.inf
+    min_dist = np.inf
+    Z1 = Z2 = None
+    r1 = r2 = None
+
+    if n_sites >= 2:
+        dist_matrix = np.array(
+            structure.lattice.get_all_distances(
+                structure.frac_coords, structure.frac_coords
+            ),
+            dtype=float,
+        )
+        threshold_matrix = min_ratio * (radii[:, None] + radii[None, :])
+        upper = np.triu(np.ones_like(dist_matrix, dtype=bool), k=1)
+        delta_matrix = dist_matrix - threshold_matrix
+        if np.any(upper):
+            idx = np.argmin(delta_matrix[upper])
+            i, j = np.argwhere(upper)[idx]
+            min_delta = float(delta_matrix[i, j])
+            min_dist = float(dist_matrix[i, j])
+            Z1 = int(Z_array[i])
+            Z2 = int(Z_array[j])
+            r1 = float(radii[i])
+            r2 = float(radii[j])
+
+    translations = np.array(
+        [t for t in product([-1, 0, 1], repeat=3) if t != (0, 0, 0)],
+        dtype=float,
+    )
+    translation_vectors = structure.lattice.get_cartesian_coords(translations)
+    min_self_dist = float(np.min(np.linalg.norm(translation_vectors, axis=1)))
+    delta_self = min_self_dist - (min_ratio * (2.0 * radii))
+    self_i = int(np.argmin(delta_self))
+    if float(delta_self[self_i]) < min_delta:
+        min_delta = float(delta_self[self_i])
+        min_dist = min_self_dist
+        Z1 = Z2 = int(Z_array[self_i])
+        r1 = r2 = float(radii[self_i])
+
+    threshold = float(min_ratio * ((r1 or 0.0) + (r2 or 0.0)))
+    is_ok = min_delta >= 0.0
+    if is_ok:
+        reason = "OK"
+    else:
+        reason = (
+            f"Minimum distance ({min_dist:.3f} Å) < threshold ({threshold:.3f} Å)."
+        )
+
+    info = {
+        "min_distance": float(min_dist),
+        "threshold": threshold,
+        "min_ratio": float(min_ratio),
+        "Z1": Z1,
+        "Z2": Z2,
+        "r1": r1,
+        "r2": r2,
+        "reason": reason,
+    }
+
+    return is_ok, info
