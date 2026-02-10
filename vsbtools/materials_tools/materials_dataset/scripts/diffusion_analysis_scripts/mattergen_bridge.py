@@ -1,6 +1,7 @@
 import socket
 import sys
 from pathlib import Path
+import copy
 import torch
 import numpy as np
 from pymatgen.core import Structure
@@ -89,6 +90,8 @@ def get_loss_fn(fn_name, **params):
     assert fn_name in LOSS_REGISTRY, f"Loss function: {fn_name} not implemented"
     def fn(entry):
         assert 'target' in params, "{target: target_dict} is required for loss calculation"
+        clear_globals()
         x = entry2chemgraph(entry)
-        return LOSS_REGISTRY[fn_name](x, t=None, **params).cpu().detach().numpy().item()
+        call_params = copy.deepcopy(params)
+        return LOSS_REGISTRY[fn_name](x, t=None, **call_params).cpu().detach().numpy().item()
     return fn
