@@ -23,7 +23,7 @@ class _StdoutToStderr(io.TextIOBase):
 # from here on, any plain print() goes to stderr
 sys.stdout = _StdoutToStderr()
 from tensorpotential.calculator import grace_fm
-calc = grace_fm('GRACE-2L-OMAT')
+calc = grace_fm('GRACE-2L-OMAT-large-ft-AM')
 
 
 

@@ -1,7 +1,7 @@
 import sys, io
 from ase.io import read
 from tensorpotential.calculator import grace_fm
-calc = grace_fm('GRACE-2L-OMAT')
+calc = grace_fm('GRACE-2L-OMAT-large-ft-AM')
 
 """
 Read an ASE JSON structure from stdin, print the total energy to stdout.
