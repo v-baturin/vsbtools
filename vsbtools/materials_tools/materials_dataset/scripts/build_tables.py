@@ -30,7 +30,7 @@ def build_guidance_summary_table(name_ds_dict: Dict[str, CrystalDataset],
     """
     For given dict builds tables containing the values of target property
     """
-    gl_name = 'placeholder'
+    # gl_name = 'placeholder'
 
     if callables is None:
         clear_globals()
@@ -76,18 +76,25 @@ def build_guidance_summary_table(name_ds_dict: Dict[str, CrystalDataset],
 
         summary_df.to_csv(name_ds_dict[stage].base_path / "summary.csv")
 
-        if max_pareto_front is not None and gl_name in callables:
-            max_el_db = summary_df[summary_df['composition'].apply(lambda x: len(Composition(x))) == len(name_ds_dict[stage].elements)].sort_values('e_hull/at')
-            fronts_idx, rank = pareto_subdataframe_indices(max_el_db, ['e_hull/at', gl_name],  max_pareto_front)
-            for i, idx_pf in enumerate(fronts_idx):
-                max_el_db.iloc[idx_pf].to_csv(name_ds_dict[stage].base_path / f"pf_{i+1}.csv")
-                summary.print_pretty_df(max_el_db.iloc[idx_pf], name_ds_dict[stage].base_path / f"pf_{i+1}_table.txt",
-                                        sort_by='e_hull/at')
-                pf_dir = name_ds_dict[stage].base_path / f"pf_{i+1}"
-                os.makedirs(pf_dir, exist_ok=True)
-                for k, idx in enumerate(idx_pf):
-                    shutil.copy2(name_ds_dict[stage].base_path / "POSCARS" / f"{max_el_db.iloc[idx].id}POSCAR",
-                                 pf_dir / f"{k+1}_{max_el_db.iloc[idx].id}POSCAR")
+        losses = [call_name for call_name in callables.items() if 'loss' in call_name]
+
+        losses_prefixes = ['']
+        if len(losses) > 1:
+            losses_prefixes = [loss.replace('loss_', '') for loss in losses]
+
+        if max_pareto_front is not None:
+            for i, gl_name in enumerate(losses):
+                max_el_db = summary_df[summary_df['composition'].apply(lambda x: len(Composition(x))) == len(name_ds_dict[stage].elements)].sort_values('e_hull/at')
+                fronts_idx, rank = pareto_subdataframe_indices(max_el_db, ['e_hull/at', gl_name],  max_pareto_front)
+                for i, idx_pf in enumerate(fronts_idx):
+                    max_el_db.iloc[idx_pf].to_csv(name_ds_dict[stage].base_path / f"{losses_prefixes[i]}_pf_{i+1}.csv")
+                    summary.print_pretty_df(max_el_db.iloc[idx_pf], name_ds_dict[stage].base_path / f"{losses_prefixes[i]}_pf_{i+1}_table.txt",
+                                            sort_by='e_hull/at')
+                    pf_dir = name_ds_dict[stage].base_path / f"{losses_prefixes[i]}_pf_{i+1}"
+                    os.makedirs(pf_dir, exist_ok=True)
+                    for k, idx in enumerate(idx_pf):
+                        shutil.copy2(name_ds_dict[stage].base_path / "POSCARS" / f"{max_el_db.iloc[idx].id}POSCAR",
+                                     pf_dir / f"{k+1}_{max_el_db.iloc[idx].id}POSCAR")
 
 
 
