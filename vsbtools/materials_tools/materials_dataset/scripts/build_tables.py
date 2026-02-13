@@ -48,14 +48,16 @@ def build_guidance_summary_table(name_ds_dict: Dict[str, CrystalDataset],
             for bond in name_ds_dict[raw_stage].metadata['batch_metadata']['guidance'][guidance_name].keys():
                 if '-' not in bond:
                     continue
+                callable_name = bond
                 params = dict(zip(('type_A', 'type_B'), [Element(e).Z for e in bond.split('-')]))
                 target = name_ds_dict[raw_stage].metadata['batch_metadata']['guidance'][guidance_name][bond]
                 if isinstance(target, list) and len(target) == 2:
                     params['r_cut'] = target[1]
+                    callable_name += f"_{target[1]}"
                 if guidance_name == "dominant_environment":
                     params['target'] = name_ds_dict[raw_stage].metadata['batch_metadata']['guidance'][guidance_name][bond][0]
                 fn = get_target_value_fn(fn_name, **params)
-                callables[bond] = fn
+                callables[callable_name] = fn
         elif guidance_name == 'volume_pa':
             callables[guidance_name] = get_target_value_fn(fn_name, **{})
         if guidance_name not in NOT_IMPLEMENTED_LOSSES:
