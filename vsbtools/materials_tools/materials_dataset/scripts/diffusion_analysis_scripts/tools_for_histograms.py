@@ -5,9 +5,7 @@ import re
 import numpy as np
 
 from .....genutils.misc import is_subtree
-from ...crystal_dataset import CrystalDataset
 from ...io.yaml_csv_poscars import read, load_yaml_recursively
-from ....ext_software_io.mattergen_tools.parsers import input_parameters_to_dict
 from ...scripts.diffusion_analysis_scripts.mattergen_bridge import get_target_value_fn
 from ...analysis.pipeline_legacy import LEGACY_INDEX_TO_NAME, LEGACY_NAME_TO_INDEX
 
@@ -21,18 +19,6 @@ plt.rcParams['xtick.labelsize'] = 7
 plt.rcParams['ytick.labelsize'] = 7
 
 DEFAULT_PLOT_PRIORITY = ['reference', 'Non-guided']
-
-def graph_name_from_ds(ds: CrystalDataset):
-    if ds.metadata["pipeline_stage"] in [0, 'parse_raw']:
-        param_dict_guided = input_parameters_to_dict(raw=ds.metadata["batch_metadata"])
-        # print(param_dict_guided)
-        if 'guidance' in param_dict_guided and param_dict_guided['guidance'] is not None:
-            return ", ".join([f"{param}={val}" for param, val in zip(["$k$", "$g$", "norm"], param_dict_guided.get("diffusion_loss_weight", ['', '', '']))])
-        else:
-            return "non-guided"
-    elif ds.metadata["pipeline_stage"] in [2, "poll_db"]:
-        return "reference"
-    return None
 
 
 def get_guidance_generation_dirs(processed_repos_root: Path, system: str, guidance_sub_dict: Dict, include_non_guided: bool = True):
