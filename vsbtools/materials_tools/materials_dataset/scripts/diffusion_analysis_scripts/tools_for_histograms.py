@@ -92,7 +92,7 @@ def collect_stage_dataset_dict(gen_dirs, stage, ref_stage, add_guid_descr=False)
 
 
 
-def calculate_values(ds_dict: dict, callable_name, fn=None, callable_params=None):
+def calculate_values(ds_dict: dict, callable_name, fn=None, callable_params=None, filter_max_el=True, **kwargs):
     values_dict = dict()
     if callable_params is not None and fn is None:
         predicate =  get_target_value_fn(callable_name, **callable_params)
@@ -101,8 +101,10 @@ def calculate_values(ds_dict: dict, callable_name, fn=None, callable_params=None
     else:
         raise RuntimeError("Provide either callable or callable params (not both)")
     for name, ds in ds_dict.items():
-        ds_all_elements = [entry for entry in ds if len(entry.composition) == len(ds.elements)] # only max number of elements
-        values_dict[name] = np.array([predicate(entry) for entry in ds_all_elements])
+        if filter_max_el:
+            values_dict[name] = np.array([predicate(entry) for entry in ds if len(entry.composition) == len(ds.elements)])
+        else:
+            values_dict[name] = np.array([predicate(entry) for entry in ds])
     return values_dict
 
 
