@@ -34,6 +34,11 @@ class SimilarityTools_Test(unittest.TestCase):
         simtoolsSiO = SimilarityTools(ubSiO.fp_dist, ubSiO.tol_FP)
         print(simtoolsSiO.dist(ds_sio2[0], ds_sio2[1]))
 
+    def test_suspiciousDistance2(self):
+        fe3ndb2_1 = StructureDatasetIO(PATH_WITH_DATASETS / "fe3ndb2_close_sruc", patterns=('*POSCAR',)).load_from_directory()
+        ubSiO = USPEXBridge(elements={'Fe', 'Nd', 'B'}, legacy=True, tol_FP=0.07)
+        simtoolsSiO = SimilarityTools(ubSiO.fp_dist, ubSiO.tol_FP)
+        print(simtoolsSiO.dist(fe3ndb2_1[0], fe3ndb2_1[1]))
 
 
 
