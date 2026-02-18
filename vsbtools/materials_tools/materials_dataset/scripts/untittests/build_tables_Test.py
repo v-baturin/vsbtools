@@ -1,7 +1,7 @@
 import unittest
 from pathlib import Path
 from ...analysis.scenario_pipeline import Scenario
-from ...scripts.diffusion_analysis_scripts.tools_for_histograms import \
+from ...scripts.diffusion_analysis_scripts.guidance_stats import \
     get_guidance_generation_dirs
 from ...io.yaml_csv_poscars import read
 

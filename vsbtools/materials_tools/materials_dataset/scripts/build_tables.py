@@ -1,24 +1,16 @@
 import os
 import shutil
 from typing import Dict, Callable
-from pymatgen.core import Element, Composition
+from pymatgen.core import Composition
 
-from vsbtools.materials_tools.ext_software_io.mattergen_tools.parsers import fname_friendly_serialize
 from ....genutils.pareto_tools import pareto_subdataframe_indices
 from ..crystal_dataset import CrystalDataset
-from .diffusion_analysis_scripts.mattergen_bridge import get_target_value_fn, get_loss_fn, clear_globals
+from .diffusion_analysis_scripts.guidance_stats import callables_from_ds
 from ..analysis import (
     phase_diagram_tools as pdt,
     symmetry_tools as st,
     summary
 )
-
-NOT_IMPLEMENTED_LOSSES = ["energy"]
-
-guidance_vs_target_properties = {"environment": "compute_mean_coordination",
-                                 "dominant_environment": "compute_target_share",
-                                 "volume_pa": "volume_pa",
-                                 "energy": "energy"}
 
 
 def build_guidance_summary_table(name_ds_dict: Dict[str, CrystalDataset],
@@ -33,35 +25,8 @@ def build_guidance_summary_table(name_ds_dict: Dict[str, CrystalDataset],
     # gl_name = 'placeholder'
 
     if callables is None:
-        clear_globals()
-        callables = dict()
+        callables, _targets, _ = callables_from_ds(name_ds_dict[raw_stage])
         target_stages = [target_stages] if isinstance(target_stages, str) else target_stages
-
-        guidance_descr = name_ds_dict[raw_stage].metadata['batch_metadata']['guidance']
-        guidance_names = list(guidance_descr.keys()) if isinstance(guidance_descr, dict) else [guidance_descr]
-        assert len(guidance_names) == 1, "Only one guidance function per generation is supported"
-        assert guidance_names[0] is not None, f"Invalid guidance name, check {name_ds_dict[raw_stage].base_path}"
-        print(name_ds_dict[raw_stage].base_path)
-        guidance_name = guidance_names[0]
-        fn_name = guidance_vs_target_properties[guidance_name]
-        if guidance_name in ('environment', 'dominant_environment'):
-            for bond in name_ds_dict[raw_stage].metadata['batch_metadata']['guidance'][guidance_name].keys():
-                if '-' not in bond:
-                    continue
-                params = dict(zip(('type_A', 'type_B'), [Element(e).Z for e in bond.split('-')]))
-                target = name_ds_dict[raw_stage].metadata['batch_metadata']['guidance'][guidance_name][bond]
-                if isinstance(target, list) and len(target) == 2:
-                    params['r_cut'] = target[1]
-                if guidance_name == "dominant_environment":
-                    params['target'] = name_ds_dict[raw_stage].metadata['batch_metadata']['guidance'][guidance_name][bond][0]
-                fn = get_target_value_fn(fn_name, **params)
-                callables[bond] = fn
-        elif guidance_name == 'volume_pa':
-            callables[guidance_name] = get_target_value_fn(fn_name, **{})
-        if guidance_name not in NOT_IMPLEMENTED_LOSSES:
-            target = name_ds_dict[raw_stage].metadata['batch_metadata']['guidance'][guidance_name]
-            gl_name = f'loss_{guidance_name}_{fname_friendly_serialize(target, target.keys()) if isinstance(target, dict) else target}'
-            callables[gl_name] = get_loss_fn(guidance_name, target=target)
 
     pd_tk = pdt.PhaseDiagramTools(name_ds_dict[ref_stage])
     callables["e_hull/at"] = pd_tk.height_above_hull_pa
@@ -104,7 +69,7 @@ def build_guidance_summary_table(name_ds_dict: Dict[str, CrystalDataset],
 if __name__ == "__main__":
     from pathlib import Path
     from vsbtools.materials_tools.materials_dataset.analysis.scenario_pipeline import Scenario
-    from vsbtools.materials_tools.materials_dataset.scripts.diffusion_analysis_scripts.tools_for_histograms import get_guidance_generation_dirs
+    from vsbtools.materials_tools.materials_dataset.scripts.diffusion_analysis_scripts.guidance_stats import get_guidance_generation_dirs
     from vsbtools.materials_tools.materials_dataset.io.yaml_csv_poscars import read
 
     repo = Path("/home/vsbat/SYNC/00__WORK/2025-2026_MOLTEN_SALTS/"

@@ -1,12 +1,15 @@
 import warnings
-from typing import List, Dict
+from typing import List, Dict, Callable, Any
 from pathlib import Path
 import re
+import math
 import numpy as np
+from pymatgen.core import Element
 
 from .....genutils.misc import is_subtree
+from ....ext_software_io.mattergen_tools.parsers import fname_friendly_serialize
 from ...io.yaml_csv_poscars import read, load_yaml_recursively
-from ...scripts.diffusion_analysis_scripts.mattergen_bridge import get_target_value_fn
+from ...scripts.diffusion_analysis_scripts.mattergen_bridge import get_target_value_fn, get_loss_fn, clear_globals
 from ...analysis.pipeline_legacy import LEGACY_INDEX_TO_NAME, LEGACY_NAME_TO_INDEX
 
 import matplotlib.pyplot as plt
@@ -19,6 +22,58 @@ plt.rcParams['xtick.labelsize'] = 7
 plt.rcParams['ytick.labelsize'] = 7
 
 DEFAULT_PLOT_PRIORITY = ['reference', 'Non-guided']
+NOT_IMPLEMENTED_LOSSES = ["energy"]
+guidance_vs_target_properties = {"environment": "compute_mean_coordination",
+                                 "dominant_environment": "compute_target_share",
+                                 "volume_pa": "volume_pa",
+                                 "energy": "energy"}
+
+
+def callables_from_ds(ds,
+                      include_losses: bool = True,
+                      clear_global_state: bool = True) -> tuple[Dict[str, Callable], Dict[str, Any], str]:
+    """
+    Build guidance-related callables and corresponding target values from dataset metadata
+    (usually parse_raw stage dataset).
+    """
+    if clear_global_state:
+        clear_globals()
+
+    callables = dict()
+    targets = dict()
+    guidance_descr = ds.metadata['batch_metadata']['guidance']
+    guidance_names = list(guidance_descr.keys()) if isinstance(guidance_descr, dict) else [guidance_descr]
+    assert len(guidance_names) == 1, "Only one guidance function per generation is supported"
+    assert guidance_names[0] is not None, f"Invalid guidance name, check {ds.base_path}"
+
+    guidance_name = guidance_names[0]
+    fn_name = guidance_vs_target_properties[guidance_name]
+    if guidance_name in ('environment', 'dominant_environment'):
+        for bond, target in ds.metadata['batch_metadata']['guidance'][guidance_name].items():
+            if '-' not in bond:
+                continue
+            callable_name = bond
+            params = dict(zip(('type_A', 'type_B'), [Element(e).Z for e in bond.split('-')]))
+            if isinstance(target, list) and len(target) == 2:
+                params['r_cut'] = target[1]
+                callable_name += f"_{target[1]}"
+            if guidance_name == "dominant_environment":
+                params['target'] = target[0]
+                targets[callable_name] = 1
+            else:
+                targets[callable_name] = target[0] if isinstance(target, list) else target
+            callables[callable_name] = get_target_value_fn(fn_name, **params)
+    elif guidance_name == 'volume_pa':
+        callables[guidance_name] = get_target_value_fn(fn_name, **{})
+        targets[guidance_name] = ds.metadata['batch_metadata']['guidance'][guidance_name]
+
+    if include_losses and guidance_name not in NOT_IMPLEMENTED_LOSSES:
+        target = ds.metadata['batch_metadata']['guidance'][guidance_name]
+        gl_name = f'loss_{guidance_name}_{fname_friendly_serialize(target, target.keys()) if isinstance(target, dict) else target}'
+        callables[gl_name] = get_loss_fn(guidance_name, target=target)
+        targets[gl_name] = target
+
+    return callables, targets, guidance_name
 
 
 def get_guidance_generation_dirs(processed_repos_root: Path, system: str, guidance_sub_dict: Dict, include_non_guided: bool = True):
@@ -91,8 +146,81 @@ def collect_stage_dataset_dict(gen_dirs, stage, ref_stage, add_guid_descr=False)
     return ds_dict
 
 
+def get_p_value(ds_non_guided,
+                callables: Dict[str, Callable],
+                targets: Dict[str, float],
+                margins: Dict[str, float],
+                ds_guided=None,
+                alternative: str = "greater"):
+    """
+    Estimate guidance effect from the share of "good" entries.
 
-def calculate_values(ds_dict: dict, callable_name, fn=None, callable_params=None):
+    Entry is "good" if for every callable key:
+        abs(callable(entry) - targets[key]) <= margins[key]
+
+    If ds_guided is provided, returns a p-value (float) for the null hypothesis
+    that guided and non-guided shares are equal, using a one-sample binomial
+    test with non-guided share as baseline.
+
+    If ds_guided is None, returns a scorer function that takes ds_guided and
+    returns the corresponding p-value.
+    """
+    missing_targets = [k for k in callables.keys() if k not in targets]
+    missing_margins = [k for k in callables.keys() if k not in margins]
+    if missing_targets:
+        raise KeyError(f"Missing targets for callable keys: {missing_targets}")
+    if missing_margins:
+        raise KeyError(f"Missing margins for callable keys: {missing_margins}")
+    if alternative not in ("greater", "less", "two-sided"):
+        raise ValueError("alternative must be one of: 'greater', 'less', 'two-sided'")
+
+    def is_good(entry):
+        for key, fn in callables.items():
+            if abs(fn(entry) - targets[key]) > margins[key]:
+                return False
+        return True
+
+    def ds_good_count(ds):
+        return sum(1 for e in ds if is_good(e))
+
+    def _binom_pmf(k, n, p):
+        if p == 0.0:
+            return 1.0 if k == 0 else 0.0
+        if p == 1.0:
+            return 1.0 if k == n else 0.0
+        return math.comb(n, k) * (p ** k) * ((1.0 - p) ** (n - k))
+
+    def _one_sided_upper_tail(k, n, p):
+        return float(sum(_binom_pmf(i, n, p) for i in range(k, n + 1)))
+
+    def _one_sided_lower_tail(k, n, p):
+        return float(sum(_binom_pmf(i, n, p) for i in range(0, k + 1)))
+
+    def _pvalue_for(ds_guided_local):
+        n0 = len(ds_non_guided)
+        n1 = len(ds_guided_local)
+        if n0 == 0 or n1 == 0:
+            raise ValueError("Both datasets must be non-empty")
+
+        k0 = ds_good_count(ds_non_guided)
+        k1 = ds_good_count(ds_guided_local)
+        p0 = k0 / n0
+
+        if alternative == "greater":
+            return _one_sided_upper_tail(k1, n1, p0)
+        if alternative == "less":
+            return _one_sided_lower_tail(k1, n1, p0)
+        p_low = _one_sided_lower_tail(k1, n1, p0)
+        p_high = _one_sided_upper_tail(k1, n1, p0)
+        return min(1.0, 2.0 * min(p_low, p_high))
+
+    if ds_guided is None:
+        return _pvalue_for
+    return _pvalue_for(ds_guided)
+
+
+
+def calculate_values(ds_dict: dict, callable_name, fn=None, callable_params=None, filter_max_el=True, **kwargs):
     values_dict = dict()
     if callable_params is not None and fn is None:
         predicate =  get_target_value_fn(callable_name, **callable_params)
@@ -101,8 +229,10 @@ def calculate_values(ds_dict: dict, callable_name, fn=None, callable_params=None
     else:
         raise RuntimeError("Provide either callable or callable params (not both)")
     for name, ds in ds_dict.items():
-        ds_all_elements = [entry for entry in ds if len(entry.composition) == len(ds.elements)] # only max number of elements
-        values_dict[name] = np.array([predicate(entry) for entry in ds_all_elements])
+        if filter_max_el:
+            values_dict[name] = np.array([predicate(entry) for entry in ds if len(entry.composition) == len(ds.elements)])
+        else:
+            values_dict[name] = np.array([predicate(entry) for entry in ds])
     return values_dict
 
 
@@ -419,6 +549,3 @@ if __name__ == "__main__":
     procesed_dir = Path("/home/vsbat/SYNC/00__WORK/2025-2026_MOLTEN_SALTS/MG_postprocess_pipelines/PROCESSED")
     system = "Si-O"
     dirs = get_environment_gen_dirs(processed_repos_root=procesed_dir, system=system, bond='Si-O', target=4)
-
-
-
