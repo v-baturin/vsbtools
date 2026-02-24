@@ -49,7 +49,11 @@ def add_results_data(all_data_dict, indivs_fpath, poscars_fpath):
                 else:
                     all_data_dict[composition][element].append(float(formatted_info[i]))
             all_data_dict[composition]['Enthalpies'].append(enthalpies)
-            all_data_dict[composition]['atoms'].append(next(poscars_gen))
+            try:
+                all_data_dict[composition]['atoms'].append(next(poscars_gen))
+            except StopIteration:
+                print(f"BAD POSCAR FILE: {poscars_fpath}")
+                raise RuntimeError
     return all_data_dict
 
 

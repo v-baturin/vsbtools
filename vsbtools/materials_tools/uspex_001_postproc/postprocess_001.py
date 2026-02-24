@@ -28,9 +28,9 @@ def write_best_n_isom(all_gathered_data, struct_file_format='xyz', n_best=1, out
             for i in range(min(len(v['atoms']), n_best)):
                 ats = v['atoms'][i]
                 if separate_poscars:
-                    write(out_dir / f"{ats.symbols}.vasp", ats, format='vasp', vasp5=True, append=True)
+                    write(out_dir / f"{ats.symbols}.vasp", ats, format='vasp', label=f"EA{v['ID'][i]}", vasp5=True, append=True)
                 else:
-                    write(single_poscar_path, v['atoms'][i], format='vasp', vasp5=True, append=True)
+                    write(single_poscar_path, v['atoms'][i], format='vasp', label=f"EA{v['ID'][i]}", vasp5=True, append=True)
 
 
 def get_energy_matrix(all_gathered_data, outfile='en_matrix.txt', **kwargs):
