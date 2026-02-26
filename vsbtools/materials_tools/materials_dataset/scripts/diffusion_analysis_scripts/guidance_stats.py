@@ -71,7 +71,7 @@ def callables_from_ds(ds,
         target = ds.metadata['batch_metadata']['guidance'][guidance_name]
         gl_name = f'loss_{guidance_name}_{fname_friendly_serialize(target, target.keys()) if isinstance(target, dict) else target}'
         callables[gl_name] = get_loss_fn(guidance_name, target=target)
-        targets[gl_name] = target
+        targets[gl_name] = 0
 
     return callables, targets, guidance_name
 
