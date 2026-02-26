@@ -1,0 +1,14 @@
+objective_1:
+    guidance_name: "environment"
+    fn_parameters:
+        type_A: 29
+        type_B: 15
+        r_cut: 2.6
+    target: 4
+objective_2:
+    guidance_name: "environment"
+    fn_parameters:
+        type_A: 29
+        type_B: 29
+        r_cut: 2.9
+    target: 0

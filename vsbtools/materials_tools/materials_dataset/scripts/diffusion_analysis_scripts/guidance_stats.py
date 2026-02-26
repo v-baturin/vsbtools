@@ -2,7 +2,6 @@ import warnings
 from typing import List, Dict, Callable, Any
 from pathlib import Path
 import re
-import math
 import numpy as np
 from pymatgen.core import Element
 
@@ -15,6 +14,7 @@ from ...analysis.pipeline_legacy import LEGACY_INDEX_TO_NAME, LEGACY_NAME_TO_IND
 import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 from ....visualisation_utils.formatting import cm2inch
+from .pvalue_utils import get_p_value, get_two_proportion_z_test
 
 plt.rcParams['xtick.major.pad'] = '0'
 plt.rcParams['ytick.major.pad'] = '0.'
@@ -144,81 +144,6 @@ def collect_stage_dataset_dict(gen_dirs, stage, ref_stage, add_guid_descr=False)
         if name is not None:
             ds_dict[name] = ds
     return ds_dict
-
-
-def get_p_value(ds_non_guided,
-                callables: Dict[str, Callable],
-                targets: Dict[str, float],
-                margins: Dict[str, float],
-                ds_guided=None,
-                alternative: str = "greater"):
-    """
-    Estimate guidance effect from the share of "good" entries.
-
-    Entry is "good" if for every callable key:
-        abs(callable(entry) - targets[key]) <= margins[key]
-
-    If ds_guided is provided, returns a p-value (float) for the null hypothesis
-    that guided and non-guided shares are equal, using a one-sample binomial
-    test with non-guided share as baseline.
-
-    If ds_guided is None, returns a scorer function that takes ds_guided and
-    returns the corresponding p-value.
-    """
-    missing_targets = [k for k in callables.keys() if k not in targets]
-    missing_margins = [k for k in callables.keys() if k not in margins]
-    if missing_targets:
-        raise KeyError(f"Missing targets for callable keys: {missing_targets}")
-    if missing_margins:
-        raise KeyError(f"Missing margins for callable keys: {missing_margins}")
-    if alternative not in ("greater", "less", "two-sided"):
-        raise ValueError("alternative must be one of: 'greater', 'less', 'two-sided'")
-
-    def is_good(entry):
-        for key, fn in callables.items():
-            if abs(fn(entry) - targets[key]) > margins[key]:
-                return False
-        return True
-
-    def ds_good_count(ds):
-        return sum(1 for e in ds if is_good(e))
-
-    def _binom_pmf(k, n, p):
-        if p == 0.0:
-            return 1.0 if k == 0 else 0.0
-        if p == 1.0:
-            return 1.0 if k == n else 0.0
-        return math.comb(n, k) * (p ** k) * ((1.0 - p) ** (n - k))
-
-    def _one_sided_upper_tail(k, n, p):
-        return float(sum(_binom_pmf(i, n, p) for i in range(k, n + 1)))
-
-    def _one_sided_lower_tail(k, n, p):
-        return float(sum(_binom_pmf(i, n, p) for i in range(0, k + 1)))
-
-    def _pvalue_for(ds_guided_local):
-        n0 = len(ds_non_guided)
-        n1 = len(ds_guided_local)
-        if n0 == 0 or n1 == 0:
-            raise ValueError("Both datasets must be non-empty")
-
-        k0 = ds_good_count(ds_non_guided)
-        k1 = ds_good_count(ds_guided_local)
-        p0 = k0 / n0
-
-        if alternative == "greater":
-            return _one_sided_upper_tail(k1, n1, p0)
-        if alternative == "less":
-            return _one_sided_lower_tail(k1, n1, p0)
-        p_low = _one_sided_lower_tail(k1, n1, p0)
-        p_high = _one_sided_upper_tail(k1, n1, p0)
-        return min(1.0, 2.0 * min(p_low, p_high))
-
-    if ds_guided is None:
-        return _pvalue_for
-    return _pvalue_for(ds_guided)
-
-
 
 def calculate_values(ds_dict: dict, callable_name, fn=None, callable_params=None, filter_max_el=True, **kwargs):
     values_dict = dict()
