@@ -8,7 +8,7 @@ from ase.io import read as ase_read
 from ....crystal_dataset import CrystalDataset
 from ....crystal_entry import CrystalEntry
 from ..guidance_stats import (get_environment_gen_dirs, get_volume_pa_gen_dirs, collect_stage_dataset_dict,
-                              histo_data_collection, get_target_value_fn, plot_multihistogram, plot_multihistogram_new)
+                              histo_data_collection, get_target_value_fn, plot_multihistogram)
 from matplotlib import pyplot as plt
 PROCESSED_PATH = Path("/home/vsbat/SYNC/00__WORK/2025-2026_MOLTEN_SALTS/MG_postprocess_pipelines/PROCESSED")
 
