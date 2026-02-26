@@ -290,6 +290,7 @@ def plot_multihistogram(multidata, target=None, title='', max_bincenter=None,
                         show_gaussian=False, gaussian_fill_alpha=0.2, gaussian_edge_lw=2.5,
                         apply_standard_order=True,
                         custom_priority=None,
+                        group_width=0.8,
                         **kwargs):
     """
     Plot side-by-side histograms for multidata:
@@ -409,8 +410,9 @@ def plot_multihistogram(multidata, target=None, title='', max_bincenter=None,
     kept_pos = {idx: pos for pos, idx in enumerate(keep)}
     n_kept = len(keep)
 
-    width = 0.8 * delta / max(n_kept, 1)
-    offsets = np.linspace(-0.4 * delta + width/2, 0.4 * delta - width/2, n_kept)
+    width = group_width * delta / max(n_kept, 1)
+    offsets = np.linspace(- 0.5 * group_width * delta + width/2,
+                            0.5 * group_width * delta - width/2, n_kept)
 
     # Union of bin centers (for axis range/ticks/gaussian x grid)
     all_bincenters = np.unique(np.concatenate([
