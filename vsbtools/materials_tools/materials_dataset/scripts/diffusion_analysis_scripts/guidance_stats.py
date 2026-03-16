@@ -16,8 +16,8 @@ from matplotlib.patches import Patch
 from ....visualisation_utils.formatting import cm2inch
 from .pvalue_utils import get_p_value, get_two_proportion_z_test
 
-plt.rcParams['xtick.major.pad'] = '0'
-plt.rcParams['ytick.major.pad'] = '0.'
+plt.rcParams['xtick.major.pad'] = 4.
+plt.rcParams['ytick.major.pad'] = 0.
 plt.rcParams['xtick.labelsize'] = 7
 plt.rcParams['ytick.labelsize'] = 7
 
@@ -216,6 +216,7 @@ def plot_multihistogram(multidata, target=None, title='', max_bincenter=None,
                         apply_standard_order=True,
                         custom_priority=None,
                         group_width=0.8,
+                        shift_xticks = True,
                         **kwargs):
     """
     Plot side-by-side histograms for multidata:
@@ -462,6 +463,22 @@ def plot_multihistogram(multidata, target=None, title='', max_bincenter=None,
     ax.set_xticklabels(xtick_labels)
     ax.set_yticks(current_yticks)
     ax.set_yticklabels(ytick_labels)
+
+    if shift_xticks:
+        xt = ax.get_xticks()
+        mid = 0.5 * (xt[:-1] + xt[1:])
+
+        # keep original major ticks for labels
+        ax.set_xticks(xt)
+
+        # hide the major tick marks, but keep their labels
+        ax.tick_params(axis='x', which='major', length=0)
+
+        # put midpoint ticks as minor ticks
+        ax.set_xticks(mid, minor=True)
+
+        # style midpoint ticks as needed
+        ax.tick_params(axis='x', which='minor', length=6)
 
 # ------ setting title
     if title:
