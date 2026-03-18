@@ -8,7 +8,8 @@ from ase.io import read as ase_read
 from ....crystal_dataset import CrystalDataset
 from ....crystal_entry import CrystalEntry
 from ..guidance_stats import (get_environment_gen_dirs, get_volume_pa_gen_dirs, collect_stage_dataset_dict,
-                              histo_data_collection, get_target_value_fn, plot_multihistogram)
+                              histo_data_collection, get_target_value_fn, plot_multihistogram, calculate_values,
+                              plot_multi_kde)
 from matplotlib import pyplot as plt
 PROCESSED_PATH = Path("/home/vsbat/SYNC/00__WORK/2025-2026_MOLTEN_SALTS/MG_postprocess_pipelines/PROCESSED")
 
@@ -77,7 +78,7 @@ class hist_tools_Test(unittest.TestCase):
         hdc = histo_data_collection(ds_dict, callable_name='compute_mean_coordination', callable_params={"type_A": 27,
                                                                                                          "type_B": 8},
                                     max_bincenter=10)
-        plot_multihistogram(multidata=hdc, target=4, max_bincenter=10)
+        plot_multihistogram(multidata=hdc, target=4, max_bincenter=10, other_cmap='RdBu')
         print(hdc)
         plt.show()
 
@@ -169,7 +170,21 @@ class hist_tools_Test(unittest.TestCase):
         # TODO: finalize testcase, add self.assertequal or smth
         # target_entries = [e for e in ds_dict[ds_name] if target-half_width <= function(e) <= target + half_width]
         # print(len(target_entries))
-        # plt.show()
+        plt.show()
+
+    def test_KDE(self):
+        system = "B-Fe-Nd"
+        bond = "B-Fe"
+        target = 3
+        type_A, type_B = (Element(e).Z for e in bond.split('-'))
+        dirs = get_environment_gen_dirs(PROCESSED_PATH, system=system, guidance_name='environment', bond=bond,
+                                        target=target)
+        print(f"found {len(dirs)} dirs")
+        ds_dict = collect_stage_dataset_dict(dirs, "symmetrize_raw", "poll_db", add_guid_descr=True)
+        vals_dict = calculate_values(ds_dict, callable_name='compute_mean_coordination',
+                                    callable_params={"type_A": type_A, "type_B": type_B})
+        plot_multi_kde(values_dict=vals_dict, target=target)
+        plt.show()
 
     # def test_empty_histogram(self):
     #     system = "Cu-Si-P-Ca"
