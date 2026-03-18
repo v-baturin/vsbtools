@@ -120,6 +120,8 @@ class hist_tools_Test(unittest.TestCase):
         hdc = histo_data_collection(ds_dict, callable_name='compute_mean_coordination',
                                     callable_params={"type_A": type_A, "type_B": type_B})
         plot_multihistogram(multidata=hdc, target=target, max_bincenter=10)
+        ax = plt.gca()
+        ax.set_box_aspect(1)
         print(hdc)
         plt.show()
 
