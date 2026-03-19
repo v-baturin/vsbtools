@@ -78,7 +78,7 @@ class hist_tools_Test(unittest.TestCase):
         hdc = histo_data_collection(ds_dict, callable_name='compute_mean_coordination', callable_params={"type_A": 27,
                                                                                                          "type_B": 8},
                                     max_bincenter=10)
-        plot_multihistogram(multidata=hdc, target=4, max_bincenter=10, other_cmap='RdBu')
+        plot_multihistogram(multidata=hdc, target=4, max_bincenter=10, other_cmap='RdBu', simplified_legend=True)
         print(hdc)
         plt.show()
 

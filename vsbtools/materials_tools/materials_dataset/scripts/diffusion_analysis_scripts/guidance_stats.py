@@ -221,6 +221,7 @@ def plot_multihistogram(multidata, target=None, title='', max_bincenter=None,
                         group_width=0.8,
                         shift_xticks=True,
                         print_mu=False,
+                        simplified_legend=False,
                         **kwargs):
     """
     Plot side-by-side histograms for multidata:
@@ -300,6 +301,15 @@ def plot_multihistogram(multidata, target=None, title='', max_bincenter=None,
             ax.set_title(title)
         if not legend_kwargs.get("loc", False):
             legend_kwargs["loc"] = "upper left"
+        if simplified_legend:
+            guid_idx = None
+            if len(other_indices) == 1:
+                for i, l in enumerate(legend_labels):
+                    if '$=' in l:
+                        guid_idx = i
+            if guid_idx is not None:
+                legend_labels[guid_idx] = 'Guided'
+
         ax.legend(legend_handles, legend_labels, fontsize='small', **legend_kwargs)
         fig.tight_layout()
         return fig, ax
@@ -443,6 +453,7 @@ def plot_multi_kde(values_dict, target=None, title='', max_value=None,
                    custom_priority=None,
                    kernel=None,
                    print_mu=False,
+                   simplified_legend=False,
                    **kwargs):
     """
     Plot KDE-smoothed curves (sum of Gaussian kernels over values) for each item in values_dict.
@@ -605,6 +616,12 @@ def plot_multi_kde(values_dict, target=None, title='', max_value=None,
         ax.set_title(title)
     if not legend_kwargs.get("loc", False):
         legend_kwargs["loc"] = "upper left"
+    if simplified_legend:
+        guided_count = 0
+        for i in range(len(legend_labels)):
+            if '$=' in legend_labels[i]:
+                legend_labels[i] = 'Guided' if guided_count == 0 else f'Guided({guided_count})'
+                guided_count += 1
     ax.legend(legend_handles, legend_labels, fontsize='small', **legend_kwargs)
     fig.tight_layout()
     return fig, ax
