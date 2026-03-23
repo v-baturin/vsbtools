@@ -15,8 +15,9 @@ from ..analysis import (
 
 def build_guidance_summary_table(name_ds_dict: Dict[str, CrystalDataset],
                                  raw_stage: str = 'parse_raw',
-                                 ref_stage: str = 'poll_db',
                                  target_stages: list | str | None = 'deduplicate_all',
+                                 ref_stages: dict | None = None,
+                                 auto_ref_stages: bool = False,
                                  callables: Dict[str, Callable] | None = None,
                                  max_pareto_front: int | None = None):
     """
@@ -28,13 +29,20 @@ def build_guidance_summary_table(name_ds_dict: Dict[str, CrystalDataset],
         callables, _targets, _ = callables_from_ds(name_ds_dict[raw_stage])
         target_stages = [target_stages] if isinstance(target_stages, str) else target_stages
 
-    pd_tk = pdt.PhaseDiagramTools(name_ds_dict[ref_stage])
-    callables["e_hull/at"] = pd_tk.height_above_hull_pa
-
     stk = st.SymmetryToolkit(a_sym_prec=1e-3)
     callables["symmetry"] = stk.sym_group_symbol
 
     for stage in target_stages:
+
+        assert (ref_stages is not None and not auto_ref_stages) or (auto_ref_stages and ref_stages is None),\
+            "Either ref_stages or auto_ref_stages should be specified (not both)"
+        if ref_stages is None:
+            ref_stage = 'poll_db_grace' if 'grace' in stage else 'poll_db'
+        else:
+            ref_stage = ref_stages[stage]
+        pd_tk = pdt.PhaseDiagramTools(name_ds_dict[ref_stage])
+        callables["e_hull/at"] = pd_tk.height_above_hull_pa
+
         summary_df = summary.collect_summary_df(name_ds_dict[stage], native_columns=("id", "composition", "energy"),
                                                 callables=callables)
         summary.print_pretty_df(summary_df, name_ds_dict[stage].base_path / 'table.txt', sort_by='e_hull/at')
