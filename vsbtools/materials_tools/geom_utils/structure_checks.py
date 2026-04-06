@@ -163,7 +163,7 @@ def _evaluate_structure(
 
 def check_density_sanity_ase(
     atoms: "Atoms",
-    min_ratio: float = 1.0,
+    min_ratio: float = 0.7,
     max_ratio: float = 20.0,
     min_plane_spacing: float = 0.3,
 ) -> Tuple[bool, Dict[str, Any]]:
