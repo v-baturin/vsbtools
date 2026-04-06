@@ -7,6 +7,8 @@ from ..crystal_dataset import CrystalDataset
 from ..io.yaml_csv_poscars import read, write
 from ..io.preset_loaders import load_from_alexandria, load_from_oqmd, load_from_materials_project
 from ..analysis.phase_diagram_tools import PhaseDiagramTools
+from ..analysis.similarity_tools import SimilarityTools
+from ..io.uspex_bridge import USPEXBridge
 
 HOME = Path.home()
 CACHE_DIR = HOME / ".cache" / "vsbtools" / "DB_caches"
@@ -36,6 +38,9 @@ def poll_databases(elements,
 
     parameters_dict: Dict[str, str|float|int] = {'e_hull_filtering': do_ehull_filtering, 'deduplication': do_deduplication}
     if do_deduplication:
+        if similarity_tk is None:
+            ub = USPEXBridge(elements, legacy=True, tol_FP=tol_FP)
+            similarity_tk = SimilarityTools(ub.fp_dist, ub.tol_FP)
         parameters_dict['tol_FP'] = similarity_tk.tol_FP if tol_FP is None else tol_FP
 
     if do_ehull_filtering:
