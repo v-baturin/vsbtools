@@ -1,6 +1,7 @@
 # mattersim_relaxer_helper_single.py
 import sys
 import io
+import os
 import numpy as np
 from ase.io import read, write
 from ase.optimize import BFGS
@@ -22,6 +23,10 @@ class _StdoutToStderr(io.TextIOBase):
 
 # from here on, any plain print() goes to stderr
 sys.stdout = _StdoutToStderr()
+force_gpu_index = os.getenv("VSB_FORCE_GPU_INDEX")
+if force_gpu_index is not None:
+    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+    os.environ["CUDA_VISIBLE_DEVICES"] = force_gpu_index
 from tensorpotential.calculator import grace_fm
 calc = grace_fm('GRACE-2L-OMAT-large-ft-AM')
 

@@ -2,6 +2,7 @@
 import sys
 import io
 import traceback
+import os
 
 import numpy as np
 import torch
@@ -26,7 +27,11 @@ sys.stdout = _StdoutToStderr()
 from mattersim.forcefield.potential import MatterSimCalculator
 from mattersim.applications.relax import Relaxer
 
-device = "cuda" if torch.cuda.is_available() else "cpu"
+force_gpu_index = os.getenv("VSB_FORCE_GPU_INDEX")
+if force_gpu_index is not None:
+    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+    os.environ["CUDA_VISIBLE_DEVICES"] = force_gpu_index
+device = "cuda" if (force_gpu_index is not None or torch.cuda.is_available()) else "cpu"
 
 calc = MatterSimCalculator(load_path="MatterSim-v1.0.0-5M.pth", device=device)
 relaxer = Relaxer(

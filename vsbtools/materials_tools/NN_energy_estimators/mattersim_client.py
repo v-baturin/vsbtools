@@ -1,6 +1,7 @@
 import sys
 import socket
 import io, subprocess
+import os
 from pathlib import Path
 from ase.io import read, write
 
@@ -23,7 +24,28 @@ relax_worker = helpers_path / "mattersim_relaxer_helper_batch.py"
 
 
 
-def get_energy(atms, mattersim_python=None):
+def _helper_env(force_gpu: int | None = None) -> dict[str, str]:
+    env = os.environ.copy()
+    gpu_index = _normalize_force_gpu(force_gpu)
+    if gpu_index is None:
+        env.pop("VSB_FORCE_GPU_INDEX", None)
+    else:
+        env["VSB_FORCE_GPU_INDEX"] = str(gpu_index)
+    return env
+
+
+def _normalize_force_gpu(force_gpu: int | None) -> int | None:
+    if force_gpu is None:
+        return None
+    if isinstance(force_gpu, bool):
+        raise TypeError("force_gpu must be int | None, bool is not supported")
+    idx = int(force_gpu)
+    if idx < 0:
+        raise ValueError(f"force_gpu must be >= 0 or None, got {force_gpu}")
+    return idx
+
+
+def get_energy(atms, mattersim_python=None, force_gpu: int | None = None):
     # ---- serialise the structure to an in-memory JSON string -------------
     if mattersim_python is None:
         mattersim_python = other_python
@@ -38,14 +60,15 @@ def get_energy(atms, mattersim_python=None):
         input=json_atoms,
         text=True,
         capture_output=True,
-        check=True
+        check=True,
+        env=_helper_env(force_gpu=force_gpu),
     )
 
     return float(proc.stdout.strip().split('\n')[-1])      # one number per call
 
 class EnergyStream:
     """Context-manager that streams Atoms objects to the other v-env."""
-    def __init__(self, mattersim_python=None):
+    def __init__(self, mattersim_python=None, force_gpu: int | None = None):
         if mattersim_python is None: mattersim_python = other_python
         self.other_python = mattersim_python
         assert Path(self.other_python).exists(), "Path to mattersim python virtual environment not found"
@@ -54,6 +77,7 @@ class EnergyStream:
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             text=True,
+            env=_helper_env(force_gpu=force_gpu),
         )
 
     def calc(self, atoms):
@@ -84,7 +108,7 @@ class EnergyStream:
     def __exit__(self, exc_type, exc, tb):
         self.close()
 
-def relax(ats):
+def relax(ats, force_gpu: int | None = None):
     """
     Relax a single ASE Atoms object using the external mattersim venv.
     """
@@ -97,6 +121,7 @@ def relax(ats):
         input=json_atoms,
         text=True,
         capture_output=True,  # inspect stdout / stderr ourselves
+        env=_helper_env(force_gpu=force_gpu),
     )
 
     if proc.returncode != 0:
@@ -133,12 +158,13 @@ class RelaxStream:
       - stdout: one ASE-JSON relaxed structure per line
     """
 
-    def __init__(self):
+    def __init__(self, force_gpu: int | None = None):
         self.proc = subprocess.Popen(
             [str(other_python), "-u", str(relax_worker)],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             text=True,
+            env=_helper_env(force_gpu=force_gpu),
         )
 
     def relax(self, ats):

@@ -1,5 +1,6 @@
 import torch
 import sys, io
+import os
 from ase.io import read
 # --- temporary hijack of stdout so import-time banners go to stderr ----------
 class _Stdout2Stderr(io.TextIOBase):
@@ -14,7 +15,11 @@ from mattersim.forcefield import MatterSimCalculator
 sys.stdout = _OrigStdout = _orig_stdout
 
 # energy_worker.py  –  read JSON atoms on stdin, emit energy per line
-device = "cuda" if torch.cuda.is_available() else "cpu"
+force_gpu_index = os.getenv("VSB_FORCE_GPU_INDEX")
+if force_gpu_index is not None:
+    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+    os.environ["CUDA_VISIBLE_DEVICES"] = force_gpu_index
+device = "cuda" if (force_gpu_index is not None or torch.cuda.is_available()) else "cpu"
 calc = MatterSimCalculator(load_path="MatterSim-v1.0.0-5M.pth", device=device)
 
 for line in sys.stdin:                     # newline-delimited protocol
