@@ -17,22 +17,22 @@ class NNEstimator:
         if model_name not in self.known_models:
             raise ValueError(f"Unknown model: '{model_name}', available: {list(self.known_models.keys())}")
         estimator = self.known_models[model_name]
-        new_energies = estimator.estimate_batch(dataset)
+        new_energies = estimator.estimate_batch(dataset, **kwargs)
         new_entries = []
         for entry, estimation in zip(dataset, new_energies):
             new_entries.append(entry.copy_with(**{"energy": estimation}))
         msg = f"Energies estimated with {model_name}"
         return CrystalDataset.from_parents(new_entries, (dataset,), message=msg)
 
-    def estimate_entry_energy(self, e: CrystalEntry, model: str | None = "mattersim"):
-        return self.known_models[model].estimate_entry_energy(e)
+    def estimate_entry_energy(self, e: CrystalEntry, model: str | None = "mattersim", **kwargs):
+        return self.known_models[model].estimate_entry_energy(e, **kwargs)
 
     def relax_dataset(self, dataset: CrystalDataset, model_name: str | None = None, **kwargs):
         model_name = self.default_model if model_name is None else model_name
         if model_name not in self.known_models:
             raise ValueError(f"Unknown model: '{model_name}', available: {list(self.known_models.keys())}")
         estimator = self.known_models[model_name]
-        new_structures = estimator.relax_batch(dataset)
+        new_structures = estimator.relax_batch(dataset, **kwargs)
         new_entries = []
         for entry, atoms in zip(dataset, new_structures):
             md = entry.metadata
@@ -51,8 +51,8 @@ class NNEstimator:
         msg = f"Structures relaxed with {model_name}"
         return CrystalDataset.from_parents(new_entries, (dataset,), message=msg)
 
-    def relax_entry(self, e: CrystalEntry, model: str | None = "mattersim"):
-        return self.known_models[model].relax_entry(e)
+    def relax_entry(self, e: CrystalEntry, model: str | None = "mattersim", **kwargs):
+        return self.known_models[model].relax_entry(e, **kwargs)
 
     @classmethod
     def register_model(cls, name: str, module: types.ModuleType):

@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+import types
 import unittest
 
 import numpy as np
@@ -19,7 +20,7 @@ class NNEstimator_Test(unittest.TestCase):
     def setUp(self):
         # self.poscars = PATH_WITH_DATASETS / "POSCARS"
         self.poscars = PATH_WITH_DATASETS / "two_systems_MgAlO"
-        self.chosen_fname = 'systemRDU2.POSCAR'
+        self.chosen_fname = 'systemRDU2_POSCAR'
         self.test_entry = CrystalEntry(id = '0',
                                        structure=_safe_structure_from_file(self.poscars / self.chosen_fname))
         self.entry_energies = {"mattersim": -44.0794, "grace": -44.1207}
@@ -42,7 +43,45 @@ class NNEstimator_Test(unittest.TestCase):
 
 
     def test_batch_relaxation(self):
-        ds2 = self.estimator.relax_dataset(self.dataset, model_name='grace')
+        ds2 = self.estimator.relax_dataset(self.dataset, model_name='grace', force_gpu=0)
         relaxed_path = PATH_WITH_TESTS / 'relaxed_grace'
         os.makedirs(relaxed_path, exist_ok=True)
         write(ds2,relaxed_path)
+
+    def test_kwargs_forwarded_to_model_bridge(self):
+        calls = {}
+
+        def estimate_batch(dataset, **kwargs):
+            calls["estimate_batch"] = kwargs
+            return np.zeros(len(dataset))
+
+        def estimate_entry_energy(entry, **kwargs):
+            calls["estimate_entry_energy"] = kwargs
+            return -1.0
+
+        def relax_batch(dataset, **kwargs):
+            calls["relax_batch"] = kwargs
+            return [e.structure.to_ase_atoms() for e in dataset]
+
+        def relax_entry(entry, **kwargs):
+            calls["relax_entry"] = kwargs
+            return entry.structure.to_ase_atoms()
+
+        bridge = types.SimpleNamespace(
+            estimate_batch=estimate_batch,
+            estimate_entry_energy=estimate_entry_energy,
+            relax_batch=relax_batch,
+            relax_entry=relax_entry,
+        )
+        NNEstimator.register_model("dummy_forward", bridge)
+        est = NNEstimator(default_model="dummy_forward")
+
+        est.estimate_dataset_energies(self.dataset, force_gpu=1)
+        est.estimate_entry_energy(self.test_entry, model="dummy_forward", force_gpu=1)
+        est.relax_dataset(self.dataset, model_name="dummy_forward", force_gpu=1)
+        est.relax_entry(self.test_entry, model="dummy_forward", force_gpu=1)
+
+        self.assertEqual(calls["estimate_batch"]["force_gpu"], 1)
+        self.assertEqual(calls["estimate_entry_energy"]["force_gpu"], 1)
+        self.assertEqual(calls["relax_batch"]["force_gpu"], 1)
+        self.assertEqual(calls["relax_entry"]["force_gpu"], 1)
