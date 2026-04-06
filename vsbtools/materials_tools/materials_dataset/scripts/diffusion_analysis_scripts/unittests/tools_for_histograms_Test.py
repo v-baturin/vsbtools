@@ -126,6 +126,23 @@ class hist_tools_Test(unittest.TestCase):
         print(hdc)
         plt.show()
 
+    def test_cusipca_parse_raw(self):
+        system = "Cu-Si-P-Ca"
+        bond = "Cu-P"
+        target = 4
+        type_A, type_B = (Element(e).Z for e in bond.split('-'))
+        dirs = get_environment_gen_dirs(PROCESSED_PATH, system=system, guidance_name='environment', bond=bond,
+                                        target=target)
+        print(f"found {len(dirs)} dirs")
+        ds_dict = collect_stage_dataset_dict(dirs, "parse_raw", "poll_db", add_guid_descr=True)
+        hdc = histo_data_collection(ds_dict, callable_name='compute_mean_coordination',
+                                    callable_params={"type_A": type_A, "type_B": type_B})
+        plot_multihistogram(multidata=hdc, target=target, max_bincenter=10)
+        ax = plt.gca()
+        ax.set_box_aspect(1)
+        print(hdc)
+        plt.show()
+
     def test_auto_bins(self):
         target = 6.8
         dirs = get_volume_pa_gen_dirs(PROCESSED_PATH, 'B', 'volume_pa', target=target)

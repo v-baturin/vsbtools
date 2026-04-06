@@ -133,7 +133,7 @@ def collect_stage_dataset_dict(gen_dirs, stage, ref_stage, add_guid_descr=False)
             stage_desc = load_yaml_recursively(stage_yml)
             if stage_desc["metadata"]["pipeline_stage"] in (stage, LEGACY_NAME_TO_INDEX.get(stage, None)):
                 ds = read(stage_yml)
-            elif stage_desc["metadata"]["pipeline_stage"] in (0, 'parse_raw'):
+            if stage_desc["metadata"]["pipeline_stage"] in (0, 'parse_raw'):
                 bmd = stage_desc["metadata"]["batch_metadata"]
                 if 'guidance' in bmd and bmd['guidance'] not in (None, 'None'):
                     dlw = bmd.get("diffusion_loss_weight", ['', '', ''])
