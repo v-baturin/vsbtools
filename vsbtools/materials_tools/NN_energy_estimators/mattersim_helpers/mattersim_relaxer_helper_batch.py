@@ -36,7 +36,7 @@ device = "cuda" if (force_gpu_index is not None or torch.cuda.is_available()) el
 calc = MatterSimCalculator(load_path="MatterSim-v1.0.0-5M.pth", device=device)
 relaxer = Relaxer(
     optimizer="BFGS",
-    filter="ExpCellFilter",
+    filter="FrechetCellFilter",
     constrain_symmetry=True,
 )
 
