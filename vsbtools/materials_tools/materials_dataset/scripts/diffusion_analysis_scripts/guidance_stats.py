@@ -608,7 +608,7 @@ def plot_multi_kde(values_dict, target=None, title='', max_value=None,
 
     if target is not None:
         ymax = ax.get_ylim()[1]
-        target_line = ax.vlines(target, ymin=0.0, ymax=ymax, color="#4287f5", alpha=0.8, linewidth=2.0, zorder=0)
+        target_line = ax.vlines(target, ymin=0.0, ymax=ymax, color="#424242", alpha=0.8, linewidth=2.0, zorder=0)
         legend_handles.append(Line2D([0], [0], color=target_line.get_colors()[0], linewidth=target_line.get_linewidths()[0]))
         legend_labels.append(f"Target={target}")
 
