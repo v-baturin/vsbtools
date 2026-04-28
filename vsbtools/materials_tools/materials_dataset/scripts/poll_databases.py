@@ -13,7 +13,7 @@ from ..io.uspex_bridge import USPEXBridge
 HOME = Path.home()
 CACHE_DIR = HOME / ".cache" / "vsbtools" / "DB_caches"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
-MAX_EHULL = 0.02  # Maximum energy above hull in eV/atom for filtering
+MAX_EHULL = 0.5  # Maximum energy above hull in eV/atom for filtering
 TOL_FP = 0.008
 LOADERS = {"al": load_from_alexandria, "oq": load_from_oqmd, "mp": load_from_materials_project,
            "ma": load_from_materials_project}  # List of database clients to fetch data from
