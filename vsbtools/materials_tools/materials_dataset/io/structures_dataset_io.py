@@ -19,7 +19,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterable, Iterator, Sequence, Collection
+from typing import Iterable, Iterator, Collection, Callable, Sequence
 
 from pymatgen.core import Structure, Lattice
 from pymatgen.io.vasp import Poscar
@@ -29,6 +29,15 @@ from .zip_handling import exploded_zip_tree         # archive helper
 from ...ext_software_io.ext_software_io import read_poscars               # existing helper
 
 LOG = logging.getLogger(__name__)
+
+SINGLE_STRUCTURE_PATTERNS = ('*.cif', '*POSCAR', '*POSCAR*')
+
+BATCH_READER_REGISTRY: dict[str, Callable[["StructureDatasetIO", Path], CrystalDataset]] = {
+    '*POSCARS': lambda io, file: io.load_from_multiimage_poscar(file),
+    '*.extxyz': lambda io, file: io.load_from_extxyz(file),
+}
+BATCH_STRUCTURE_PATTERNS = tuple(BATCH_READER_REGISTRY)
+SUPPORTED_PATTERNS = SINGLE_STRUCTURE_PATTERNS + BATCH_STRUCTURE_PATTERNS
 
 ###############################################################################
 # Internal helpers                                                           #
@@ -51,10 +60,17 @@ def _entry_id_sequence(prefix: str) -> Iterator[str]:
         counter += 1
 
 
-def _iter_structure_files(root: Path, patterns: Sequence[str]) -> Iterator[Path]:
-    """Yield files in *root* matching any of *patterns* (via rglob)."""
-    for pattern in patterns:
-        yield from root.rglob(pattern)
+def _iter_structure_files(root: Path, pattern: str) -> Iterator[Path]:
+    """Yield files in *root* matching *pattern* (via rglob)."""
+    yield from root.rglob(pattern)
+
+
+def _pattern_kind(pattern: str) -> str:
+    if pattern in SINGLE_STRUCTURE_PATTERNS:
+        return "single"
+    if pattern in BATCH_STRUCTURE_PATTERNS:
+        return "batch"
+    return "unsupported"
 
 def _parse_extxyz_structures(extxyz_file: Path) -> list[Structure]:
     lines = extxyz_file.read_text().splitlines()
@@ -106,7 +122,6 @@ def _parse_extxyz_structures(extxyz_file: Path) -> list[Structure]:
     return structures
 
 def get_batch_metadata(root: Path, prov_file):
-    prov_metadata = None
     for found_provdata in root.rglob(prov_file):
         with open(found_provdata, 'rt') as pmdf:
             prov_metadata = pmdf.read()
@@ -124,9 +139,12 @@ class StructureDatasetIO:
     ----------
     root : Path
         Source directory that may contain structure files and/or zip archives.
-    patterns : Sequence[str], default ("*POSCAR*", "*.cif")
-        Glob patterns that identify structure files **both** outside and inside
-        archives.  Provide as many patterns as needed for your workflow.
+    patterns_priority : Sequence[str], default ("*.cif", "*POSCAR", "*POSCARS", "*.extxyz")
+        Ordered list of patterns to try. The first pattern with matching files
+        is selected and used for loading.
+    pattern : str | None, default None
+        Backward-compatible alias for a single pattern. If provided, it
+        overrides `patterns_priority` with a one-item list.
     id_prefix : str, default ""
         Prefix for auto‑generated entry IDs.
     expand_archives : bool, default True
@@ -137,7 +155,8 @@ class StructureDatasetIO:
     """
 
     root: Path | str | None = None
-    patterns: Sequence[str] = ("*POSCAR*", "*.cif")
+    patterns_priority: Sequence[str] = ("*.cif", "*POSCAR", "*POSCARS", "*.extxyz")
+    pattern: str | None = None
     id_prefix: str = ""
     expand_archives: bool = True
     source_name: str = "NA"
@@ -152,6 +171,16 @@ class StructureDatasetIO:
             self.root = Path(self.root)
         # if not self.root.is_dir():
         #     raise FileNotFoundError(self.root)
+        if self.pattern is not None:
+            self.patterns_priority = (self.pattern,)
+        if not self.patterns_priority:
+            raise ValueError("patterns_priority must contain at least one pattern.")
+        unsupported = [p for p in self.patterns_priority if _pattern_kind(p) == "unsupported"]
+        if unsupported:
+            raise ValueError(
+                f"Unsupported pattern(s): {tuple(unsupported)}. "
+                f"Supported patterns: {SUPPORTED_PATTERNS}."
+            )
         self._id_iter = _entry_id_sequence(self.id_prefix)
 
     # --------------------------------------------------------------------- #
@@ -176,24 +205,76 @@ class StructureDatasetIO:
         # use_archives = self.expand_archives if expand_archives is None else expand_archives
 
         entries: list[CrystalEntry] = []
-
-        # 1) structures already on disk (outside archives)
         total = 0
         bad = 0
-        for file in _iter_structure_files(self.root, self.patterns):
-            batch_metadata = get_batch_metadata(self.root, self.batch_metadata_file) if \
-                self.batch_metadata_file else None
-            struct = _safe_structure_from_file(file)
+        matched_by_pattern = {
+            p: list(_iter_structure_files(self.root, p))
+            for p in self.patterns_priority
+        }
+        selected_pattern = next((p for p in self.patterns_priority if matched_by_pattern[p]), None)
+        batch_metadata = get_batch_metadata(self.root, self.batch_metadata_file) if \
+            self.batch_metadata_file else None
+        if selected_pattern is None:
+            msg = message or f"0 structures out of 0 files collected from {self.root}"
+            return CrystalDataset(entries, message=msg, supplementary_metadata={'batch_metadata': batch_metadata})
+
+        matched_patterns = [p for p in self.patterns_priority if matched_by_pattern[p]]
+        if len(matched_patterns) > 1:
+            LOG.warning(
+                "Files were found for multiple patterns %s; using '%s' by priority.",
+                tuple(matched_patterns), selected_pattern
+            )
+            path_sets = {p: set(matched_by_pattern[p]) for p in matched_patterns}
+            overlap_exists = any(
+                path_sets[p1] & path_sets[p2]
+                for idx, p1 in enumerate(matched_patterns)
+                for p2 in matched_patterns[idx + 1:]
+            )
+            if overlap_exists:
+                LOG.warning(
+                    "Some files match multiple priority patterns; verify ordering in patterns_priority=%s.",
+                    tuple(self.patterns_priority)
+                )
+        matched_kinds = {_pattern_kind(p) for p in matched_patterns}
+        if 'single' in matched_kinds and 'batch' in matched_kinds:
+            LOG.warning(
+                "Mixed structure sources detected (single-file and batch-file). Using '%s' by priority.",
+                selected_pattern
+            )
+
+        selected_kind = _pattern_kind(selected_pattern)
+        for file in matched_by_pattern[selected_pattern]:
             total += 1
-            if struct:
-                entries.append(CrystalEntry(id=next(self._id_iter), structure=struct,
-                                            metadata={"source": self.source_name, "file": file.name}))
+            if selected_kind == "single":
+                struct = _safe_structure_from_file(file)
+                if struct:
+                    entries.append(CrystalEntry(id=next(self._id_iter), structure=struct,
+                                                metadata={"source": self.source_name, "file": file.name}))
+                else:
+                    bad += 1
+            elif selected_kind == "batch":
+                try:
+                    reader = BATCH_READER_REGISTRY.get(selected_pattern)
+                    if reader is None:
+                        raise ValueError(
+                            f"Unhandled batch pattern '{selected_pattern}'. "
+                            f"Registered batch patterns: {tuple(BATCH_READER_REGISTRY)}."
+                        )
+                    batch_ds = reader(self, file)
+                    entries.extend(batch_ds)
+                except Exception as exc:
+                    LOG.warning("Skipping batch file %s – %s", file, exc)
+                    bad += 1
             else:
-                bad += 1
+                raise ValueError(
+                    f"Unsupported pattern '{selected_pattern}'. "
+                    f"Supported single patterns: {SINGLE_STRUCTURE_PATTERNS}; "
+                    f"batch patterns: {BATCH_STRUCTURE_PATTERNS}."
+                )
 
         if elements:
             entries = [e for e in entries if not (set(e.composition.as_data_dict()["elements"]) - set(elements))]
-        msg = message or f"{total - bad} structures out of {total} files collected from {self.root}"
+        msg = message or f"{len(entries)} structures out of {total} files collected from {self.root}"
         return CrystalDataset(entries, message=msg, supplementary_metadata={'batch_metadata': batch_metadata})
 
     def load_from_multiimage_poscar(
@@ -238,7 +319,7 @@ class StructureDatasetIO:
             ids = [next(self._id_iter) for _ in range(len(structures))]
 
         entries = [
-            CrystalEntry(id=id_, structure=struct)
+            CrystalEntry(id=id_, structure=struct, metadata={"source": self.source_name, "file": extxyz_file.name})
             for id_, struct in zip(ids, structures)
         ]
         msg = message or f"Structures loaded from {extxyz_file.as_posix()}"

@@ -11,7 +11,7 @@ class SimilarityTools_Test(unittest.TestCase):
 
     def setUp(self):
         self.test_structures = PATH_WITH_DATASETS / "dup_test_poscars"
-        self.ds = StructureDatasetIO(self.test_structures, patterns=("*.POSCAR",)).load_from_directory()
+        self.ds = StructureDatasetIO(self.test_structures, pattern="*.POSCAR").load_from_directory()
         self.ub = USPEXBridge(elements={'Fe', 'Al', 'Ni'}, legacy=True, tol_FP=0.07)
         self.sim_tools = SimilarityTools(self.ub.fp_dist, self.ub.tol_FP)
 
@@ -29,16 +29,15 @@ class SimilarityTools_Test(unittest.TestCase):
         dist_matrix_file.unlink()
 
     def test_suspiciousDistance(self):
-        ds_sio2 = StructureDatasetIO(PATH_WITH_DATASETS / "SiO2_two_loose_structures", patterns=('*POSCAR',)).load_from_directory()
+        ds_sio2 = StructureDatasetIO(PATH_WITH_DATASETS / "SiO2_two_loose_structures", pattern='*POSCAR').load_from_directory()
         ubSiO = USPEXBridge(elements={'Si', 'O'}, legacy=True, tol_FP=0.07)
         simtoolsSiO = SimilarityTools(ubSiO.fp_dist, ubSiO.tol_FP)
         print(simtoolsSiO.dist(ds_sio2[0], ds_sio2[1]))
 
     def test_suspiciousDistance2(self):
-        fe3ndb2_1 = StructureDatasetIO(PATH_WITH_DATASETS / "fe3ndb2_close_sruc", patterns=('*POSCAR',)).load_from_directory()
+        fe3ndb2_1 = StructureDatasetIO(PATH_WITH_DATASETS / "fe3ndb2_close_sruc", pattern='*POSCAR').load_from_directory()
         ubSiO = USPEXBridge(elements={'Fe', 'Nd', 'B'}, legacy=True, tol_FP=0.07)
         simtoolsSiO = SimilarityTools(ubSiO.fp_dist, ubSiO.tol_FP)
         print(simtoolsSiO.dist(fe3ndb2_1[0], fe3ndb2_1[1]))
-
 
 

@@ -74,6 +74,7 @@ class SimilarityTools:
         reproduced = set()
         rho = self.dist
         for i, examined in enumerate(ds):
+            examined.metadata["known"] = False
             for j, reference in enumerate(ref_ds):
                 tic = time.time()
                 dist = rho(examined, reference)
@@ -88,6 +89,7 @@ class SimilarityTools:
                         reference.metadata["duplicates"] = {examined.id}
                     else:
                         reference.metadata["duplicates"].add(examined.id)
+                    examined.metadata["known"] = True
                     if DEBUG:
                         print(f"{examined.id} in {examined.metadata['source']} is a duplicate of {reference.id} in {reference.metadata['source']}")
                     break
