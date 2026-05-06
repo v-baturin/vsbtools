@@ -61,9 +61,20 @@ def _require_mattergen():
         ) from _MATTERGEN_IMPORT_ERROR
 
 
-def structure_to_tensors(struct):
+def _device_from_force_gpu(force_gpu: int) -> torch.device:
+    if not isinstance(force_gpu, int):
+        raise TypeError(f"force_gpu must be int, got {type(force_gpu).__name__}")
+    if torch.cuda.is_available():
+        cuda_count = torch.cuda.device_count()
+        if force_gpu < 0 or force_gpu >= cuda_count:
+            raise ValueError(f"force_gpu={force_gpu} is out of range for {cuda_count} visible CUDA device(s)")
+        return torch.device(f"cuda:{force_gpu}")
+    return torch.device("cpu")
+
+
+def structure_to_tensors(struct, force_gpu: int):
     _require_mattergen()
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = _device_from_force_gpu(force_gpu)
 
     cell = torch.tensor(
         np.array(struct.lattice.matrix),
@@ -89,9 +100,9 @@ def structure_to_tensors(struct):
     return cell, pos, atomic_numbers
 
 
-def structure_to_single_chemgraph(struct):
+def structure_to_single_chemgraph(struct, force_gpu: int):
     _require_mattergen()
-    cell, pos, atomic_numbers = structure_to_tensors(struct)
+    cell, pos, atomic_numbers = structure_to_tensors(struct, force_gpu=force_gpu)
     return ChemGraph(
         cell=cell,
         atomic_numbers=atomic_numbers,
@@ -100,12 +111,12 @@ def structure_to_single_chemgraph(struct):
     )
 
 
-def entry2tensors(entry):
-    return structure_to_tensors(entry.structure)
+def entry2tensors(entry, force_gpu: int):
+    return structure_to_tensors(entry.structure, force_gpu=force_gpu)
 
 
-def entry2chemgraph(entry):
-    return structure_to_single_chemgraph(entry.structure)
+def entry2chemgraph(entry, force_gpu: int):
+    return structure_to_single_chemgraph(entry.structure, force_gpu=force_gpu)
 
 
 def clear_globals():
@@ -113,16 +124,16 @@ def clear_globals():
     _clear_globals_impl()
 
 
-def get_target_value_fn(fn_name, **params):
+def get_target_value_fn(fn_name, force_gpu: int = 0, **params):
     _require_mattergen()
     fn = lambda x: None
     if fn_name in mattergen_chemgraph_fn_collection:
         def fn(entry):
-            x = entry2chemgraph(entry)
+            x = entry2chemgraph(entry, force_gpu=force_gpu)
             return mattergen_chemgraph_fn_collection[fn_name](x, t=None, **params).cpu().detach().numpy()[0]
     elif fn_name in mattergen_cell_frac_types_fn_collection:
         def fn(entry):
-            cell, frac, types = structure_to_tensors(entry.structure)
+            cell, frac, types = structure_to_tensors(entry.structure, force_gpu=force_gpu)
             return mattergen_cell_frac_types_fn_collection[fn_name](
                 cell,
                 frac,
@@ -133,16 +144,15 @@ def get_target_value_fn(fn_name, **params):
     return fn
 
 
-def get_loss_fn(fn_name, **params):
+def get_loss_fn(fn_name, force_gpu: int = 0, **params):
     _require_mattergen()
     assert fn_name in LOSS_REGISTRY, f"Loss function: {fn_name} not implemented"
 
     def fn(entry):
         assert "target" in params, "{target: target_dict} is required for loss calculation"
         clear_globals()
-        x = entry2chemgraph(entry)
+        x = entry2chemgraph(entry, force_gpu=force_gpu)
         call_params = copy.deepcopy(params)
         return LOSS_REGISTRY[fn_name](x, t=None, **call_params).cpu().detach().numpy().item()
 
     return fn
-

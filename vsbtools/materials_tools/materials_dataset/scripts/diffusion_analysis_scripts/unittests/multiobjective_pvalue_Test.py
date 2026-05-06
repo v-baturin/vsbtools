@@ -19,7 +19,7 @@ def _build_callables_from_objectives(objectives_yml: Path):
         guidance_name = objective_desc["guidance_name"]
         fn_name = guidance_vs_target_properties[guidance_name]
         fn_parameters = objective_desc.get("fn_parameters", {})
-        callables[objective_name] = get_target_value_fn(fn_name, **fn_parameters)
+        callables[objective_name] = get_target_value_fn(fn_name, force_gpu=0, **fn_parameters)
         targets[objective_name] = float(objective_desc["target"])
 
     return callables, targets

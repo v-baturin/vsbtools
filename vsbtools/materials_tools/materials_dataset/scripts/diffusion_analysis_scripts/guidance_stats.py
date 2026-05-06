@@ -31,6 +31,7 @@ guidance_vs_target_properties = {"environment": "compute_mean_coordination",
 
 
 def callables_from_ds(ds,
+                      force_gpu: int = 0,
                       include_losses: bool = True,
                       clear_global_state: bool = True) -> tuple[Dict[str, Callable], Dict[str, Any], str]:
     """
@@ -63,15 +64,15 @@ def callables_from_ds(ds,
                 targets[callable_name] = 1
             else:
                 targets[callable_name] = target[0] if isinstance(target, list) else target
-            callables[callable_name] = get_target_value_fn(fn_name, **params)
+            callables[callable_name] = get_target_value_fn(fn_name, force_gpu=force_gpu, **params)
     elif guidance_name == 'volume_pa':
-        callables[guidance_name] = get_target_value_fn(fn_name, **{})
+        callables[guidance_name] = get_target_value_fn(fn_name, force_gpu=force_gpu, **{})
         targets[guidance_name] = ds.metadata['batch_metadata']['guidance'][guidance_name]
 
     if include_losses and guidance_name not in NOT_IMPLEMENTED_LOSSES:
         target = ds.metadata['batch_metadata']['guidance'][guidance_name]
         gl_name = f'loss_{guidance_name}_{fname_friendly_serialize(target, target.keys()) if isinstance(target, dict) else target}'
-        callables[gl_name] = get_loss_fn(guidance_name, target=target)
+        callables[gl_name] = get_loss_fn(guidance_name, force_gpu=force_gpu, target=target)
         targets[gl_name] = 0
 
     return callables, targets, guidance_name
@@ -146,12 +147,13 @@ def collect_stage_dataset_dict(gen_dirs, stage, ref_stage, add_guid_descr=False)
             ds_dict[name] = ds
     return ds_dict
 
-def calculate_values(ds_dict: dict, callable_name=None, callable_params=None, fn=None, filter_max_el=True, **kwargs):
+def calculate_values(ds_dict: dict, callable_name=None, callable_params=None, fn=None,
+                     filter_max_el=True, force_gpu: int = 0, **kwargs):
     values_dict = dict()
     if callable_params is None:
         callable_params = dict()
     if fn is None and callable_name is not None:
-        predicate =  get_target_value_fn(callable_name, **callable_params)
+        predicate = get_target_value_fn(callable_name, force_gpu=force_gpu, **callable_params)
     elif fn is not None and callable_params is None:
         predicate = fn
     else:
@@ -191,12 +193,13 @@ def values_2_histo_data(values, name=None, bin_centers=None, bins = None, intege
 
 
 def histo_data_collection(ds_dict, callable_name, callable_params=None, auto_adjust_bins=False, n_bins=None,
+                          force_gpu: int = 0,
                           **kwargs):
     """
     Returns list of dictionaries: [{'label': str, 'bin_centers': iterable[floats], 'counts': iterable[floats]}]
     """
     histo_collection = []
-    values_dict = calculate_values(ds_dict, callable_name, callable_params=callable_params)
+    values_dict = calculate_values(ds_dict, callable_name, callable_params=callable_params, force_gpu=force_gpu)
     if auto_adjust_bins:
         extremities = np.unique(np.concatenate([np.asarray([v.min(), v.max()]) for v in values_dict.values()]))
         bin_centers = np.linspace(extremities.min(), extremities.max(), n_bins)

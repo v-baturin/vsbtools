@@ -19,17 +19,17 @@ class MattergenBridge_Test(unittest.TestCase):
         entry1 = CrystalEntry(id="agm003592845", structure=Structure.from_file(POSCARS_PATH / "agm003592845POSCAR"))
         entry2 = CrystalEntry(id='mp-650968', structure=Structure.from_file(POSCARS_PATH / "mp-650968POSCAR"))
         mean_cn_fn = get_target_value_fn(
-            "compute_mean_coordination", type_A=5, type_B=26
+            "compute_mean_coordination", force_gpu=0, type_A=5, type_B=26
         )
         print(f"CN{entry1.id}(Co-O): {float(mean_cn_fn(entry1))}")
         # print(f"CN{entry2.id}(Co-O): {float(mean_cn_fn(entry2))}")
         clear_globals()
 
-        loss_fn_target6 = get_loss_fn('environment', target={'B-Fe': 6, 'mode': 'l1'})
+        loss_fn_target6 = get_loss_fn('environment', force_gpu=0, target={'B-Fe': 6, 'mode': 'l1'})
         print(f"loss6({entry1.id}) = {loss_fn_target6(entry1)}")
         # print(f"loss6({entry2.id}) = {loss_fn_target6(entry2)}")
 
-        loss_fn_target3 = get_loss_fn('environment', target={'B-Fe': 3, 'mode': 'l1'})
+        loss_fn_target3 = get_loss_fn('environment', force_gpu=0, target={'B-Fe': 3, 'mode': 'l1'})
         print(f"loss3({entry1.id}) = {loss_fn_target3(entry1)}")
         print(f"loss6({entry1.id}) = {loss_fn_target6(entry1)}")
         #
