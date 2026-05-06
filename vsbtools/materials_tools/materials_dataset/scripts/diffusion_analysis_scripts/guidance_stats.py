@@ -138,7 +138,7 @@ def collect_stage_dataset_dict(gen_dirs, stage, ref_stage, add_guid_descr=False)
                 bmd = stage_desc["metadata"]["batch_metadata"]
                 if 'guidance' in bmd and bmd['guidance'] not in (None, 'None'):
                     dlw = bmd.get("diffusion_loss_weight", ['', '', ''])
-                    name = ", ".join([f"{param}={val}" for param, val in zip(["$k$", "$g$", "norm"], dlw)])
+                    name = ", ".join([f"{param}={val}" for param, val in zip(["$g$", "$k$", "norm"], dlw)])
                     if add_guid_descr:
                         name += (", " + "_".join(f"{k}_{v}" for k, v in bmd['guidance'].items()))
                 else:
