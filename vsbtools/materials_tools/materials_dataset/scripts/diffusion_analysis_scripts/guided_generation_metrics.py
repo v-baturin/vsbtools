@@ -9,12 +9,12 @@ from pathlib import Path
 from typing import Any, Iterable, Sequence
 import pandas as pd
 from pymatgen.core import Element
-from ..io import read
-from ..io.yaml_csv_poscars import load_yaml_recursively
-from .phase_diagram_tools import PhaseDiagramTools
-from . import summary as summary_tools
-from . import symmetry_tools as symmetry_tools_module
-from ..scripts.diffusion_analysis_scripts.guidance_stats import callables_from_ds, get_two_proportion_z_test
+from ...io import read
+from ...io.yaml_csv_poscars import load_yaml_recursively
+from ...analysis.phase_diagram_tools import PhaseDiagramTools
+from ...analysis import summary as summary_tools
+from ...analysis import symmetry_tools as symmetry_tools_module
+from .guidance_stats import callables_from_ds, get_two_proportion_z_test
 MAX_ECH = 0.2
 DEFAULT_MAX_DEVIATION = {
     "environment": 0.2,
