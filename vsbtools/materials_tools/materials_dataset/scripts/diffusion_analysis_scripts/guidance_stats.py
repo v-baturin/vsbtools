@@ -24,10 +24,43 @@ plt.rcParams['ytick.labelsize'] = 7
 
 DEFAULT_PLOT_PRIORITY = ['reference', 'Non-guided']
 NOT_IMPLEMENTED_LOSSES = ["energy"]
-guidance_vs_target_properties = {"environment": "compute_mean_coordination",
-                                 "dominant_environment": "compute_target_share",
-                                 "volume_pa": "volume_pa",
-                                 "energy": "energy"}
+LEGACY_TO_CANONICAL_GUIDANCE = {
+    "environment": "mean_coordination",
+    "dominant_environment": "target_coordination",
+}
+CANONICAL_TO_LEGACY_GUIDANCE = {
+    "mean_coordination": "environment",
+    "target_coordination": "dominant_environment",
+}
+CANONICAL_GUIDANCE_NAMES = {
+    "mean_coordination",
+    "target_coordination",
+    "volume_pa",
+    "energy",
+}
+
+
+def canonical_guidance_name(guidance_name: str) -> str:
+    return LEGACY_TO_CANONICAL_GUIDANCE.get(guidance_name, guidance_name)
+
+
+CANONICAL_GUIDANCE_TO_TARGET_PROPERTY = {
+    "mean_coordination": "compute_mean_coordination",
+    "target_coordination": "compute_target_share",
+    "volume_pa": "volume_pa",
+    "energy": "energy",
+}
+guidance_vs_target_properties = {
+    name: CANONICAL_GUIDANCE_TO_TARGET_PROPERTY[canonical_guidance_name(name)]
+    for name in (
+        "mean_coordination",
+        "target_coordination",
+        "environment",
+        "dominant_environment",
+        "volume_pa",
+        "energy",
+    )
+}
 
 
 def callables_from_ds(ds,
@@ -49,8 +82,9 @@ def callables_from_ds(ds,
     assert guidance_names[0] is not None, f"Invalid guidance name, check {ds.base_path}"
 
     guidance_name = guidance_names[0]
-    fn_name = guidance_vs_target_properties[guidance_name]
-    if guidance_name in ('environment', 'dominant_environment'):
+    canonical_name = canonical_guidance_name(guidance_name)
+    fn_name = CANONICAL_GUIDANCE_TO_TARGET_PROPERTY[canonical_name]
+    if canonical_name in ('mean_coordination', 'target_coordination'):
         for bond, target in ds.metadata['batch_metadata']['guidance'][guidance_name].items():
             if '-' not in bond:
                 continue
@@ -59,8 +93,8 @@ def callables_from_ds(ds,
             if isinstance(target, list) and len(target) == 2:
                 params['r_cut'] = target[1]
                 callable_name += f"_{target[1]}"
-            if guidance_name == "dominant_environment":
-                params['target'] = target[0]
+            if canonical_name == "target_coordination":
+                params['target'] = target[0] if isinstance(target, list) else target
                 targets[callable_name] = 1
             else:
                 targets[callable_name] = target[0] if isinstance(target, list) else target
@@ -78,6 +112,24 @@ def callables_from_ds(ds,
     return callables, targets, guidance_name
 
 
+def _guidance_name_variants(guidance_name: str) -> list[str]:
+    canonical = canonical_guidance_name(guidance_name)
+    variants = [canonical]
+    legacy = CANONICAL_TO_LEGACY_GUIDANCE.get(canonical)
+    for candidate in (legacy, guidance_name):
+        if candidate and candidate not in variants:
+            variants.append(candidate)
+    return variants
+
+
+def _guidance_sub_dict_variants(guidance_sub_dict: Dict) -> list[Dict]:
+    guidance = guidance_sub_dict.get("guidance")
+    if not isinstance(guidance, dict) or len(guidance) != 1:
+        return [guidance_sub_dict]
+    guidance_name, guidance_value = next(iter(guidance.items()))
+    return [{"guidance": {name: guidance_value}} for name in _guidance_name_variants(guidance_name)]
+
+
 def get_guidance_generation_dirs(processed_repos_root: Path, system: str, guidance_sub_dict: Dict, include_non_guided: bool = True):
     """
     Get a list of directories containing postprocessing pipelines corresponding to a mattergen-generated structures
@@ -90,7 +142,7 @@ def get_guidance_generation_dirs(processed_repos_root: Path, system: str, guidan
     Kwargs:
         include_non_guided: bool -- whether the non-guided generation is included
     sub_dict_examples:
-        environment (mean coordination number): {'guidance': {'environment': {'mode': 'huber', 'Si-O': 6}}}
+        mean_coordination (legacy name: environment): {'guidance': {'mean_coordination': {'mode': 'huber', 'Si-O': 6}}}
         volume_pa: {'guidance': {'volume_pa': 6.8}}
     """
     normalized_system = '-'.join(sorted(system.split('-')))
@@ -104,7 +156,8 @@ def get_guidance_generation_dirs(processed_repos_root: Path, system: str, guidan
         else:
             continue
         if (dataset_info["metadata"]["batch_metadata"]["guidance"] == 'None' and include_non_guided) or \
-            is_subtree(dataset_info["metadata"]["batch_metadata"], guidance_sub_dict):
+            any(is_subtree(dataset_info["metadata"]["batch_metadata"], variant)
+                for variant in _guidance_sub_dict_variants(guidance_sub_dict)):
             gen_paths.append(gen_path)
         continue
     return gen_paths
@@ -115,10 +168,43 @@ def get_volume_pa_gen_dirs(processed_repos_root: Path, system: str, guidance_nam
     return get_guidance_generation_dirs(processed_repos_root, system, guidance_sub_dict=guidance_sub_dict)
 
 
-def get_environment_gen_dirs(processed_repos_root: Path, system: str, guidance_name: str,
-                             bond: str = None, target: float | int | None = None):
+def get_coordination_gen_dirs(processed_repos_root: Path, system: str, guidance_name: str = "mean_coordination",
+                              bond: str = None, target: float | int | None = None):
     guidance_sub_dict = {'guidance': {guidance_name: {bond: target}}}
     return get_guidance_generation_dirs(processed_repos_root, system, guidance_sub_dict=guidance_sub_dict)
+
+
+def get_environment_gen_dirs(processed_repos_root: Path, system: str, guidance_name: str = "environment",
+                             bond: str = None, target: float | int | None = None):
+    return get_coordination_gen_dirs(
+        processed_repos_root,
+        system,
+        guidance_name=guidance_name,
+        bond=bond,
+        target=target,
+    )
+
+
+def get_mean_coordination_gen_dirs(processed_repos_root: Path, system: str,
+                                   bond: str = None, target: float | int | None = None):
+    return get_coordination_gen_dirs(
+        processed_repos_root,
+        system,
+        guidance_name="mean_coordination",
+        bond=bond,
+        target=target,
+    )
+
+
+def get_target_coordination_gen_dirs(processed_repos_root: Path, system: str,
+                                     bond: str = None, target: float | int | None = None):
+    return get_coordination_gen_dirs(
+        processed_repos_root,
+        system,
+        guidance_name="target_coordination",
+        bond=bond,
+        target=target,
+    )
 
 
 def collect_stage_dataset_dict(gen_dirs, stage, ref_stage, add_guid_descr=False):

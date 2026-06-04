@@ -14,12 +14,20 @@ from ...io.yaml_csv_poscars import load_yaml_recursively
 from ...analysis.phase_diagram_tools import PhaseDiagramTools
 from ...analysis import summary as summary_tools
 from ...analysis import symmetry_tools as symmetry_tools_module
-from .guidance_stats import callables_from_ds, get_two_proportion_z_test
+from .guidance_stats import LEGACY_TO_CANONICAL_GUIDANCE, callables_from_ds, get_two_proportion_z_test
 MAX_ECH = 0.2
-DEFAULT_MAX_DEVIATION = {
-    "environment": 0.2,
-    "dominant_environment": 0.1,
+CANONICAL_MAX_DEVIATION = {
+    "mean_coordination": 0.2,
+    "target_coordination": 0.1,
     "volume_pa": 0.2,
+}
+DEFAULT_MAX_DEVIATION = {
+    **CANONICAL_MAX_DEVIATION,
+    **{
+        legacy_name: CANONICAL_MAX_DEVIATION[canonical_name]
+        for legacy_name, canonical_name in LEGACY_TO_CANONICAL_GUIDANCE.items()
+        if canonical_name in CANONICAL_MAX_DEVIATION
+    },
 }
 DEFAULT_POLL_DB_STAGE_CANDIDATES = ("poll_db", "poll_db_grace")
 DEFAULT_DEDUP_STAGE_CANDIDATES = ("deduplicate_all", "dedup_relaxed_grace")
