@@ -1,24 +1,48 @@
 # vsbtools
 
 `vsbtools` is a Python research toolbox for atomistic materials workflows. It
-contains two main, independent pieces of functionality:
+contains several largely independent pieces of functionality:
 
 - scenario-based workflows for processing and analyzing crystal-structure datasets
 - automated management of large Gaussian calculation batches
+- visualization utilities for spectra, heatmaps, phase diagrams, and publication
+  figures
+- stability-analysis helpers for binding, exchange, and fragmentation energies
+- geometry, structure-checking, external-format, and USPEX utilities
+- general-purpose helpers for clustering, duplicate analysis, Pareto fronts, and
+  filesystem operations
 
-The rest of the package provides supporting geometry, database, USPEX,
-visualization, and general utility code used by those workflows.
+## What This Package Does
 
-## Module Priority
+The package is organized around practical research workflows:
 
-| Priority | Module | Added value |
-| --- | --- | --- |
-| 1 | `vsbtools/materials_tools/materials_dataset` | Main workflow layer for crystal-structure datasets: staged processing, database comparison, ML energy estimation/relaxation, stability filtering, deduplication, and generation-quality analysis. |
-| 2 | `vsbtools/gaussian_calc_manager` | Independent Gaussian automation layer: input generation, submission, monitoring, restart/error recovery, and result postprocessing. |
-| 3 | `vsbtools/materials_tools` support modules | Geometry checks/modifiers, USPEX integration, external format parsers, ML estimator bridges, visualization, and stability utilities. |
-| 4 | `vsbtools/genutils` and `vsbtools/uspex_gather_stat` | General helpers and early/WIP USPEX calculation tracking code. |
+- process and analyze crystal-structure datasets through staged pipelines
+- compare generated or simulated structures with reference databases
+- estimate and relax structures with ML interatomic-potential models
+- filter structures by stability and remove structural duplicates
+- analyze diffusion-guided generation results
+- manage large batches of Gaussian calculations with automated monitoring,
+  restart, and error recovery
+- build materials-analysis plots and formatted report figures
+- compute stability-related quantities from energy tables
+- transform structures between common atomistic simulation formats
 
-## 1. Crystal-Structure Dataset Workflows
+## Package Map
+
+| Module | Role |
+| --- | --- |
+| `vsbtools/materials_tools/materials_dataset` | Workflow layer for crystal-structure datasets: staged processing, database comparison, ML energy estimation/relaxation, stability filtering, deduplication, and generation-quality analysis. |
+| `vsbtools/gaussian_calc_manager` | Independent Gaussian automation layer: input generation, submission, monitoring, restart/error recovery, and result postprocessing. |
+| `vsbtools/materials_tools/visualisation_utils` | Plotting helpers for spectra, heatmaps, density-of-states/IPR views, ternary phase diagrams, and figure formatting. |
+| `vsbtools/materials_tools/tools_stability` | Stability-analysis utilities for binding, exchange, and fragmentation energy data. |
+| `vsbtools/materials_tools/geom_utils` | Geometry checks, coordination metrics, primitive-cell extraction, structure sanity checks, and POSCAR modification helpers. |
+| `vsbtools/materials_tools/ext_software_io` | Format conversion and parsers for POSCAR, XYZ, CIF, and Gaussian outputs. |
+| `vsbtools/materials_tools/uspex_toolkit` | USPEX I/O, duplicate removal, template preparation, and fingerprint-distance integration. |
+| `vsbtools/materials_tools/NN_energy_estimators` | Process/stream helpers for MatterSim and GRACE energy/relaxation calls. |
+| `vsbtools/genutils` | General helpers for filesystem work, formatting, clustering, duplicate analysis, Pareto tools, and nested-object utilities. |
+| `vsbtools/uspex_gather_stat` | Early/WIP code for launching and tracking repeated USPEX calculations. |
+
+## Crystal-Structure Dataset Workflows
 
 `vsbtools/materials_tools/materials_dataset` is the main materials-workflow
 subsystem. It is designed to process arbitrary crystal-structure datasets from
@@ -194,7 +218,7 @@ filtered = ds.filter(lambda entry: entry.energy is not None)
 write(filtered, enforce_base_path="processed/with_energy")
 ```
 
-## 2. Gaussian Calculation Manager
+## Gaussian Calculation Manager
 
 `vsbtools/gaussian_calc_manager` is independent from the crystal-dataset
 pipeline. It manages many Gaussian calculations as a task database with polling,
@@ -261,7 +285,7 @@ Key options:
 | `--min_mult` | Derive minimal spin multiplicity from total atomic number parity. |
 | `--exec_time` | Stop polling after this many minutes. |
 
-## 3. Supporting Materials Modules
+## Supporting Materials Modules
 
 | Path | Purpose |
 | --- | --- |
@@ -275,7 +299,7 @@ Key options:
 | `materials_tools/visualisation_utils` | Plot formatting, heatmaps, DOS/IPR plots, ternary phase diagrams, and rasterization helpers. |
 | `materials_tools/materials_dataset_legacy` | Older dataset/database API retained for legacy workflows. |
 
-## 4. General Utilities and WIP Modules
+## General Utilities and WIP Modules
 
 | Path | Purpose |
 | --- | --- |
