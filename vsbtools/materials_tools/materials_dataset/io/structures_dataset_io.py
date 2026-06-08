@@ -221,8 +221,8 @@ class StructureDatasetIO:
         matched_patterns = [p for p in self.patterns_priority if matched_by_pattern[p]]
         if len(matched_patterns) > 1:
             LOG.warning(
-                "Files were found for multiple patterns %s; using '%s' by priority.",
-                tuple(matched_patterns), selected_pattern
+                "Path %s: Files were found for multiple patterns %s; using '%s' by priority.",
+                self.root, tuple(matched_patterns), selected_pattern
             )
             path_sets = {p: set(matched_by_pattern[p]) for p in matched_patterns}
             overlap_exists = any(
