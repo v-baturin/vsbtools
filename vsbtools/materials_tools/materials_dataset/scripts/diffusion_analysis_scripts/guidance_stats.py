@@ -24,6 +24,7 @@ plt.rcParams['ytick.labelsize'] = 7
 
 DEFAULT_PLOT_PRIORITY = ['reference', 'Non-guided']
 NOT_IMPLEMENTED_LOSSES = ["energy"]
+DATASET_NAME_DETAIL_PRIORITY = ['algo', 'batch_size']
 LEGACY_TO_CANONICAL_GUIDANCE = {
     "environment": "mean_coordination",
     "dominant_environment": "target_coordination",
@@ -207,31 +208,99 @@ def get_target_coordination_gen_dirs(processed_repos_root: Path, system: str,
     )
 
 
+def _dataset_base_name_from_bmd(bmd: Dict, add_guid_descr: bool = False) -> str:
+    guidance = bmd.get('guidance') if isinstance(bmd, dict) else None
+    if guidance in (None, 'None'):
+        return 'Non-guided'
+
+    dlw = bmd.get("diffusion_loss_weight", ['', ''])
+    if isinstance(dlw, (list, tuple)):
+        g = dlw[0] if len(dlw) > 0 else ''
+        k = dlw[1] if len(dlw) > 1 else ''
+    else:
+        g = dlw
+        k = ''
+    name = f"$g$={g}, $k$={k}"
+    if add_guid_descr:
+        if isinstance(guidance, dict):
+            guid_descr = "_".join(f"{k}_{v}" for k, v in guidance.items())
+        else:
+            guid_descr = str(guidance)
+        name += f", {guid_descr}"
+    return name
+
+
+def _dataset_name(record: dict, detail_keys: list[str]) -> str:
+    if not detail_keys:
+        return record['base_name']
+    details = ", ".join(f"{key}={record['bmd'].get(key, 'NA')}" for key in detail_keys)
+    return f"{record['base_name']}, {details}"
+
+
+def _assign_dataset_names(records: list[dict]) -> list[tuple[str, Any]]:
+    records_by_base_name = dict()
+    for record in records:
+        records_by_base_name.setdefault(record['base_name'], []).append(record)
+
+    named_records = []
+    for base_name, same_base_records in records_by_base_name.items():
+        detail_keys = []
+        names = [_dataset_name(record, detail_keys) for record in same_base_records]
+        if len(same_base_records) > 1:
+            for detail_key in DATASET_NAME_DETAIL_PRIORITY:
+                values = {repr(record['bmd'].get(detail_key, 'NA')) for record in same_base_records}
+                if len(values) == 1:
+                    continue
+                detail_keys.append(detail_key)
+                names = [_dataset_name(record, detail_keys) for record in same_base_records]
+                if len(set(names)) == len(names):
+                    break
+            if len(set(names)) != len(names):
+                warnings.warn(
+                    f"Dataset name collision for {base_name!r} could not be resolved with "
+                    f"batch metadata fields {DATASET_NAME_DETAIL_PRIORITY}; adding source suffixes."
+                )
+                sources = [record['gen_dir'].name for record in same_base_records]
+                if len(set(sources)) != len(sources):
+                    sources = [f"{source}:{i}" for i, source in enumerate(sources)]
+                names = [f"{name}, source={source}" for name, source in zip(names, sources)]
+
+        named_records.extend((name, record['ds']) for name, record in zip(names, same_base_records))
+    return named_records
+
+
 def collect_stage_dataset_dict(gen_dirs, stage, ref_stage, add_guid_descr=False):
     ds_dict = dict()
-    ds = None
     for stage_yml in gen_dirs[0].rglob("manifest.yaml"):
         stage_desc = load_yaml_recursively(stage_yml)
         if stage_desc["metadata"]["pipeline_stage"] in (ref_stage, LEGACY_NAME_TO_INDEX.get(ref_stage, None)):
             ds_dict["reference"] = read(stage_yml)
+
+    dataset_records = []
     for gen_dir in gen_dirs:
-        name = None
+        ds = None
+        bmd = None
         for stage_yml in gen_dir.rglob("manifest.yaml"):
             stage_desc = load_yaml_recursively(stage_yml)
             if stage_desc["metadata"]["pipeline_stage"] in (stage, LEGACY_NAME_TO_INDEX.get(stage, None)):
                 ds = read(stage_yml)
             if stage_desc["metadata"]["pipeline_stage"] in (0, 'parse_raw'):
                 bmd = stage_desc["metadata"]["batch_metadata"]
-                if 'guidance' in bmd and bmd['guidance'] not in (None, 'None'):
-                    dlw = bmd.get("diffusion_loss_weight", ['', '', ''])
-                    name = ", ".join([f"{param}={val}" for param, val in zip(["$g$", "$k$", "norm"], dlw)])
-                    if add_guid_descr:
-                        name += (", " + "_".join(f"{k}_{v}" for k, v in bmd['guidance'].items()))
-                else:
-                    name = 'Non-guided'
-        if name is not None:
-            ds_dict[name] = ds
+
+        if ds is None:
+            warnings.warn(f"Stage {stage!r} was not found in {gen_dir}")
+        if bmd is not None and ds is not None:
+            dataset_records.append({
+                'base_name': _dataset_base_name_from_bmd(bmd, add_guid_descr=add_guid_descr),
+                'bmd': bmd,
+                'ds': ds,
+                'gen_dir': Path(gen_dir),
+            })
+
+    for name, ds in _assign_dataset_names(dataset_records):
+        ds_dict[name] = ds
     return ds_dict
+
 
 def calculate_values(ds_dict: dict, callable_name=None, callable_params=None, fn=None,
                      filter_max_el=True, force_gpu: int = 0, **kwargs):
