@@ -5,7 +5,7 @@ import os
 import numpy as np
 from ase.io import read, write
 from ase.optimize import BFGS
-from ase.filters import EXpCellFilter
+from ase.filters import FrechetCellFilter
 
 # --------------------------------------------------------------------------- #
 #  Redirect ALL normal stdout to stderr (imports + runtime)                   #
@@ -40,7 +40,7 @@ def relax_one(ats):
     atoms.positions += 0.1 * np.random.randn(len(ats), 3)
     atoms.calc = calc
 
-    atoms_ucf = EXpCellFilter(atoms)
+    atoms_ucf = FrechetCellFilter(atoms)
     dyn = BFGS(atoms_ucf, logfile="relax.log")
     dyn.run(fmax=0.02, steps=500)
 

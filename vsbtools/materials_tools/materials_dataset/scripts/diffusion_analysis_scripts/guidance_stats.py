@@ -24,13 +24,47 @@ plt.rcParams['ytick.labelsize'] = 7
 
 DEFAULT_PLOT_PRIORITY = ['reference', 'Non-guided']
 NOT_IMPLEMENTED_LOSSES = ["energy"]
-guidance_vs_target_properties = {"environment": "compute_mean_coordination",
-                                 "dominant_environment": "compute_target_share",
-                                 "volume_pa": "volume_pa",
-                                 "energy": "energy"}
+LEGACY_TO_CANONICAL_GUIDANCE = {
+    "environment": "mean_coordination",
+    "dominant_environment": "target_coordination",
+}
+CANONICAL_TO_LEGACY_GUIDANCE = {
+    "mean_coordination": "environment",
+    "target_coordination": "dominant_environment",
+}
+CANONICAL_GUIDANCE_NAMES = {
+    "mean_coordination",
+    "target_coordination",
+    "volume_pa",
+    "energy",
+}
+
+
+def canonical_guidance_name(guidance_name: str) -> str:
+    return LEGACY_TO_CANONICAL_GUIDANCE.get(guidance_name, guidance_name)
+
+
+CANONICAL_GUIDANCE_TO_TARGET_PROPERTY = {
+    "mean_coordination": "compute_mean_coordination",
+    "target_coordination": "compute_target_share",
+    "volume_pa": "volume_pa",
+    "energy": "energy",
+}
+guidance_vs_target_properties = {
+    name: CANONICAL_GUIDANCE_TO_TARGET_PROPERTY[canonical_guidance_name(name)]
+    for name in (
+        "mean_coordination",
+        "target_coordination",
+        "environment",
+        "dominant_environment",
+        "volume_pa",
+        "energy",
+    )
+}
 
 
 def callables_from_ds(ds,
+                      force_gpu: int = 0,
                       include_losses: bool = True,
                       clear_global_state: bool = True) -> tuple[Dict[str, Callable], Dict[str, Any], str]:
     """
@@ -48,8 +82,9 @@ def callables_from_ds(ds,
     assert guidance_names[0] is not None, f"Invalid guidance name, check {ds.base_path}"
 
     guidance_name = guidance_names[0]
-    fn_name = guidance_vs_target_properties[guidance_name]
-    if guidance_name in ('environment', 'dominant_environment'):
+    canonical_name = canonical_guidance_name(guidance_name)
+    fn_name = CANONICAL_GUIDANCE_TO_TARGET_PROPERTY[canonical_name]
+    if canonical_name in ('mean_coordination', 'target_coordination'):
         for bond, target in ds.metadata['batch_metadata']['guidance'][guidance_name].items():
             if '-' not in bond:
                 continue
@@ -58,23 +93,41 @@ def callables_from_ds(ds,
             if isinstance(target, list) and len(target) == 2:
                 params['r_cut'] = target[1]
                 callable_name += f"_{target[1]}"
-            if guidance_name == "dominant_environment":
-                params['target'] = target[0]
+            if canonical_name == "target_coordination":
+                params['target'] = target[0] if isinstance(target, list) else target
                 targets[callable_name] = 1
             else:
                 targets[callable_name] = target[0] if isinstance(target, list) else target
-            callables[callable_name] = get_target_value_fn(fn_name, **params)
+            callables[callable_name] = get_target_value_fn(fn_name, force_gpu=force_gpu, **params)
     elif guidance_name == 'volume_pa':
-        callables[guidance_name] = get_target_value_fn(fn_name, **{})
+        callables[guidance_name] = get_target_value_fn(fn_name, force_gpu=force_gpu, **{})
         targets[guidance_name] = ds.metadata['batch_metadata']['guidance'][guidance_name]
 
     if include_losses and guidance_name not in NOT_IMPLEMENTED_LOSSES:
         target = ds.metadata['batch_metadata']['guidance'][guidance_name]
         gl_name = f'loss_{guidance_name}_{fname_friendly_serialize(target, target.keys()) if isinstance(target, dict) else target}'
-        callables[gl_name] = get_loss_fn(guidance_name, target=target)
+        callables[gl_name] = get_loss_fn(guidance_name, force_gpu=force_gpu, target=target)
         targets[gl_name] = 0
 
     return callables, targets, guidance_name
+
+
+def _guidance_name_variants(guidance_name: str) -> list[str]:
+    canonical = canonical_guidance_name(guidance_name)
+    variants = [canonical]
+    legacy = CANONICAL_TO_LEGACY_GUIDANCE.get(canonical)
+    for candidate in (legacy, guidance_name):
+        if candidate and candidate not in variants:
+            variants.append(candidate)
+    return variants
+
+
+def _guidance_sub_dict_variants(guidance_sub_dict: Dict) -> list[Dict]:
+    guidance = guidance_sub_dict.get("guidance")
+    if not isinstance(guidance, dict) or len(guidance) != 1:
+        return [guidance_sub_dict]
+    guidance_name, guidance_value = next(iter(guidance.items()))
+    return [{"guidance": {name: guidance_value}} for name in _guidance_name_variants(guidance_name)]
 
 
 def get_guidance_generation_dirs(processed_repos_root: Path, system: str, guidance_sub_dict: Dict, include_non_guided: bool = True):
@@ -89,7 +142,7 @@ def get_guidance_generation_dirs(processed_repos_root: Path, system: str, guidan
     Kwargs:
         include_non_guided: bool -- whether the non-guided generation is included
     sub_dict_examples:
-        environment (mean coordination number): {'guidance': {'environment': {'mode': 'huber', 'Si-O': 6}}}
+        mean_coordination (legacy name: environment): {'guidance': {'mean_coordination': {'mode': 'huber', 'Si-O': 6}}}
         volume_pa: {'guidance': {'volume_pa': 6.8}}
     """
     normalized_system = '-'.join(sorted(system.split('-')))
@@ -103,7 +156,8 @@ def get_guidance_generation_dirs(processed_repos_root: Path, system: str, guidan
         else:
             continue
         if (dataset_info["metadata"]["batch_metadata"]["guidance"] == 'None' and include_non_guided) or \
-            is_subtree(dataset_info["metadata"]["batch_metadata"], guidance_sub_dict):
+            any(is_subtree(dataset_info["metadata"]["batch_metadata"], variant)
+                for variant in _guidance_sub_dict_variants(guidance_sub_dict)):
             gen_paths.append(gen_path)
         continue
     return gen_paths
@@ -114,10 +168,43 @@ def get_volume_pa_gen_dirs(processed_repos_root: Path, system: str, guidance_nam
     return get_guidance_generation_dirs(processed_repos_root, system, guidance_sub_dict=guidance_sub_dict)
 
 
-def get_environment_gen_dirs(processed_repos_root: Path, system: str, guidance_name: str,
-                             bond: str = None, target: float | int | None = None):
+def get_coordination_gen_dirs(processed_repos_root: Path, system: str, guidance_name: str = "mean_coordination",
+                              bond: str = None, target: float | int | None = None):
     guidance_sub_dict = {'guidance': {guidance_name: {bond: target}}}
     return get_guidance_generation_dirs(processed_repos_root, system, guidance_sub_dict=guidance_sub_dict)
+
+
+def get_environment_gen_dirs(processed_repos_root: Path, system: str, guidance_name: str = "environment",
+                             bond: str = None, target: float | int | None = None):
+    return get_coordination_gen_dirs(
+        processed_repos_root,
+        system,
+        guidance_name=guidance_name,
+        bond=bond,
+        target=target,
+    )
+
+
+def get_mean_coordination_gen_dirs(processed_repos_root: Path, system: str,
+                                   bond: str = None, target: float | int | None = None):
+    return get_coordination_gen_dirs(
+        processed_repos_root,
+        system,
+        guidance_name="mean_coordination",
+        bond=bond,
+        target=target,
+    )
+
+
+def get_target_coordination_gen_dirs(processed_repos_root: Path, system: str,
+                                     bond: str = None, target: float | int | None = None):
+    return get_coordination_gen_dirs(
+        processed_repos_root,
+        system,
+        guidance_name="target_coordination",
+        bond=bond,
+        target=target,
+    )
 
 
 def collect_stage_dataset_dict(gen_dirs, stage, ref_stage, add_guid_descr=False):
@@ -137,7 +224,7 @@ def collect_stage_dataset_dict(gen_dirs, stage, ref_stage, add_guid_descr=False)
                 bmd = stage_desc["metadata"]["batch_metadata"]
                 if 'guidance' in bmd and bmd['guidance'] not in (None, 'None'):
                     dlw = bmd.get("diffusion_loss_weight", ['', '', ''])
-                    name = ", ".join([f"{param}={val}" for param, val in zip(["$k$", "$g$", "norm"], dlw)])
+                    name = ", ".join([f"{param}={val}" for param, val in zip(["$g$", "$k$", "norm"], dlw)])
                     if add_guid_descr:
                         name += (", " + "_".join(f"{k}_{v}" for k, v in bmd['guidance'].items()))
                 else:
@@ -146,12 +233,13 @@ def collect_stage_dataset_dict(gen_dirs, stage, ref_stage, add_guid_descr=False)
             ds_dict[name] = ds
     return ds_dict
 
-def calculate_values(ds_dict: dict, callable_name=None, callable_params=None, fn=None, filter_max_el=True, **kwargs):
+def calculate_values(ds_dict: dict, callable_name=None, callable_params=None, fn=None,
+                     filter_max_el=True, force_gpu: int = 0, **kwargs):
     values_dict = dict()
     if callable_params is None:
         callable_params = dict()
     if fn is None and callable_name is not None:
-        predicate =  get_target_value_fn(callable_name, **callable_params)
+        predicate = get_target_value_fn(callable_name, force_gpu=force_gpu, **callable_params)
     elif fn is not None and callable_params is None:
         predicate = fn
     else:
@@ -191,12 +279,13 @@ def values_2_histo_data(values, name=None, bin_centers=None, bins = None, intege
 
 
 def histo_data_collection(ds_dict, callable_name, callable_params=None, auto_adjust_bins=False, n_bins=None,
+                          force_gpu: int = 0,
                           **kwargs):
     """
     Returns list of dictionaries: [{'label': str, 'bin_centers': iterable[floats], 'counts': iterable[floats]}]
     """
     histo_collection = []
-    values_dict = calculate_values(ds_dict, callable_name, callable_params=callable_params)
+    values_dict = calculate_values(ds_dict, callable_name, callable_params=callable_params, force_gpu=force_gpu)
     if auto_adjust_bins:
         extremities = np.unique(np.concatenate([np.asarray([v.min(), v.max()]) for v in values_dict.values()]))
         bin_centers = np.linspace(extremities.min(), extremities.max(), n_bins)
@@ -608,7 +697,7 @@ def plot_multi_kde(values_dict, target=None, title='', max_value=None,
 
     if target is not None:
         ymax = ax.get_ylim()[1]
-        target_line = ax.vlines(target, ymin=0.0, ymax=ymax, color="#4287f5", alpha=0.8, linewidth=2.0, zorder=0)
+        target_line = ax.vlines(target, ymin=0.0, ymax=ymax, color="#424242", alpha=0.8, linewidth=2.0, zorder=0)
         legend_handles.append(Line2D([0], [0], color=target_line.get_colors()[0], linewidth=target_line.get_linewidths()[0]))
         legend_labels.append(f"Target={target}")
 

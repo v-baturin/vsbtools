@@ -10,8 +10,10 @@ def make_dist_matrix(points, dist_fun, dist_matrix_out_file=None):
     dist_mat = np.zeros((matrix_dim, matrix_dim), dtype=float)
     for i in range(matrix_dim):
         for j in range(i, matrix_dim):
-            print(f"i = {i}, j = {j}")
+            print(f"\ri = {i}, j = {j}", end="", flush=True)
             dist_mat[i, j] = dist_mat[j, i] = dist_fun(points[i], points[j])
+    if matrix_dim:
+        print()
     if dist_matrix_out_file is not None:
         with open(dist_matrix_out_file, 'wb') as dm_file:
             pkl.dump(dist_mat, dm_file)

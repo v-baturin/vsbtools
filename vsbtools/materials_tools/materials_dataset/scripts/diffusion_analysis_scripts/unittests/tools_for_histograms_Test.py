@@ -45,7 +45,7 @@ class hist_tools_Test(unittest.TestCase):
         self.assertEqual(len(dirs), 2)
 
     def test_get_entry_fn(self):
-        fn = get_target_value_fn(fn_name="compute_mean_coordination", type_A=14, type_B=8)
+        fn = get_target_value_fn(fn_name="compute_mean_coordination", force_gpu=0, type_A=14, type_B=8)
         entry = CrystalEntry(id='0', structure=Structure.from_file(self.sio2_quartz))
         print(fn(entry))
 
@@ -56,7 +56,7 @@ class hist_tools_Test(unittest.TestCase):
         pos = torch.tensor(atoms.get_scaled_positions(), dtype=torch.float32, requires_grad=True, device=cell.device)
         atomic_numbers = torch.tensor(atoms.get_atomic_numbers(), dtype=torch.int64, device=cell.device)
 
-        fn = get_target_value_fn(fn_name="_soft_neighbor_counts_per_A_single", type_A=14, type_B=8)
+        fn = get_target_value_fn(fn_name="_soft_neighbor_counts_per_A_single", force_gpu=0, type_A=14, type_B=8)
         cns = fn(entry)
         print(cns)
 
@@ -180,7 +180,7 @@ class hist_tools_Test(unittest.TestCase):
         idx_non_guided = [i for i, hist_data in enumerate(hdc) if hist_data['label'] == 'Non-guided' ][0]
         print(hdc[idx_non_guided]['counts'][hdc[idx_non_guided]['bin_centers']==target])
         plot_multihistogram(multidata=hdc, target=target, max_bincenter=10)
-        function = get_target_value_fn(callable_name, **callable_params)
+        function = get_target_value_fn(callable_name, force_gpu=0, **callable_params)
         half_width = 0.5
         ds_name = 'Non-guided'
         fract_dict = print_ds_dict_guidance_resume(ds_dict, function, target=target, half_width=0.5)

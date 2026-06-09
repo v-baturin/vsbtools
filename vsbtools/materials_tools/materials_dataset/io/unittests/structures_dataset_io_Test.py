@@ -14,7 +14,7 @@ class zipped_poscar_dir_read_Test(unittest.TestCase):
 
     def test_unzip(self):
         with exploded_zip_tree(self.zipped_cifs) as tmp_path:
-            self.utils = StructureDatasetIO(tmp_path)
+            self.utils = StructureDatasetIO(tmp_path, pattern="*.cif")
             ds = self.utils.load_from_directory()
             self.assertEqual(len(ds), 696)
 
@@ -36,3 +36,30 @@ class extxyz_Test(unittest.TestCase):
             utils.dump_poscar_files(ds, out_dir)
             poscars = list(out_dir.rglob("*POSCAR"))
             self.assertEqual(len(poscars), len(ds))
+
+    def test_load_from_directory_extxyz_batches(self):
+        extxyz_root = (PATH_WITH_TESTS / "../../unittests_datasets/cifs").resolve()
+        utils = StructureDatasetIO(extxyz_root, pattern="*.extxyz")
+        ds = utils.load_from_directory()
+        extxyz_files = list(extxyz_root.rglob("*.extxyz"))
+        expected = sum(len(utils.load_from_extxyz(file)) for file in extxyz_files)
+        self.assertGreater(len(ds), 0)
+        self.assertEqual(len(ds), expected)
+
+    def test_patterns_priority_fallback(self):
+        extxyz_root = (PATH_WITH_TESTS / "../../unittests_datasets/cifs").resolve()
+        utils = StructureDatasetIO(extxyz_root, patterns_priority=("*POSCARS", "*.extxyz"))
+        ds = utils.load_from_directory()
+        self.assertGreater(len(ds), 0)
+
+    def test_warn_on_mixed_types(self):
+        mixed_root = (PATH_WITH_TESTS / "../../unittests_datasets/cifs").resolve()
+        utils = StructureDatasetIO(mixed_root, patterns_priority=("*.cif", "*.extxyz"))
+        with self.assertLogs("vsbtools.materials_tools.materials_dataset.io.structures_dataset_io", level="WARNING") as logs:
+            _ = utils.load_from_directory()
+        joined_logs = "\n".join(logs.output)
+        self.assertIn("Mixed structure sources detected", joined_logs)
+
+    def test_invalid_pattern_rejected(self):
+        with self.assertRaises(ValueError):
+            _ = StructureDatasetIO(PATH_WITH_TESTS, pattern="*.foo")

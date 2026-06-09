@@ -1,5 +1,6 @@
 from pathlib import Path
 from functools import lru_cache
+import re
 from ..crystal_dataset import CrystalDataset, CrystalEntry
 from USPEX.components import Atomistic
 from USPEX.DataModel.Engine import Engine
@@ -8,9 +9,22 @@ from USPEX.DataModel.Entry import Entry
 import numpy as np
 from USPEX.Atomistic.RadialDistributionUtility import RadialDistributionUtility, TOLERANCE_DEFAULT
 from .structures_dataset_io import StructureDatasetIO
+from pymatgen.core.periodic_table import Element
 
 Engine.createEngine(":memory:")
 atomistic = Atomistic()
+
+
+def _sanitize_species_symbol(raw_symbol: str) -> str:
+    """Convert species labels like Fe2+, O- to plain element symbols."""
+    cleaned = re.sub(r"[\d\+\-]", "", raw_symbol).strip()
+    cleaned = re.sub(r"[^A-Za-z]", "", cleaned)
+    if not cleaned:
+        raise ValueError(f"Cannot sanitize empty species symbol from '{raw_symbol}'")
+    normalized = cleaned[0].upper() + cleaned[1:].lower()
+    if not Element.is_valid_symbol(normalized):
+        raise ValueError(f"Sanitized symbol '{normalized}' from '{raw_symbol}' is not a valid element")
+    return normalized
 
 
 class USPEXBridge:
@@ -31,7 +45,7 @@ class USPEXBridge:
 
     @lru_cache(maxsize=15000)
     def uspex_entry_from_de(self, de_entry: CrystalEntry) -> "Entry":
-        types, coords, cell = ([atomistic.atomType(s.species_string) for s in de_entry.structure],
+        types, coords, cell = ([atomistic.atomType(_sanitize_species_symbol(s.species_string)) for s in de_entry.structure],
                                de_entry.structure.cart_coords,
                                atomistic.cellType(de_entry.structure.lattice.matrix, pbc = (1, 1, 1)))
         uspex_structure = atomistic.AtomicStructureRepresentation.structureType(atomTypes=types, coordinates=coords,

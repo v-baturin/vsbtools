@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import hashlib
+import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, MutableMapping, Optional, Tuple
@@ -10,8 +12,9 @@ from collections import defaultdict, deque
 
 from ..crystal_dataset import CrystalDataset
 from ..io.structures_dataset_io import StructureDatasetIO
+from ..io.yaml_csv_poscars import read as read_dataset_manifest, write as write_dataset_manifest
 from .symmetry_tools import SymmetryToolkit
-from ..scripts.poll_databases import poll_databases
+from ..scripts.poll_databases import poll_databases, CACHE_DIR as POLL_DB_CACHE_DIR
 from .similarity_tools import SimilarityTools
 from ..io.uspex_bridge import USPEXBridge
 from ..energy_estimation import nn_estimator, mattersim_bridge, grace_bridge
@@ -32,6 +35,7 @@ TOOLKIT_DICT: Dict[str, Any] = {
 
 KNOWN_MODELS = {"mattersim": mattersim_bridge, "grace": grace_bridge}
 MAX_EHULL_PA = 0.1
+LOG = logging.getLogger(__name__)
 
 
 # ==================================================================
@@ -353,6 +357,34 @@ class ScenarioPipeline:
 # 5. Operations implementing the original PPPipeline stages
 # ==================================================================
 
+def _normalize_cache_payload(obj: Any):
+    if isinstance(obj, Path):
+        return obj.as_posix()
+    if isinstance(obj, dict):
+        return {str(k): _normalize_cache_payload(obj[k]) for k in sorted(obj)}
+    if isinstance(obj, (list, tuple)):
+        return [_normalize_cache_payload(v) for v in obj]
+    if isinstance(obj, set):
+        normalized = [_normalize_cache_payload(v) for v in obj]
+        return sorted(normalized, key=lambda x: json.dumps(x, sort_keys=True, default=str))
+    if isinstance(obj, (str, int, float, bool)) or obj is None:
+        return obj
+    if callable(obj):
+        return f"{getattr(obj, '__module__', '')}.{getattr(obj, '__qualname__', repr(obj))}"
+    return repr(obj)
+
+
+def _poll_db_cache_dir(elements: Iterable[str], params: Dict[str, Any]) -> Path:
+    normalized_elements = sorted(str(el) for el in elements)
+    normalized_params = _normalize_cache_payload(params)
+    payload = {"elements": normalized_elements, "params": normalized_params}
+    digest = hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+    ).hexdigest()[:16]
+    system = "-".join(normalized_elements)
+    cache_root = Path(POLL_DB_CACHE_DIR)
+    return cache_root / f"poll_db__{system}__{digest}"
+
 # --- parse_raw ----------------------------------------------------
 
 @op("parse_raw")
@@ -441,39 +473,63 @@ def op_poll_db(
     if elements is None:
         raise AssertionError("parse_raw dataset must expose 'elements'")
 
+    op_params = dict(params)
     # default max_ehull as in the original code
-    params.setdefault("max_ehull", MAX_EHULL_PA)
+    op_params.setdefault("max_ehull", MAX_EHULL_PA)
+    cache_params_signature = dict(op_params)
+    cache_base_path = op_params.get("cache_base_path")
+    op_cache_dir = Path(cache_base_path) if cache_base_path else _poll_db_cache_dir(elements, cache_params_signature)
+    op_cache_manifest = op_cache_dir / "manifest.yaml"
+    if op_cache_manifest.exists():
+        try:
+            cached = read_dataset_manifest(op_cache_manifest)
+            if set(cached.elements) == set(elements):
+                print(f"poll_db: reusing cached dataset from {op_cache_dir}")
+                return cached
+        except Exception as exc:
+            LOG.warning("poll_db: failed to read cached dataset from %s: %s", op_cache_dir, exc)
 
     # optional additional estimation
 
-    if params.get("do_deduplication", False):
+    if op_params.get("do_deduplication", False):
         stk = ctx.get_tool("similarity")
-        params["similarity_tk"] = stk # Must have methods get_unseen_in_ref() and deduplicate()
+        op_params["similarity_tk"] = stk # Must have methods get_unseen_in_ref() and deduplicate()
 
     # remaining parameters are passed directly to poll_databases
-    db = poll_databases(elements, **params)
+    db = poll_databases(elements, **op_params)
 
-    do_relax = bool(params.get("do_relaxation", False))
-    estimate_energies = bool(params.pop("estimate_energies", False))
+    do_relax = bool(op_params.get("do_relaxation", False))
+    estimate_energies = bool(op_params.get("estimate_energies", False))
 
     if do_relax or estimate_energies:
         estimator = ctx.get_tool("estimator")
     else:
+        try:
+            write_dataset_manifest(db, enforce_base_path=op_cache_dir)
+        except Exception as exc:
+            LOG.warning("poll_db: failed to write cache into %s: %s", op_cache_dir, exc)
         return db
 
     estimated = db
+    estimator_params = dict(op_params)
+    estimator_params.pop("do_relaxation", None)
+    estimator_params.pop("estimate_energies", None)
     msg = estimated.metadata["message"]
     if do_relax:
-        estimated = estimator.relax_dataset(estimated, **params)
+        estimated = estimator.relax_dataset(estimated, **estimator_params)
         msg += f'. {estimated.metadata["message"]}'
     if estimate_energies:
-        estimated = estimator.estimate_dataset_energies(estimated, **params)
+        estimated = estimator.estimate_dataset_energies(estimated, **estimator_params)
         msg += f'. {estimated.metadata["message"]}'
 
     # parent_ids is empty as in the original code
     estimated.parent_ids = []
     estimated.metadata = dict(estimated.metadata or {})
     estimated.metadata["message"] = msg
+    try:
+        write_dataset_manifest(estimated, enforce_base_path=op_cache_dir)
+    except Exception as exc:
+        LOG.warning("poll_db: failed to write cache into %s: %s", op_cache_dir, exc)
 
     return estimated
 

@@ -11,6 +11,7 @@ class NNEstimator:
 
     known_models: ClassVar[Dict[str, types.ModuleType]] = {}
     default_model: str = "mattersim"
+    force_gpu: int | None = None
 
     def estimate_dataset_energies(self, dataset: CrystalDataset, model_name: str | None = None, **kwargs):
         model_name = self.default_model if model_name is None else model_name
@@ -25,9 +26,13 @@ class NNEstimator:
         return CrystalDataset.from_parents(new_entries, (dataset,), message=msg)
 
     def estimate_entry_energy(self, e: CrystalEntry, model: str | None = "mattersim", **kwargs):
+        if 'force_gpu' not in kwargs:
+            kwargs['force_gpu'] = self.force_gpu
         return self.known_models[model].estimate_entry_energy(e, **kwargs)
 
     def relax_dataset(self, dataset: CrystalDataset, model_name: str | None = None, **kwargs):
+        if 'force_gpu' not in kwargs:
+            kwargs['force_gpu'] = self.force_gpu
         model_name = self.default_model if model_name is None else model_name
         if model_name not in self.known_models:
             raise ValueError(f"Unknown model: '{model_name}', available: {list(self.known_models.keys())}")
@@ -52,6 +57,8 @@ class NNEstimator:
         return CrystalDataset.from_parents(new_entries, (dataset,), message=msg)
 
     def relax_entry(self, e: CrystalEntry, model: str | None = "mattersim", **kwargs):
+        if 'force_gpu' not in kwargs:
+            kwargs['force_gpu'] = self.force_gpu
         return self.known_models[model].relax_entry(e, **kwargs)
 
     @classmethod
