@@ -14,6 +14,8 @@ class NNEstimator:
     force_gpu: int | None = None
 
     def estimate_dataset_energies(self, dataset: CrystalDataset, model_name: str | None = None, **kwargs):
+        if 'force_gpu' not in kwargs:
+            kwargs['force_gpu'] = self.force_gpu
         model_name = self.default_model if model_name is None else model_name
         if model_name not in self.known_models:
             raise ValueError(f"Unknown model: '{model_name}', available: {list(self.known_models.keys())}")

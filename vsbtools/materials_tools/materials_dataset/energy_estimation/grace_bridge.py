@@ -7,7 +7,7 @@ def estimate_batch(dataset: CrystalDataset, force_gpu: int | None = None, **kwar
         energies = np.zeros(len(dataset))
         for i, e in enumerate(dataset):
             try:
-                print(f"Now estimating energy of entry with id={e.id} from {e.metadata["file"]}")
+                print(f"Now estimating energy of entry with id={e.id} from {e.metadata.get("file",e.metadata["source"])}")
                 s = e.structure.copy()
                 if "selective_dynamics" in s.site_properties:
                     s.remove_site_property("selective_dynamics")

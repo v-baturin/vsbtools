@@ -85,3 +85,16 @@ class NNEstimator_Test(unittest.TestCase):
         self.assertEqual(calls["estimate_entry_energy"]["force_gpu"], 1)
         self.assertEqual(calls["relax_batch"]["force_gpu"], 1)
         self.assertEqual(calls["relax_entry"]["force_gpu"], 1)
+
+        calls.clear()
+        est = NNEstimator(default_model="dummy_forward", force_gpu=2)
+
+        est.estimate_dataset_energies(self.dataset)
+        est.estimate_entry_energy(self.test_entry, model="dummy_forward")
+        est.relax_dataset(self.dataset, model_name="dummy_forward")
+        est.relax_entry(self.test_entry, model="dummy_forward")
+
+        self.assertEqual(calls["estimate_batch"]["force_gpu"], 2)
+        self.assertEqual(calls["estimate_entry_energy"]["force_gpu"], 2)
+        self.assertEqual(calls["relax_batch"]["force_gpu"], 2)
+        self.assertEqual(calls["relax_entry"]["force_gpu"], 2)

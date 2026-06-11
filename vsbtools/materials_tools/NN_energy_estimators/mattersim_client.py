@@ -81,15 +81,24 @@ class EnergyStream:
         )
 
     def calc(self, atoms):
+        if self.proc.poll() is not None:
+            raise RuntimeError(f"MatterSim energy worker terminated with code {self.proc.returncode}")
+
         # serialise to a JSON line
         buf = io.StringIO()
         write(buf, atoms, format="json")
         json_line = buf.getvalue().replace("\n", " ")  # keep it single-line
-        self.proc.stdin.write(json_line + "\n")
-        self.proc.stdin.flush()
+        try:
+            self.proc.stdin.write(json_line + "\n")
+            self.proc.stdin.flush()
+        except BrokenPipeError as err:
+            raise RuntimeError(f"MatterSim energy worker terminated with code {self.proc.poll()}") from err
 
         # receive the answer
-        out = self.proc.stdout.readline().strip()
+        out = self.proc.stdout.readline()
+        if out == "":
+            raise RuntimeError(f"MatterSim energy worker closed stdout with code {self.proc.poll()}")
+        out = out.strip()
         if out.startswith("ERR"):
             raise RuntimeError(out)
         # print(out)
