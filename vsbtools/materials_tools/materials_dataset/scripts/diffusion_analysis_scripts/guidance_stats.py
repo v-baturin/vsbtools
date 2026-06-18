@@ -9,7 +9,7 @@ from .....genutils.misc import is_subtree
 from ....ext_software_io.mattergen_tools.parsers import fname_friendly_serialize
 from ...io.yaml_csv_poscars import read, load_yaml_recursively
 from ...scripts.diffusion_analysis_scripts.mattergen_bridge import get_target_value_fn, get_loss_fn, clear_globals
-from ...analysis.pipeline_legacy import LEGACY_INDEX_TO_NAME, LEGACY_NAME_TO_INDEX
+from ...analysis.pipeline_legacy import LEGACY_DICTIONARY, LEGACY_INDEX_TO_NAME, LEGACY_NAME_TO_INDEX
 
 import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
@@ -269,11 +269,19 @@ def _assign_dataset_names(records: list[dict]) -> list[tuple[str, Any]]:
     return named_records
 
 
+def _stage_values(stage):
+    legacy_stage = LEGACY_DICTIONARY.get(stage, stage)
+    values = {stage, legacy_stage, LEGACY_NAME_TO_INDEX.get(stage), LEGACY_NAME_TO_INDEX.get(legacy_stage)}
+    return {value for value in values if value is not None}
+
+
 def collect_stage_dataset_dict(gen_dirs, stage, ref_stage, add_guid_descr=False):
     ds_dict = dict()
+    stage_values = _stage_values(stage)
+    ref_stage_values = _stage_values(ref_stage)
     for stage_yml in gen_dirs[0].rglob("manifest.yaml"):
         stage_desc = load_yaml_recursively(stage_yml)
-        if stage_desc["metadata"]["pipeline_stage"] in (ref_stage, LEGACY_NAME_TO_INDEX.get(ref_stage, None)):
+        if stage_desc["metadata"]["pipeline_stage"] in ref_stage_values:
             ds_dict["reference"] = read(stage_yml)
 
     dataset_records = []
@@ -282,7 +290,7 @@ def collect_stage_dataset_dict(gen_dirs, stage, ref_stage, add_guid_descr=False)
         bmd = None
         for stage_yml in gen_dir.rglob("manifest.yaml"):
             stage_desc = load_yaml_recursively(stage_yml)
-            if stage_desc["metadata"]["pipeline_stage"] in (stage, LEGACY_NAME_TO_INDEX.get(stage, None)):
+            if stage_desc["metadata"]["pipeline_stage"] in stage_values:
                 ds = read(stage_yml)
             if stage_desc["metadata"]["pipeline_stage"] in (0, 'parse_raw'):
                 bmd = stage_desc["metadata"]["batch_metadata"]
