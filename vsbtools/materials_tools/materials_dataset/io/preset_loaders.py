@@ -8,6 +8,7 @@ from .sources.matproj_parser import MPClient
 from .sources.alexandria_parser import AlexandriaClient
 from .sources.uspex_output_parser import USPEXOutputClient
 from .sources.oqmd_parser import OQMDClient
+from .sources.optimade_parser import OptimadeClient
 from .sources.structure_and_energy_files_reader import CSV_and_POSCARS_client
 
 mp_client = MPClient()
@@ -88,6 +89,7 @@ def cache_loader(read_fn, write_fn, *, cache_root: Path = CACHE_DIR, manifest_na
         wrapper.__name__  = fn.__name__
         wrapper.__doc__   = fn.__doc__
         wrapper.__module__= fn.__module__
+        wrapper.__wrapped__ = fn
         return wrapper
     return decorator
 
@@ -109,6 +111,13 @@ def load_from_alexandria(elements, message=None, **kwargs):
 def load_from_oqmd(elements, message=None, **kwargs):
     df = oqmd_client.query(elements)
     message = message or f"Full {elements} system from OQMD"
+    return df2ds(df, message=message)
+
+@cache_loader(read, write)
+def load_from_optimade(elements, message=None, **kwargs):
+    optimade_client = OptimadeClient(**kwargs)
+    df = optimade_client.query(elements)
+    message = message or f"Full {elements} system from OPTIMADE"
     return df2ds(df, message=message)
 
 def load_from_uspex_calc_folders(calcfolds_path: Path, stage=None, message=None, elements=None):

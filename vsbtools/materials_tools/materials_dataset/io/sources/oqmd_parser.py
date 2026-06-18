@@ -5,10 +5,7 @@ import numpy as np
 import pandas as pd
 from pymatgen.core import Structure
 
-try:
-    import MySQLdb
-except ImportError as err:
-    raise ImportError("Install `mysqlclient` to use OQMDClient.") from err
+MySQLdb = None
 
 
 @dataclass(slots=True)
@@ -28,6 +25,14 @@ class OQMDClient:
     # ------------------------------------------------------------------ #
 
     def _connect(self):
+        global MySQLdb
+        if MySQLdb is None:
+            try:
+                import MySQLdb as _MySQLdb
+            except ImportError as err:
+                raise ImportError("Install `mysqlclient` to use OQMDClient.") from err
+            MySQLdb = _MySQLdb
+
         if self._conn is None:
             self._conn = MySQLdb.connect(
                 host=self.host,

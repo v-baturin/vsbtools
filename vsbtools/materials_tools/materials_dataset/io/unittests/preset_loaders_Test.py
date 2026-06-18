@@ -1,8 +1,10 @@
 import unittest
 from pathlib import Path
+from unittest.mock import Mock, patch
 from ...io.preset_loaders import (load_from_materials_project,
                                                                                 load_from_oqmd,
                                                                                 load_from_alexandria,
+                                                                                load_from_optimade,
                                                                                 load_from_uspex_goodstructures,
                                                                                 load_from_uspex_calc_folders,
                                                                                 load_mattersim_estimated_set)
@@ -17,19 +19,84 @@ class DSLoaders_Test(unittest.TestCase):
         self.poscars_folder = PATH_WITH_DATASETS / "POSCARS"
         self.uspex_calcfolders = PATH_WITH_DATASETS / 'uspex_folders/calcFolders'
         self.uspex_goodStructures = PATH_WITH_DATASETS / 'uspex_folders/results1/goodStructures'
-        self.csv = PATH_WITH_DATASETS / 'mattersim_res_for_POSCARS.csv'
+        self.csv = PATH_WITH_TESTS / 'mattersim_res_for_POSCARS.csv'
 
     def test_loadMP(self):
         ds = load_from_materials_project({'Mo', 'Si'})
         self.assertEqual(len(ds), 58)
 
+    def test_load_from_materials_project_interface(self):
+        query_df = Mock(name="query_df")
+        dataset = Mock(name="dataset")
+        client = Mock()
+        client.query.return_value = query_df
+
+        with patch("vsbtools.materials_tools.materials_dataset.io.preset_loaders.mp_client", client), \
+                patch("vsbtools.materials_tools.materials_dataset.io.preset_loaders.df2ds",
+                      return_value=dataset) as df2ds:
+            result = load_from_materials_project.__wrapped__({'Mo', 'Si'})
+
+        client.query.assert_called_once_with({'Mo', 'Si'})
+        self.assertIn("Materials Project", df2ds.call_args.kwargs["message"])
+        self.assertIs(result, dataset)
+
     def test_loadOQMD(self):
         ds = load_from_oqmd({'Mo', 'Si'})
         self.assertEqual(len(ds), 83)
 
+    def test_load_from_oqmd_interface(self):
+        query_df = Mock(name="query_df")
+        dataset = Mock(name="dataset")
+        client = Mock()
+        client.query.return_value = query_df
+
+        with patch("vsbtools.materials_tools.materials_dataset.io.preset_loaders.oqmd_client", client), \
+                patch("vsbtools.materials_tools.materials_dataset.io.preset_loaders.df2ds",
+                      return_value=dataset) as df2ds:
+            result = load_from_oqmd.__wrapped__({'Mo', 'Si'})
+
+        client.query.assert_called_once_with({'Mo', 'Si'})
+        self.assertIn("OQMD", df2ds.call_args.kwargs["message"])
+        self.assertIs(result, dataset)
+
     def test_loadAlexandria(self):
         ds = load_from_alexandria({'Mo', 'Si'}, pattern='alexandria_00*.json')
         self.assertEqual(len(ds), 34)
+
+    def test_load_from_alexandria_interface(self):
+        query_df = Mock(name="query_df")
+        dataset = Mock(name="dataset")
+        client = Mock()
+        client.query.return_value = query_df
+
+        with patch("vsbtools.materials_tools.materials_dataset.io.preset_loaders.AlexandriaClient",
+                   return_value=client) as client_cls, \
+                patch("vsbtools.materials_tools.materials_dataset.io.preset_loaders.df2ds",
+                      return_value=dataset) as df2ds:
+            result = load_from_alexandria.__wrapped__({'Mo', 'Si'}, pattern="alexandria_00*.json")
+
+        client_cls.assert_called_once_with(pattern="alexandria_00*.json")
+        client.query.assert_called_once_with({'Mo', 'Si'})
+        self.assertIn("Alexandria", df2ds.call_args.kwargs["message"])
+        self.assertIs(result, dataset)
+
+    def test_load_from_optimade(self):
+        query_df = Mock(name="query_df")
+        dataset = Mock(name="dataset")
+        client = Mock()
+        client.query.return_value = query_df
+
+        with patch("vsbtools.materials_tools.materials_dataset.io.preset_loaders.OptimadeClient",
+                   return_value=client) as client_cls, \
+                patch("vsbtools.materials_tools.materials_dataset.io.preset_loaders.df2ds",
+                      return_value=dataset) as df2ds:
+            result = load_from_optimade.__wrapped__({'Mo', 'Si'}, providers=["oqmd"], page_limit=10)
+
+        client_cls.assert_called_once_with(providers=["oqmd"], page_limit=10)
+        client.query.assert_called_once_with({'Mo', 'Si'})
+        self.assertTrue(df2ds.call_args.kwargs["message"].startswith("Full "))
+        self.assertIn("OPTIMADE", df2ds.call_args.kwargs["message"])
+        self.assertIs(result, dataset)
 
     def test_load_from_uspex_goodstructures(self):
         ds = load_from_uspex_goodstructures(self.uspex_goodStructures)
@@ -72,4 +139,3 @@ class DSLoaders_Test(unittest.TestCase):
     #     Path(ds.pkl_path).unlink()
     #     Path(ds.regfile).unlink()
     #     Path(ds.treefile).unlink()
-

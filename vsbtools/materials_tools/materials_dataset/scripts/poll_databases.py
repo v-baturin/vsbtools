@@ -5,7 +5,12 @@ from pathlib import Path
 from ....genutils.misc import serialize_structure, is_substructure
 from ..crystal_dataset import CrystalDataset
 from ..io.yaml_csv_poscars import read, write
-from ..io.preset_loaders import load_from_alexandria, load_from_oqmd, load_from_materials_project
+from ..io.preset_loaders import (
+    load_from_alexandria,
+    load_from_oqmd,
+    load_from_materials_project,
+    load_from_optimade,
+)
 from ..analysis.phase_diagram_tools import PhaseDiagramTools
 from ..analysis.similarity_tools import SimilarityTools, describe_similarity_tool
 from ..analysis.structural_distance.dscribe_bridge import DScribeBridge
@@ -15,8 +20,19 @@ CACHE_DIR = HOME / ".cache" / "vsbtools" / "DB_caches"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
 MAX_EHULL = 0.5  # Maximum energy above hull in eV/atom for filtering
 TOL_FP = 0.008
-LOADERS = {"al": load_from_alexandria, "oq": load_from_oqmd, "mp": load_from_materials_project,
-           "ma": load_from_materials_project}  # List of database clients to fetch data from
+LOADERS = {
+    "al": load_from_alexandria,
+    "oq": load_from_oqmd,
+    "mp": load_from_materials_project,
+    "ma": load_from_materials_project,
+    "op": load_from_optimade,
+}  # List of database clients to fetch data from
+OPTIMADE_FALLBACK_PROVIDERS = {
+    "al": "alexandria",
+    "oq": "oqmd",
+    "mp": "materials_project",
+    "ma": "materials_project",
+}
 # ------------------------------------------------------------------ #
 
 def poll_databases(elements,
@@ -29,6 +45,7 @@ def poll_databases(elements,
                    tol_FP: float | None = None,
                    loader_kwargs: Dict | None =None,
                    cache_root_path: Path | None = None,
+                   optimade_fallback: bool = True,
                    **kwargs):
     """
     Fetch data from Alexandria, OQMD, and Materials Project databases.
@@ -36,7 +53,11 @@ def poll_databases(elements,
     are added.
     """
 
-    parameters_dict: Dict[str, str|float|int] = {'e_hull_filtering': do_ehull_filtering, 'deduplication': do_deduplication}
+    parameters_dict: Dict[str, str|float|int|bool] = {
+        'e_hull_filtering': do_ehull_filtering,
+        'deduplication': do_deduplication,
+        'optimade_fallback': optimade_fallback,
+    }
     if do_deduplication:
         if similarity_tk is None:
             bridge_kwargs = {"tol_FP": tol_FP} if tol_FP is not None else {}
@@ -76,10 +97,26 @@ def poll_databases(elements,
         assert db in LOADERS, f"Database '{short_names_dict[db]}' is not recognized. Available databases: {list(LOADERS.keys())}."
     # other_loaders = [LOADERS[short_name] for short_name in short_names_dict if not short_name.startswith(ref_db)]
 
-    reference_loader = LOADERS[pref_db]
+    def load_db(short_name):
+        local_kwargs = dict(loader_kw[short_name])
+        loader = LOADERS[short_name]
+        if optimade_fallback and short_name == "al":
+            local_kwargs.setdefault("prompt", False)
+        try:
+            return loader(elements, **local_kwargs)
+        except Exception:
+            if not optimade_fallback or short_name == "op":
+                raise
+            provider = OPTIMADE_FALLBACK_PROVIDERS.get(short_name)
+            if provider is None:
+                raise
+            fallback_kwargs = dict(loader_kw["op"])
+            fallback_kwargs.setdefault("providers", [provider])
+            print(f"Falling back to OPTIMADE provider '{provider}' for {short_names_dict.get(short_name, short_name)}.")
+            return load_from_optimade(elements, **fallback_kwargs)
 
     print(f"Fetching data from preferred DB: {short_names_dict.pop(pref_db)}...")
-    reference_data = reference_loader(elements, **loader_kw[pref_db])
+    reference_data = load_db(pref_db)
 
     if do_ehull_filtering:
         max_ehull = max_ehull or MAX_EHULL
@@ -88,7 +125,7 @@ def poll_databases(elements,
 
     for loader in short_names_dict: # Skip the first loader as it's already processed
         print(f"Fetching data from {short_names_dict[loader]}...")
-        loaded_ds = LOADERS[loader](elements, **loader_kw[loader])
+        loaded_ds = load_db(loader)
         pd_tools = PhaseDiagramTools(loaded_ds)
         if do_ehull_filtering:
             loaded_ds = loaded_ds.filter(lambda e: pd_tools.height_above_hull_pa(e) < max_ehull)

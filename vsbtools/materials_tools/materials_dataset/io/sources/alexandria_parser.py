@@ -5,10 +5,7 @@ import pandas as pd
 from pymatgen.core import Structure
 from ....external_paths import glob_validator, resolve_external_path
 
-try:
-    import ijson
-except ImportError as err:
-    raise ImportError("Install `ijson` to use AlexandriaClient.") from err
+ijson = None
 
 
 @dataclass(slots=True)
@@ -17,6 +14,7 @@ class AlexandriaClient:
 
     root: Path | str | None = None
     pattern: str = "alexandria*.json"
+    prompt: bool = True
 
     def __post_init__(self):
         self.root = resolve_external_path(
@@ -26,6 +24,7 @@ class AlexandriaClient:
             explicit_path=self.root,
             validator=glob_validator(self.pattern, description="Alexandria database"),
             prompt_text="Enter full path to Alexandria database: ",
+            prompt=self.prompt,
         )
 
     # ------------------------------------------------------------------ #
@@ -44,6 +43,14 @@ class AlexandriaClient:
 
     def query(self, elements: Iterable[str]) -> pd.DataFrame:
         """Return rows that contain *only* the requested elements."""
+        global ijson
+        if ijson is None:
+            try:
+                import ijson as _ijson
+            except ImportError as err:
+                raise ImportError("Install `ijson` to use AlexandriaClient.") from err
+            ijson = _ijson
+
         wanted = set(elements)
         rows: list[dict] = []
 
