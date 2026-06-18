@@ -9,12 +9,13 @@ from ..io.structures_dataset_io import StructureDatasetIO
 from .symmetry_tools import SymmetryToolkit
 from ..scripts.poll_databases import poll_databases
 from .similarity_tools import SimilarityTools
+from .structural_distance.dscribe_bridge import DScribeBridge
 from ..io.uspex_bridge import USPEXBridge
 from ..energy_estimation import nn_estimator, mattersim_bridge
 from ..analysis.phase_diagram_tools import PhaseDiagramTools
 
 TOOLKIT_DICT = {"structure_parser":StructureDatasetIO, "symmetry": SymmetryToolkit,
-                "similarity": SimilarityTools, "uspex": USPEXBridge, "phase_diag": PhaseDiagramTools,
+                "similarity": SimilarityTools, "dscribe": DScribeBridge, "uspex": USPEXBridge, "phase_diag": PhaseDiagramTools,
                 "estimator": nn_estimator.NNEstimator}
 
 KNOWN_MODELS = {"mattersim": mattersim_bridge}
@@ -49,14 +50,19 @@ class PPPipeline:
         self.toolkit_options["structure_parser"].update({"root": self.source_path,
                                                          "source_name": self.root_source_name})
         self.toolkit_options["uspex"].update({"elements": self.elements})
+        self.toolkit_options["dscribe"].update({"elements": self.elements})
         self.stages_options = defaultdict(dict, {PostprocessStage(k): v for k, v in self.stages_options.items()})
 
 
     def get_tool(self, toolkit_name):
         if toolkit_name not in self.toolkits:
             if toolkit_name == "similarity":
-                ub = self.get_tool("uspex")
-                self.toolkit_options["similarity"]["dist_fn"] = ub.fp_dist
+                opts = self.toolkit_options["similarity"]
+                bridge_name = opts.pop("bridge", "dscribe")
+                if "dist_fn" not in opts:
+                    bridge = self.get_tool(bridge_name)
+                    opts["dist_fn"] = bridge.fp_dist
+                    opts.setdefault("tol_FP", getattr(bridge, "tol_FP", 0.08))
             elif toolkit_name == "estimator":
                 for label, module in KNOWN_MODELS.items():
                     TOOLKIT_DICT[toolkit_name].register_model(label, module)
@@ -165,7 +171,6 @@ class PPPipeline:
             else:
                 warnings.warn(f"Stage '{stage.name}' not yet implemented")
                 break
-
 
 
 

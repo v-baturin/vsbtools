@@ -11,11 +11,14 @@ from typing import Any, Callable, Dict, Iterable, List, MutableMapping, Optional
 from collections import defaultdict, deque
 
 from ..crystal_dataset import CrystalDataset
-from ..io.structures_dataset_io import StructureDatasetIO
+from ..io.structures_dataset_io import StructureDatasetIO, get_batch_metadata
 from ..io.yaml_csv_poscars import read as read_dataset_manifest, write as write_dataset_manifest
 from .symmetry_tools import SymmetryToolkit
 from ..scripts.poll_databases import poll_databases, CACHE_DIR as POLL_DB_CACHE_DIR
-from .similarity_tools import SimilarityTools
+from .similarity_tools import SimilarityTools, describe_similarity_tool
+from .structural_distance.dscribe_bridge import DScribeBridge
+from ..infrastructure.repository import DatasetRepo
+from ...ext_software_io.mattergen_tools.parsers import input_parameters_to_dict, fname_friendly_serialize
 from ..io.uspex_bridge import USPEXBridge
 from ..energy_estimation import nn_estimator, mattersim_bridge, grace_bridge
 from ..analysis.phase_diagram_tools import PhaseDiagramTools
@@ -28,6 +31,7 @@ TOOLKIT_DICT: Dict[str, Any] = {
     "structure_parser": StructureDatasetIO,
     "symmetry":         SymmetryToolkit,
     "similarity":       SimilarityTools,
+    "dscribe":          DScribeBridge,
     "uspex":            USPEXBridge,
     "phase_diag":       PhaseDiagramTools,
     "estimator":        nn_estimator.NNEstimator,
@@ -59,21 +63,25 @@ class Context:
 
         if name not in self.toolkits:
             # special handling for some toolkits
-            # Auto-fill USPEX elements from ctx.globals if missing
-            if name == "uspex":
-                opts = self.toolkit_options["uspex"]
+            # Auto-fill structure-similarity bridge elements from ctx.globals if missing
+            if name in {"dscribe", "uspex"}:
+                opts = self.toolkit_options[name]
                 if "elements" not in opts:
                     elems = self.globals.get("elements")
                     if elems is None:
                         raise RuntimeError(
-                            "USPEXBridge requires 'elements'; "
-                            "set ctx.globals['elements'] before using 'uspex'"
+                            f"{TOOLKIT_DICT[name].__name__} requires 'elements'; "
+                            f"set ctx.globals['elements'] before using '{name}'"
                         )
                     opts["elements"] = elems
 
             if name == "similarity":
-                ub = self.get_tool("uspex")
-                self.toolkit_options["similarity"].setdefault("dist_fn", ub.fp_dist)
+                opts = self.toolkit_options["similarity"]
+                bridge_name = opts.pop("bridge", "dscribe")
+                if "dist_fn" not in opts:
+                    bridge = self.get_tool(bridge_name)
+                    opts["dist_fn"] = bridge.fp_dist
+                    opts.setdefault("tol_FP", getattr(bridge, "tol_FP", 0.08))
             elif name == "estimator":
                 for label, module in KNOWN_MODELS.items():
                     TOOLKIT_DICT["estimator"].register_model(label, module)
@@ -354,7 +362,83 @@ class ScenarioPipeline:
 
 
 # ==================================================================
-# 5. Operations implementing the original PPPipeline stages
+# 5. Generation-directory processing
+# ==================================================================
+
+def process_generation_dir(
+    dir_path: str | Path,
+    repo_root: str | Path,
+    scenario_file: str | Path,
+    *,
+    batch_metadata_file: str | Path = "input_parameters.txt",
+    ignore_unknown_existing_stages: bool = True,
+) -> DatasetRepo | None:
+    """Run a scenario pipeline for one generated-structures directory.
+
+    The repository location is derived from MatterGen batch metadata as
+    ``<repo_root>/<chemical-system>/<serialized-input-parameters>``. Existing
+    repository nodes are loaded into the pipeline context first, so only missing
+    scenario stages are executed and committed.
+
+    Returns the repository used for the generation, or ``None`` when the
+    directory does not contain the requested batch metadata file.
+    """
+    dir_path = Path(dir_path)
+    repo_root = Path(repo_root)
+    scenario_file = Path(scenario_file)
+
+    batch_meta = get_batch_metadata(dir_path, batch_metadata_file)
+    if batch_meta is None:
+        LOG.info("%s has no metadata file matching %s. Skipping.", dir_path, batch_metadata_file)
+        return None
+
+    param_dict = input_parameters_to_dict(raw=batch_meta)
+    try:
+        raw_system = param_dict["properties_to_condition_on"]["chemical_system"]
+    except KeyError as exc:
+        raise KeyError(
+            f"Batch metadata in {dir_path} does not define "
+            "properties_to_condition_on.chemical_system"
+        ) from exc
+
+    system_elements = sorted(str(raw_system).split("-"))
+    system = "-".join(system_elements)
+    repo_path = repo_root / system / fname_friendly_serialize(param_dict)
+    elements = sorted(set(system_elements))
+
+    repo = DatasetRepo(root=repo_path)
+    pipeline = ScenarioPipeline.from_file(scenario_file)
+    ctx = pipeline.ctx
+
+    ctx.globals["elements"] = elements
+    ctx.toolkit_options["structure_parser"]["root"] = dir_path
+    ctx.toolkit_options["structure_parser"].setdefault("batch_metadata_file", batch_metadata_file)
+
+    for node in repo.list_nodes():
+        ds = repo.load_node(node)
+        try:
+            stage_name = pipeline.scenario.resolve_stage_name_from_metadata(ds)
+        except KeyError:
+            if not ignore_unknown_existing_stages:
+                raise
+            LOG.warning(
+                "Stage in %s exists in repo, but is not described in %s. Skipping.",
+                getattr(ds, "base_path", repo_path),
+                scenario_file,
+            )
+            continue
+        ctx.outputs[stage_name] = ds
+
+    for stage_name, ds in pipeline.run():
+        idx = pipeline.scenario.legacy_name_to_index.get(stage_name)
+        prefix = str(idx) if idx is not None else stage_name
+        repo.commit_node(ds, prefix=prefix)
+
+    return repo
+
+
+# ==================================================================
+# 6. Operations implementing the original PPPipeline stages
 # ==================================================================
 
 def _normalize_cache_payload(obj: Any):
@@ -476,6 +560,10 @@ def op_poll_db(
     op_params = dict(params)
     # default max_ehull as in the original code
     op_params.setdefault("max_ehull", MAX_EHULL_PA)
+    similarity_tk = None
+    if op_params.get("do_deduplication", False):
+        similarity_tk = ctx.get_tool("similarity")
+        op_params.setdefault("similarity_bridge", describe_similarity_tool(similarity_tk))
     cache_params_signature = dict(op_params)
     cache_base_path = op_params.get("cache_base_path")
     op_cache_dir = Path(cache_base_path) if cache_base_path else _poll_db_cache_dir(elements, cache_params_signature)
@@ -491,9 +579,8 @@ def op_poll_db(
 
     # optional additional estimation
 
-    if op_params.get("do_deduplication", False):
-        stk = ctx.get_tool("similarity")
-        op_params["similarity_tk"] = stk # Must have methods get_unseen_in_ref() and deduplicate()
+    if similarity_tk is not None:
+        op_params["similarity_tk"] = similarity_tk # Must have methods get_unseen_in_ref() and deduplicate()
 
     # remaining parameters are passed directly to poll_databases
     db = poll_databases(elements, **op_params)

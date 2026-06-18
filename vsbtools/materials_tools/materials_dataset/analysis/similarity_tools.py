@@ -8,6 +8,15 @@ from ....genutils.duplicate_analysis import remove_duplicates
 
 DEBUG = False
 
+
+def describe_similarity_tool(similarity_tk: "SimilarityTools") -> str:
+    dist_fn = getattr(similarity_tk, "dist", None)
+    owner = getattr(dist_fn, "__self__", None)
+    if owner is not None:
+        return owner.__class__.__name__
+    return getattr(dist_fn, "__qualname__", repr(dist_fn))
+
+
 class SimilarityTools:
     def __init__(self, dist_fn: Callable[[CrystalEntry, CrystalEntry], float], tol_FP: float = 0.08) -> None:
         self.tol_FP = tol_FP
