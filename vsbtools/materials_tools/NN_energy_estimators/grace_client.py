@@ -1,20 +1,18 @@
 import sys
-import socket
 import io, subprocess
 import os
 from pathlib import Path
 from ase.io import read, write
+from ..external_paths import python_executable_from_venv, python_import_validator, resolve_external_path
 
-host = socket.gethostname()
-GRACE_PYTHON_PATHS = {'nina': "/home/vsbat/work/python_venvs/grace_potential/bin/python",
-                      "taurus": "/home/vsbat/work/venvs/tensorpotential_venv/bin/python",
-                      "serpens": "/home/vsbat/work/venvs/grace/bin/python"
-                          }
-
-if host not in GRACE_PYTHON_PATHS:
-    other_python = Path(input("Enter full path to grace-containing virtual environment")) / "bin/python"
-else:
-    other_python = Path(GRACE_PYTHON_PATHS[host])
+other_python = resolve_external_path(
+    name="GRACE Python environment",
+    config_key="grace_python",
+    env_var="GRACE_PYTHON",
+    normalizer=python_executable_from_venv,
+    validator=python_import_validator("tensorpotential.calculator"),
+    prompt_text="Enter full path to GRACE virtual environment or Python executable: ",
+)
 
 HERE = Path(__file__).resolve().parent
 helpers_path = HERE / "grace_helpers"

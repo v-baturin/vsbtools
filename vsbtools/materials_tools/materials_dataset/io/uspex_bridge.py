@@ -2,6 +2,25 @@ from pathlib import Path
 from functools import lru_cache
 import re
 from ..crystal_dataset import CrystalDataset, CrystalEntry
+from ...external_paths import add_sys_path, import_from_path_validator, resolve_external_path
+
+
+def _normalize_uspex_path(path: Path) -> Path:
+    if path.name == "USPEX" and path.is_dir():
+        return path.parent
+    return path
+
+
+USPEX_PYTHON_PATH = resolve_external_path(
+    name="USPEX Python package",
+    config_key="uspex_python_path",
+    env_var="USPEX_PYTHON_PATH",
+    normalizer=_normalize_uspex_path,
+    validator=import_from_path_validator("USPEX.components"),
+    prompt_text="Enter path to USPEX Python root or USPEX package directory: ",
+)
+add_sys_path(USPEX_PYTHON_PATH)
+
 from USPEX.components import Atomistic
 from USPEX.DataModel.Engine import Engine
 from USPEX.DataModel.Flavour import Flavour

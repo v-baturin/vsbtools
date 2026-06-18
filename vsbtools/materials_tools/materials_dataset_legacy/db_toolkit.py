@@ -36,6 +36,7 @@ from pymatgen.analysis.phase_diagram import PDEntry, PhaseDiagram
 from pymatgen.core import Structure, Composition
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 import matplotlib.pyplot as plt, ternary
+from ..external_paths import glob_validator, resolve_external_path
 
 
 SYMPREC = 6.4e-4
@@ -150,8 +151,18 @@ class OQMDClient:
 # ================= Alexandria ==============================================
 @dataclass(slots=True)
 class AlexandriaClient:
-    root: Path | str = Path("~/work/Alexandria").expanduser()
+    root: Path | str | None = None
     pattern: str = "alexandria*.json"
+
+    def __post_init__(self):
+        self.root = resolve_external_path(
+            name="Alexandria database",
+            config_key="alexandria_path",
+            env_var="ALEXANDRIA_PATH",
+            explicit_path=self.root,
+            validator=glob_validator(self.pattern, description="Alexandria database"),
+            prompt_text="Enter full path to Alexandria database: ",
+        )
 
     def _files(self):
         files = sorted(Path(self.root).glob(self.pattern))

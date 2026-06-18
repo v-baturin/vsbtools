@@ -1,20 +1,9 @@
-import socket
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Set, Iterable
 import pandas as pd
 from pymatgen.core import Structure
-
-ALEXANDRIA_PATH = {
-    'nina': '/home/vsbat/work/Alexandria',
-    'taurus': "/data1/common/alexandria/pbe_data",
-    'serpens': "/home/vsbat/work/Alexandria/pbe_data"
-                           }
-host = socket.gethostname()
-if host not in ALEXANDRIA_PATH:
-    ALEXANDRIA_PATH[host] = input("Enter full path to Alexandria Database: ")
-
-DEFAULT_ALEXANDRIA_PATH = ALEXANDRIA_PATH[host]
+from ....external_paths import glob_validator, resolve_external_path
 
 try:
     import ijson
@@ -26,11 +15,18 @@ except ImportError as err:
 class AlexandriaClient:
     """Read *.json* snapshots of the Alexandria database."""
 
-    root: Path | str = DEFAULT_ALEXANDRIA_PATH
+    root: Path | str | None = None
     pattern: str = "alexandria*.json"
 
     def __post_init__(self):
-        assert Path(self.root).exists(), f"Alexandria DB files not found in {self.root}"
+        self.root = resolve_external_path(
+            name="Alexandria database",
+            config_key="alexandria_path",
+            env_var="ALEXANDRIA_PATH",
+            explicit_path=self.root,
+            validator=glob_validator(self.pattern, description="Alexandria database"),
+            prompt_text="Enter full path to Alexandria database: ",
+        )
 
     # ------------------------------------------------------------------ #
     # Internals                                                          #

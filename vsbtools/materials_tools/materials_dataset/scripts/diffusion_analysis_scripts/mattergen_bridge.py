@@ -1,60 +1,102 @@
 import copy
-import os
-import socket
-import sys
 from pathlib import Path
 
 import numpy as np
 import torch
-
-MATTERGEN_PYTHON_PATHS = {
-    "nina": "/home/vsbat/work/mattergen/mattergenbis_vb",
-    "taurus": "/home/vsbat/my_git_projects/mattergenbis_vb",
-    "serpens": "/home/vsbat/git_packages/mattergenbis_vb",
-}
+from ....external_paths import add_sys_path, import_from_path_validator, resolve_external_path
 
 _MATTERGEN_IMPORT_ERROR = None
+mgen_path = None
 
-host = socket.gethostname()
-mgen_path = os.environ.get("MATTERGEN_PYTHON_PATH") or MATTERGEN_PYTHON_PATHS.get(host)
-if mgen_path:
-    sys.path.append(Path(mgen_path).as_posix())
+ChemGraph = None
+LOSS_REGISTRY = {}
+_soft_neighbor_counts_per_A_single = None
+_clear_globals_impl = None
+compute_mean_coordination = None
+compute_target_share = None
+volume = None
+volume_pa = None
+mattergen_chemgraph_fn_collection = {}
+mattergen_cell_frac_types_fn_collection = {}
 
-try:
-    from mattergen.common.data.chemgraph import ChemGraph
-    from mattergen.diffusion.diffusion_loss import (
-        LOSS_REGISTRY,
-        _soft_neighbor_counts_per_A_single,
-        clear_globals as _clear_globals_impl,
-        compute_mean_coordination,
-        compute_target_share,
-        volume,
-        volume_pa,
+
+def _refresh_function_collections() -> None:
+    global mattergen_chemgraph_fn_collection, mattergen_cell_frac_types_fn_collection
+    mattergen_chemgraph_fn_collection = {"volume": volume, "volume_pa": volume_pa}
+    mattergen_cell_frac_types_fn_collection = {
+        "compute_mean_coordination": compute_mean_coordination,
+        "compute_target_share": compute_target_share,
+        "_soft_neighbor_counts_per_A_single": _soft_neighbor_counts_per_A_single,
+    }
+
+
+def _configure_mattergen_path(*, prompt: bool) -> Path | None:
+    global mgen_path
+    if mgen_path is not None:
+        return Path(mgen_path)
+
+    resolved_path = resolve_external_path(
+        name="MatterGen source tree",
+        config_key="mattergen_python_path",
+        env_var="MATTERGEN_PYTHON_PATH",
+        validator=import_from_path_validator(
+            ("mattergen.common.data.chemgraph", "mattergen.diffusion.diffusion_loss")
+        ),
+        prompt=prompt,
+        required=prompt,
+        prompt_text="Enter path to MatterGen source tree: ",
     )
-except ModuleNotFoundError as exc:
-    ChemGraph = None
-    LOSS_REGISTRY = {}
-    _soft_neighbor_counts_per_A_single = None
-    _clear_globals_impl = None
-    compute_mean_coordination = None
-    compute_target_share = None
-    volume = None
-    volume_pa = None
-    _MATTERGEN_IMPORT_ERROR = exc
+    if resolved_path is not None:
+        add_sys_path(resolved_path, prepend=False)
+        mgen_path = resolved_path
+    return resolved_path
 
-mattergen_chemgraph_fn_collection = {"volume": volume, "volume_pa": volume_pa}
-mattergen_cell_frac_types_fn_collection = {
-    "compute_mean_coordination": compute_mean_coordination,
-    "compute_target_share": compute_target_share,
-    "_soft_neighbor_counts_per_A_single": _soft_neighbor_counts_per_A_single,
-}
+
+def _import_mattergen() -> None:
+    global ChemGraph, LOSS_REGISTRY, _soft_neighbor_counts_per_A_single, _clear_globals_impl
+    global compute_mean_coordination, compute_target_share, volume, volume_pa
+    global _MATTERGEN_IMPORT_ERROR
+
+    try:
+        from mattergen.common.data.chemgraph import ChemGraph as _ChemGraph
+        from mattergen.diffusion.diffusion_loss import (
+            LOSS_REGISTRY as _LOSS_REGISTRY,
+            _soft_neighbor_counts_per_A_single as _soft_neighbor_counts_per_A_single_impl,
+            clear_globals as _clear_globals_impl_imported,
+            compute_mean_coordination as _compute_mean_coordination,
+            compute_target_share as _compute_target_share,
+            volume as _volume,
+            volume_pa as _volume_pa,
+        )
+    except ModuleNotFoundError as exc:
+        _MATTERGEN_IMPORT_ERROR = exc
+        return
+
+    ChemGraph = _ChemGraph
+    LOSS_REGISTRY = _LOSS_REGISTRY
+    _soft_neighbor_counts_per_A_single = _soft_neighbor_counts_per_A_single_impl
+    _clear_globals_impl = _clear_globals_impl_imported
+    compute_mean_coordination = _compute_mean_coordination
+    compute_target_share = _compute_target_share
+    volume = _volume
+    volume_pa = _volume_pa
+    _MATTERGEN_IMPORT_ERROR = None
+    _refresh_function_collections()
+
+
+_configure_mattergen_path(prompt=False)
+_import_mattergen()
 
 
 def _require_mattergen():
     if ChemGraph is None:
+        _configure_mattergen_path(prompt=True)
+        _import_mattergen()
+    if ChemGraph is None:
         if mgen_path is None:
             raise ModuleNotFoundError(
-                "mattergen is not configured. Set MATTERGEN_PYTHON_PATH or add hostname to MATTERGEN_PYTHON_PATHS."
+                "mattergen is not configured. Set MATTERGEN_PYTHON_PATH, configure external_paths.json, "
+                "or enter the path when prompted."
             ) from _MATTERGEN_IMPORT_ERROR
         raise ModuleNotFoundError(
             f"mattergen import failed from path '{mgen_path}'."

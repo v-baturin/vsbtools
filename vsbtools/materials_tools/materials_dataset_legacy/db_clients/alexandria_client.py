@@ -4,6 +4,7 @@ from typing import List, Set, Iterable
 
 import pandas as pd
 from pymatgen.core import Structure
+from ...external_paths import glob_validator, resolve_external_path
 
 try:
     import ijson
@@ -15,8 +16,18 @@ except ImportError as err:
 class AlexandriaClient:
     """Read *.json* snapshots of the Alexandria database."""
 
-    root: Path | str = Path("~/work/Alexandria").expanduser()
+    root: Path | str | None = None
     pattern: str = "alexandria*.json"
+
+    def __post_init__(self):
+        self.root = resolve_external_path(
+            name="Alexandria database",
+            config_key="alexandria_path",
+            env_var="ALEXANDRIA_PATH",
+            explicit_path=self.root,
+            validator=glob_validator(self.pattern, description="Alexandria database"),
+            prompt_text="Enter full path to Alexandria database: ",
+        )
 
     # ------------------------------------------------------------------ #
     # Internals                                                          #

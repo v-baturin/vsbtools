@@ -1,0 +1,14 @@
+{
+  "nina": {
+    "alexandria_path": "~/work/Alexandria",
+    "grace_python": "~/work/python_venvs/grace_potential/bin/python",
+    "mattergen_python_path": "~/work/mattergen/mattergenbis_vb",
+    "mattersim_python": "~/work/mattergen/mattergenbis/.venv/bin/python"
+  },
+  "serpens": {
+    "alexandria_path": "~/work/Alexandria/pbe_data",
+    "grace_python": "~/work/venvs/grace/bin/python",
+    "mattergen_python_path": "~/git_packages/mattergenbis_vb",
+    "mattersim_python": "~/work/venvs/mattersim/bin/python"
+  }
+}

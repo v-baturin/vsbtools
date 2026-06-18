@@ -1,19 +1,18 @@
 import sys
-import socket
 import io, subprocess
 import os
 from pathlib import Path
 from ase.io import read, write
+from ..external_paths import python_executable_from_venv, python_import_validator, resolve_external_path
 
-host = socket.gethostname()
-MATTERSIM_PYTHON_PATHS = {'nina': "/home/vsbat/work/mattergen/mattergenbis/.venv/bin/python",
-                          "taurus": "/home/vsbat/work/venvs/mattersim_venv/bin/python",
-                          "serpens": "/home/vsbat/work/venvs/mattersim/bin/python"}
-
-if host not in MATTERSIM_PYTHON_PATHS:
-    other_python = Path(input("Enter full path to mattersim-containing virtual environment")) / "bin/python"
-else:
-    other_python = Path(MATTERSIM_PYTHON_PATHS[host])
+other_python = resolve_external_path(
+    name="MatterSim Python environment",
+    config_key="mattersim_python",
+    env_var="MATTERSIM_PYTHON",
+    normalizer=python_executable_from_venv,
+    validator=python_import_validator("mattersim.forcefield"),
+    prompt_text="Enter full path to MatterSim virtual environment or Python executable: ",
+)
 
 HERE = Path(__file__).resolve().parent
 helpers_path = HERE / "mattersim_helpers"

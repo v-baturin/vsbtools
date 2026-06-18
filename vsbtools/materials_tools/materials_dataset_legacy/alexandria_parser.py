@@ -4,8 +4,15 @@ import glob
 import os
 from pymatgen.core import Structure
 from decimal import Decimal
+from ..external_paths import glob_validator, resolve_external_path
 
-ALEXANDRIA_DIR = '/home/vsbat/work/Alexandria'
+ALEXANDRIA_DIR = resolve_external_path(
+    name="Alexandria database",
+    config_key="alexandria_path",
+    env_var="ALEXANDRIA_PATH",
+    validator=glob_validator("alexandria*.json", description="Alexandria database"),
+    prompt_text="Enter full path to Alexandria database: ",
+)
 ALEX_PATTERN = os.path.join(ALEXANDRIA_DIR, "alexandria*.json")
 output_dir = os.path.join(ALEXANDRIA_DIR, "filtered_structures")
 os.makedirs(output_dir, exist_ok=True)
