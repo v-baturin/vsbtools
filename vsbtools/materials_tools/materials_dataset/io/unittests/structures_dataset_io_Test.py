@@ -1,7 +1,7 @@
-import unittest
 import tempfile
+import unittest
 from pathlib import Path
-from ..structures_dataset_io import StructureDatasetIO, exploded_zip_tree
+from ..structures_dataset_io import StructureDatasetIO, exploded_zip_tree, get_batch_metadata
 
 PATH_WITH_TESTS = Path(__file__).parent
 PATH_TEST_DATASET = PATH_WITH_TESTS / "../../unittests_datasets"
@@ -63,3 +63,41 @@ class extxyz_Test(unittest.TestCase):
     def test_invalid_pattern_rejected(self):
         with self.assertRaises(ValueError):
             _ = StructureDatasetIO(PATH_WITH_TESTS, pattern="*.foo")
+
+
+class batch_metadata_Test(unittest.TestCase):
+
+    def test_allows_only_output_path_differences(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            (root / "run_1").mkdir()
+            (root / "run_2").mkdir()
+            (root / "run_1" / "input_parameters.txt").write_text(
+                "output_path: results/run_1\nbatch_size: 12\nalgo: False\n",
+                encoding="utf-8",
+            )
+            (root / "run_2" / "input_parameters.txt").write_text(
+                "output_path: results/run_2\nbatch_size: 12\nalgo: False\n",
+                encoding="utf-8",
+            )
+
+            batch_metadata = get_batch_metadata(root, "input_parameters.txt")
+
+            self.assertIn("output_path: results/run_1", batch_metadata)
+
+    def test_raises_for_non_output_path_differences(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            (root / "run_1").mkdir()
+            (root / "run_2").mkdir()
+            (root / "run_1" / "input_parameters.txt").write_text(
+                "output_path: results/run_1\nbatch_size: 12\nalgo: False\n",
+                encoding="utf-8",
+            )
+            (root / "run_2" / "input_parameters.txt").write_text(
+                "output_path: results/run_2\nbatch_size: 24\nalgo: False\n",
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ValueError, "differ outside the output_path line"):
+                get_batch_metadata(root, "input_parameters.txt")

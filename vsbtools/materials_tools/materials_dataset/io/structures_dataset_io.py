@@ -18,6 +18,7 @@ Zip handling (copy‑then‑explode with directory‑hierarchy preservation, aki
 import logging
 import re
 from dataclasses import dataclass, field
+from difflib import ndiff
 from pathlib import Path
 from typing import Iterable, Iterator, Collection, Callable, Sequence
 
@@ -121,11 +122,31 @@ def _parse_extxyz_structures(extxyz_file: Path) -> list[Structure]:
 
     return structures
 
-def get_batch_metadata(root: Path, prov_file):
-    for found_provdata in root.rglob(prov_file):
-        with open(found_provdata, 'rt') as pmdf:
-            prov_metadata = pmdf.read()
-            return prov_metadata
+def get_batch_metadata(root: Path, prov_file: str | Path) -> str | None:
+    root = Path(root)
+    prov_pattern = prov_file.as_posix() if isinstance(prov_file, Path) else str(prov_file)
+    found_prov_files = sorted(root.rglob(prov_pattern))
+    if not found_prov_files:
+        return None
+
+    metadata_by_file = [
+        (found_prov_file, found_prov_file.read_text(encoding="utf-8"))
+        for found_prov_file in found_prov_files
+    ]
+    reference_file, reference_metadata = metadata_by_file[0]
+    for found_prov_file, prov_metadata in metadata_by_file[1:]:
+        changed_lines = [
+            line[2:]
+            for line in ndiff(reference_metadata.splitlines(), prov_metadata.splitlines())
+            if line.startswith(("- ", "+ "))
+        ]
+        if len(changed_lines) > 2 or any(not line.lstrip().startswith("output_path") for line in changed_lines):
+            raise ValueError(
+                f"Found '{reference_file.as_posix()}' and '{found_prov_file.as_posix()}', "
+                "but they differ outside the output_path line."
+            )
+
+    return reference_metadata
 
 ###############################################################################
 # Public façade                                                              #
