@@ -5,19 +5,31 @@ import numpy as np
 from pymatgen.core import Structure
 
 from ....crystal_entry import CrystalEntry
+from ....io.zip_handling import exploded_zip_tree
 from ..mattergen_bridge import get_loss_fn, get_target_value_fn, clear_globals
 
-POSCARS_PATH = Path(
-    "/home/vsbat/SYNC/00__WORK/2025-2026_MOLTEN_SALTS/MG_postprocess_pipelines/PROCESSED/"
-    "B-Fe-Nd/B-Fe-Nd__guidance_environment_mode_huber_B-Fe_6__diffusion_loss_weight_0.5-0.5-True__algo_0"
-    "/add_ref_all_311a5df7ceb60f7e/POSCARS/"
+FIXTURES_ROOT = Path(__file__).resolve().parents[3] / "unittests_datasets"
+ZIPPED_PROCESSED_PATH = (
+    FIXTURES_ROOT / "MG_postprocess_pipelines" / "PROCESSED"
 )
 
 
 class MattergenBridge_Test(unittest.TestCase):
+    def setUp(self) -> None:
+        self._fixtures_context = exploded_zip_tree(ZIPPED_PROCESSED_PATH)
+        self.processed_path = self._fixtures_context.__enter__()
+        self.poscars_path = (
+            self.processed_path / "B-Fe-Nd"
+            / "B-Fe-Nd__guidance_environment_mode_huber_B-Fe_3__diffusion_loss_weight_0.5-0.5-True__algo_0"
+            / "2_x204f1f3d5ffe2c98" / "POSCARS"
+        )
+
+    def tearDown(self) -> None:
+        self._fixtures_context.__exit__(None, None, None)
+
     def test_environment_loss_target_stability(self):
-        entry1 = CrystalEntry(id="agm003592845", structure=Structure.from_file(POSCARS_PATH / "agm003592845POSCAR"))
-        entry2 = CrystalEntry(id='mp-650968', structure=Structure.from_file(POSCARS_PATH / "mp-650968POSCAR"))
+        entry1 = CrystalEntry(id="agm003592845", structure=Structure.from_file(self.poscars_path / "agm003592845POSCAR"))
+        entry2 = CrystalEntry(id='mp-650968', structure=Structure.from_file(self.poscars_path / "mp-650968POSCAR"))
         mean_cn_fn = get_target_value_fn(
             "compute_mean_coordination", force_gpu=0, type_A=5, type_B=26
         )

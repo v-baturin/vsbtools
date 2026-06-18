@@ -7,11 +7,14 @@ from pymatgen.core import Structure, Element
 from ase.io import read as ase_read
 from ....crystal_dataset import CrystalDataset
 from ....crystal_entry import CrystalEntry
+from ....io.zip_handling import exploded_zip_tree
 from ..guidance_stats import (get_environment_gen_dirs, get_volume_pa_gen_dirs, collect_stage_dataset_dict,
                               histo_data_collection, get_target_value_fn, plot_multihistogram, calculate_values,
                               plot_multi_kde)
 from matplotlib import pyplot as plt
-PROCESSED_PATH = Path("/home/vsbat/SYNC/00__WORK/2025-2026_MOLTEN_SALTS/MG_postprocess_pipelines/PROCESSED")
+
+FIXTURES_ROOT = Path(__file__).resolve().parents[3] / "unittests_datasets"
+ZIPPED_PROCESSED_PATH = FIXTURES_ROOT / "MG_postprocess_pipelines" / "PROCESSED"
 
 
 def count_entries_around_target(ds: CrystalDataset, function: Callable, target_value: float, half_width: float = 0.5, profile: str = "rect", **kwargs):
@@ -32,16 +35,26 @@ def print_ds_dict_guidance_resume(ds_dict: Dict, function: Callable, target: flo
 class hist_tools_Test(unittest.TestCase):
 
     def setUp(self) -> None:
-        self.sio2_stich = Path("/home/vsbat/SYNC/00__WORK/2025-2026_MOLTEN_SALTS/MG_postprocess_pipelines/PROCESSED/O-Si/O-Si__guidance_environment_mode_huber_Si-O_6__diffusion_loss_weight_1-1-True__algo_0/2_x381aa8ac05cce031/POSCARS/agm002170463POSCAR")
-        self.sio2_quartz = Path("/home/vsbat/SYNC/00__WORK/2025-2026_MOLTEN_SALTS/MG_postprocess_pipelines/PROCESSED/O-Si/O-Si__guidance_environment_mode_huber_Si-O_6__diffusion_loss_weight_1-1-True__algo_0/2_x381aa8ac05cce031/POSCARS/agm002228342POSCAR")
+        self._fixtures_context = exploded_zip_tree(ZIPPED_PROCESSED_PATH)
+        self.processed_path = self._fixtures_context.__enter__()
+        sio2_poscars = (
+            self.processed_path / "O-Si"
+            / "O-Si__guidance_environment_mode_huber_Si-O_6__diffusion_loss_weight_1-1-True__algo_0_for_histograms_stable"
+            / "2_x69650df66373f8bf" / "POSCARS"
+        )
+        self.sio2_stich = sio2_poscars / "agm002170463POSCAR"
+        self.sio2_quartz = sio2_poscars / "agm002228342POSCAR"
         self.system_sio = "Si-O"
         self.system_licoo = "Li-Co-O"
         self.system_cupsi = "Cu-P-Si"
         self.system_bfend = "B-Fe-Nd"
         self.system_b = "B"
 
+    def tearDown(self) -> None:
+        self._fixtures_context.__exit__(None, None, None)
+
     def test_get_average_cn_gen_dirs(self):
-        dirs = get_environment_gen_dirs(PROCESSED_PATH, self.system_sio, guidance_name='environment', bond='Si-O', target=4)
+        dirs = get_environment_gen_dirs(self.processed_path, self.system_sio, guidance_name='environment', bond='Si-O', target=4)
         self.assertEqual(len(dirs), 2)
 
     def test_get_entry_fn(self):
@@ -61,7 +74,7 @@ class hist_tools_Test(unittest.TestCase):
         print(cns)
 
     def test_collect_stage_dataset_dict(self):
-        dirs = get_environment_gen_dirs(PROCESSED_PATH, self.system_sio, guidance_name='environment', bond='Si-O', target=6)
+        dirs = get_environment_gen_dirs(self.processed_path, self.system_sio, guidance_name='environment', bond='Si-O', target=6)
         print(f"found {len(dirs)} dirs")
         ds_dict = collect_stage_dataset_dict(dirs, "symmetrize_raw", "poll_db", add_guid_descr=True)
         hdc = histo_data_collection(ds_dict, callable_name='compute_mean_coordination', callable_params={"type_A": 14,
@@ -72,7 +85,7 @@ class hist_tools_Test(unittest.TestCase):
         plt.show()
 
     def test_licoo(self):
-        dirs = get_environment_gen_dirs(PROCESSED_PATH, self.system_licoo, guidance_name='environment', bond='Co-O', target=4)
+        dirs = get_environment_gen_dirs(self.processed_path, self.system_licoo, guidance_name='environment', bond='Co-O', target=4)
         print(f"found {len(dirs)} dirs")
         ds_dict = collect_stage_dataset_dict(dirs, "symmetrize_raw", "poll_db", add_guid_descr=True)
         hdc = histo_data_collection(ds_dict, callable_name='compute_mean_coordination', callable_params={"type_A": 27,
@@ -84,7 +97,7 @@ class hist_tools_Test(unittest.TestCase):
 
 
     def test_cupsi(self):
-        dirs = get_environment_gen_dirs(PROCESSED_PATH, self.system_cupsi, guidance_name='environment', bond='Cu-P', target=3)
+        dirs = get_environment_gen_dirs(self.processed_path, self.system_cupsi, guidance_name='environment', bond='Cu-P', target=3)
         print(f"found {len(dirs)} dirs")
         ds_dict = collect_stage_dataset_dict(dirs, "symmetrize_raw", "poll_db", add_guid_descr=True)
         hdc = histo_data_collection(ds_dict, callable_name='compute_mean_coordination', callable_params={"type_A": 29,
@@ -99,7 +112,7 @@ class hist_tools_Test(unittest.TestCase):
         bond = "B-Fe"
         target = 3
         type_A, type_B = (Element(e).Z for e in bond.split('-'))
-        dirs = get_environment_gen_dirs(PROCESSED_PATH, system=system, guidance_name='environment', bond=bond,
+        dirs = get_environment_gen_dirs(self.processed_path, system=system, guidance_name='environment', bond=bond,
                                         target=target)
         print(f"found {len(dirs)} dirs")
         ds_dict = collect_stage_dataset_dict(dirs, "symmetrize_raw", "poll_db", add_guid_descr=True)
@@ -114,7 +127,7 @@ class hist_tools_Test(unittest.TestCase):
         bond = "Cu-P"
         target = 4
         type_A, type_B = (Element(e).Z for e in bond.split('-'))
-        dirs = get_environment_gen_dirs(PROCESSED_PATH, system=system, guidance_name='environment', bond=bond,
+        dirs = get_environment_gen_dirs(self.processed_path, system=system, guidance_name='environment', bond=bond,
                                         target=target)
         print(f"found {len(dirs)} dirs")
         ds_dict = collect_stage_dataset_dict(dirs, "symmetrize_raw", "poll_db", add_guid_descr=True)
@@ -131,7 +144,7 @@ class hist_tools_Test(unittest.TestCase):
         bond = "Cu-P"
         target = 4
         type_A, type_B = (Element(e).Z for e in bond.split('-'))
-        dirs = get_environment_gen_dirs(PROCESSED_PATH, system=system, guidance_name='environment', bond=bond,
+        dirs = get_environment_gen_dirs(self.processed_path, system=system, guidance_name='environment', bond=bond,
                                         target=target)
         print(f"found {len(dirs)} dirs")
         ds_dict = collect_stage_dataset_dict(dirs, "parse_raw", "poll_db", add_guid_descr=True)
@@ -145,7 +158,7 @@ class hist_tools_Test(unittest.TestCase):
 
     def test_auto_bins(self):
         target = 6.8
-        dirs = get_volume_pa_gen_dirs(PROCESSED_PATH, 'B', 'volume_pa', target=target)
+        dirs = get_volume_pa_gen_dirs(self.processed_path, 'B', 'volume_pa', target=target)
         ds_dict = collect_stage_dataset_dict(dirs, "deduplicate_all", "poll_db", add_guid_descr=True)
         hdc = histo_data_collection(ds_dict, callable_name='volume_pa', callable_params={}, auto_adjust_bins=True,
                                     n_bins=10, integer_bins=False)
@@ -155,7 +168,7 @@ class hist_tools_Test(unittest.TestCase):
 
     def test_custom_bins(self):
         target = 6.8
-        dirs = get_volume_pa_gen_dirs(PROCESSED_PATH, 'B', 'volume_pa', target=target)
+        dirs = get_volume_pa_gen_dirs(self.processed_path, 'B', 'volume_pa', target=target)
         ds_dict = collect_stage_dataset_dict(dirs, "deduplicate_all", "poll_db", add_guid_descr=True)
         hdc = histo_data_collection(ds_dict, callable_name='volume_pa', callable_params={}, auto_adjust_bins=False,
                                     bin_centers=np.linspace(7.5, 12, 10), n_bins=10, integer_bins = False)
@@ -167,7 +180,7 @@ class hist_tools_Test(unittest.TestCase):
         system = "Si-O"
         bond = "Si-O"
         target = 4
-        dirs = get_environment_gen_dirs(PROCESSED_PATH, system=system, guidance_name='environment', bond=bond,
+        dirs = get_environment_gen_dirs(self.processed_path, system=system, guidance_name='environment', bond=bond,
                                         target=target)
         print(f"found {len(dirs)} dirs")
         ds_dict = collect_stage_dataset_dict(dirs, "symmetrize_raw", "poll_db", add_guid_descr=True)
@@ -194,7 +207,7 @@ class hist_tools_Test(unittest.TestCase):
         bond = "B-Fe"
         target = 3
         type_A, type_B = (Element(e).Z for e in bond.split('-'))
-        dirs = get_environment_gen_dirs(PROCESSED_PATH, system=system, guidance_name='environment', bond=bond,
+        dirs = get_environment_gen_dirs(self.processed_path, system=system, guidance_name='environment', bond=bond,
                                         target=target)
         print(f"found {len(dirs)} dirs")
         ds_dict = collect_stage_dataset_dict(dirs, "symmetrize_raw", "poll_db", add_guid_descr=True)

@@ -40,9 +40,17 @@ def _unzip_in_place(root: Path) -> None:
                 raise FileExistsError(
                     f"{target_dir} already exists next to archive {z}"
                 )
-            target_dir.mkdir()
             with ZipFile(z) as zf:
-                zf.extractall(target_dir)
+                top_level = {
+                    Path(name).parts[0]
+                    for name in zf.namelist()
+                    if Path(name).parts
+                }
+                if top_level == {target_dir.name}:
+                    zf.extractall(z.parent)
+                else:
+                    target_dir.mkdir()
+                    zf.extractall(target_dir)
             z.unlink()  # remove the archive
 
 ##############################################################################
