@@ -1,8 +1,8 @@
 # sys.path.append("..")  # Makes genutils package visible
 import numpy as np
-from materials_tools.abInitio_io_parse import gau_parse
-from materials_tools.graph_utils import my_graphs
-from materials_tools.graph_utils.formatting import set_subplots_pos_cm
+from vsbtools.materials_tools.ext_software_io import gau_parse
+from vsbtools.materials_tools.visualisation_utils import my_graphs
+from vsbtools.materials_tools.visualisation_utils.formatting import set_subplots_pos_cm
 import matplotlib.pyplot as plt
 from cclib.io import ccread
 import os
