@@ -1,16 +1,22 @@
+import logging
 import os
 import shutil
+from pathlib import Path
 from typing import Dict, Callable
 from pymatgen.core import Composition
 
 from ....genutils.pareto_tools import pareto_subdataframe_indices
 from ..crystal_dataset import CrystalDataset
+from ..io.yaml_csv_poscars import read
 from .diffusion_analysis_scripts.guidance_stats import callables_from_ds
 from ..analysis import (
     phase_diagram_tools as pdt,
     symmetry_tools as st,
     summary
 )
+
+
+LOG = logging.getLogger(__name__)
 
 
 def build_guidance_summary_table(name_ds_dict: Dict[str, CrystalDataset],
@@ -25,9 +31,10 @@ def build_guidance_summary_table(name_ds_dict: Dict[str, CrystalDataset],
     """
     # gl_name = 'placeholder'
 
+    target_stages = [target_stages] if isinstance(target_stages, str) else target_stages
+
     if callables is None:
         callables, _targets, _ = callables_from_ds(name_ds_dict[raw_stage])
-        target_stages = [target_stages] if isinstance(target_stages, str) else target_stages
 
     stk = st.SymmetryToolkit(a_sym_prec=1e-3)
     callables["symmetry"] = stk.sym_group_symbol
@@ -73,12 +80,102 @@ def build_guidance_summary_table(name_ds_dict: Dict[str, CrystalDataset],
 
     return callables
 
+def stage_datasets_from_repo(repo_path: str | Path) -> Dict[str, CrystalDataset]:
+    """Load all dataset manifests under a processed generation repo by stage name."""
+    ds_dict: Dict[str, CrystalDataset] = {}
+    for manifest_yaml in Path(repo_path).rglob("manifest.yaml"):
+        dataset = read(manifest_yaml)
+        ds_dict[dataset.metadata["pipeline_stage"]] = dataset
+    return ds_dict
+
+
+def build_guidance_summary_for_repo(
+    repo_path: str | Path,
+    *,
+    raw_stage: str = "parse_raw",
+    target_stages: list | str | None = "deduplicate_all",
+    ref_stages: dict | None = None,
+    auto_ref_stages: bool = False,
+    callables: Dict[str, Callable] | None = None,
+    max_pareto_front: int | None = None,
+) -> Dict[str, Callable]:
+    """Build summary tables and Pareto-front exports for one generation repo."""
+    summary_callables = None if callables is None else dict(callables)
+    return build_guidance_summary_table(
+        stage_datasets_from_repo(repo_path),
+        raw_stage=raw_stage,
+        target_stages=target_stages,
+        ref_stages=ref_stages,
+        auto_ref_stages=auto_ref_stages,
+        callables=summary_callables,
+        max_pareto_front=max_pareto_front,
+    )
+
+
+def build_guidance_summary_for_processed_system(
+    processed_system_repo: str | Path,
+    *,
+    raw_stage: str = "parse_raw",
+    target_stages: list | str | None = "deduplicate_all",
+    ref_stages: dict | None = None,
+    auto_ref_stages: bool = False,
+    callables: Dict[str, Callable] | None = None,
+    max_pareto_front: int | None = None,
+    non_guided_marker: str = "guidance_None",
+) -> Dict[str, Callable]:
+    """Build comparable summary artifacts for all generation repos in one system.
+
+    Guided repos are summarized first. Their inferred callables are merged and
+    then reused for the non-guided repo, which keeps the summary columns and
+    Pareto-front exports aligned across the system.
+    """
+    processed_system_repo = Path(processed_system_repo)
+    if not processed_system_repo.is_dir():
+        raise NotADirectoryError(processed_system_repo)
+
+    system_callables: Dict[str, Callable] = dict(callables or {})
+    non_guided_repo: Path | None = None
+
+    for generation_repo in sorted(processed_system_repo.iterdir()):
+        if not generation_repo.is_dir():
+            continue
+        if non_guided_marker in generation_repo.as_posix():
+            non_guided_repo = generation_repo
+            continue
+
+        repo_callables = build_guidance_summary_for_repo(
+            generation_repo,
+            raw_stage=raw_stage,
+            target_stages=target_stages,
+            ref_stages=ref_stages,
+            auto_ref_stages=auto_ref_stages,
+            callables=None if callables is None else system_callables,
+            max_pareto_front=max_pareto_front,
+        )
+        system_callables.update(repo_callables)
+
+    if non_guided_repo is None:
+        LOG.warning(
+            "Non-guided generation repo not found for processed system %s",
+            processed_system_repo,
+        )
+        return system_callables
+
+    return build_guidance_summary_for_repo(
+        non_guided_repo,
+        raw_stage=raw_stage,
+        target_stages=target_stages,
+        ref_stages=ref_stages,
+        auto_ref_stages=auto_ref_stages,
+        callables=system_callables,
+        max_pareto_front=max_pareto_front,
+    )
+
 
 if __name__ == "__main__":
     from pathlib import Path
     from vsbtools.materials_tools.materials_dataset.analysis.scenario_pipeline import Scenario
     from vsbtools.materials_tools.materials_dataset.scripts.diffusion_analysis_scripts.guidance_stats import get_guidance_generation_dirs
-    from vsbtools.materials_tools.materials_dataset.io.yaml_csv_poscars import read
 
     repo = Path("/home/vsbat/SYNC/00__WORK/2025-2026_MOLTEN_SALTS/"
                 "MG_postprocess_pipelines/PROCESSED/Ca-Cu-P-Si/"
