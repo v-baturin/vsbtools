@@ -1,8 +1,15 @@
 from pathlib import Path
 from functools import lru_cache
 import re
+import numpy as np
+from pymatgen.core.periodic_table import Element
 from ..crystal_dataset import CrystalDataset, CrystalEntry
-from ...external_paths import add_sys_path, import_from_path_validator, resolve_external_path
+from ...external_paths import (
+    add_sys_path,
+    import_from_path_validator,
+    resolve_external_path,
+)
+from .structures_dataset_io import StructureDatasetIO
 
 
 def _normalize_uspex_path(path: Path) -> Path:
@@ -10,32 +17,65 @@ def _normalize_uspex_path(path: Path) -> Path:
         return path.parent
     return path
 
+Atomistic = None
+Engine = None
+Flavour = None
+Entry = None
+RadialDistributionUtility = None
+TOLERANCE_DEFAULT = None
+atomistic = None
+_USPEX_IMPORT_ERROR = None
 
 
+def _import_uspex_modules() -> bool:
+    global Atomistic, Engine, Flavour, Entry, RadialDistributionUtility, TOLERANCE_DEFAULT, atomistic
+    global _USPEX_IMPORT_ERROR
+    if Atomistic is not None:
+        return True
+    try:
+        from USPEX.components import Atomistic as _Atomistic
+        from USPEX.DataModel.Engine import Engine as _Engine
+        from USPEX.DataModel.Flavour import Flavour as _Flavour
+        from USPEX.DataModel.Entry import Entry as _Entry
+        from USPEX.Atomistic.RadialDistributionUtility import (
+            RadialDistributionUtility as _RadialDistributionUtility,
+            TOLERANCE_DEFAULT as _TOLERANCE_DEFAULT,
+        )
+    except ImportError as exc:
+        _USPEX_IMPORT_ERROR = exc
+        return False
 
-try:
-    from USPEX.components import Atomistic
-except ImportError:
+    Atomistic = _Atomistic
+    Engine = _Engine
+    Flavour = _Flavour
+    Entry = _Entry
+    RadialDistributionUtility = _RadialDistributionUtility
+    TOLERANCE_DEFAULT = _TOLERANCE_DEFAULT
+    Engine.createEngine(":memory:")
+    atomistic = Atomistic()
+    _USPEX_IMPORT_ERROR = None
+    return True
+
+
+def _ensure_uspex_available(*, prompt: bool = True) -> None:
+    if _import_uspex_modules():
+        return
     USPEX_PYTHON_PATH = resolve_external_path(
         name="USPEX Python package",
         config_key="uspex_python_path",
         env_var="USPEX_PYTHON_PATH",
         normalizer=_normalize_uspex_path,
         validator=import_from_path_validator("USPEX.components"),
+        prompt=prompt,
+        required=prompt,
         prompt_text="Enter path to USPEX Python root or USPEX package directory: ",
     )
-    add_sys_path(USPEX_PYTHON_PATH)
-    from USPEX.components import Atomistic
-from USPEX.DataModel.Engine import Engine
-from USPEX.DataModel.Flavour import Flavour
-from USPEX.DataModel.Entry import Entry
-import numpy as np
-from USPEX.Atomistic.RadialDistributionUtility import RadialDistributionUtility, TOLERANCE_DEFAULT
-from .structures_dataset_io import StructureDatasetIO
-from pymatgen.core.periodic_table import Element
-
-Engine.createEngine(":memory:")
-atomistic = Atomistic()
+    if USPEX_PYTHON_PATH is not None:
+        add_sys_path(USPEX_PYTHON_PATH)
+    if not _import_uspex_modules():
+        raise ModuleNotFoundError(
+            "USPEX is not configured. Set USPEX_PYTHON_PATH or configure external_paths.json."
+        ) from _USPEX_IMPORT_ERROR
 
 
 def _sanitize_species_symbol(raw_symbol: str) -> str:
@@ -52,6 +92,7 @@ def _sanitize_species_symbol(raw_symbol: str) -> str:
 
 class USPEXBridge:
     def __init__(self, elements, legacy=True, tol_FP=None):
+        _ensure_uspex_available()
         self.tol_FP = tol_FP or TOLERANCE_DEFAULT
         self.rdu = RadialDistributionUtility(symbols=elements,
                                              suffix='origin', legacy=legacy, tolerance=self.tol_FP, storeDistances=False)

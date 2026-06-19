@@ -5,6 +5,9 @@ USPEX_PYTHON_PATH = resolve_external_path(
     config_key="uspex_python_path",
     env_var="USPEX_PYTHON_PATH",
     validator=import_from_path_validator("USPEX.components"),
+    prompt=False,
+    required=False,
     prompt_text="Enter path to USPEX Python root: ",
 )
-add_sys_path(USPEX_PYTHON_PATH)
+if USPEX_PYTHON_PATH is not None:
+    add_sys_path(USPEX_PYTHON_PATH)

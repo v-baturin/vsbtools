@@ -7,8 +7,6 @@ import pandas as pd
 from pymatgen.io.vasp import Vasprun
 from pymatgen.io.vasp.inputs import Poscar
 
-from ..uspex_bridge import USPEXBridge
-
 @dataclass
 class USPEXOutputClient:
 
@@ -119,6 +117,7 @@ class USPEXOutputClient:
         """
         ids_order = None
         if id_list_file:
+            from ..uspex_bridge import USPEXBridge
             # If entries_order_file is provided, read it to get the order of entries
             ids_order = USPEXBridge.read_idlist(id_list_file)
         pattern = re.compile(r'^CalcFold(\d+)_([0-9]+)$')

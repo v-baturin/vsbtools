@@ -3,16 +3,45 @@ import io, subprocess
 import os
 from pathlib import Path
 from ase.io import read, write
-from ..external_paths import python_executable_from_venv, python_import_validator, resolve_external_path
-
-other_python = resolve_external_path(
-    name="MatterSim Python environment",
-    config_key="mattersim_python",
-    env_var="MATTERSIM_PYTHON",
-    normalizer=python_executable_from_venv,
-    validator=python_import_validator("mattersim.forcefield"),
-    prompt_text="Enter full path to MatterSim virtual environment or Python executable: ",
+from ..external_paths import (
+    ExternalPathResolutionError,
+    python_executable_from_venv,
+    python_import_validator,
+    resolve_external_path,
 )
+
+def _resolve_mattersim_python(*, prompt: bool, explicit_path=None) -> Path | None:
+    return resolve_external_path(
+        name="MatterSim Python environment",
+        config_key="mattersim_python",
+        env_var="MATTERSIM_PYTHON",
+        explicit_path=explicit_path,
+        normalizer=python_executable_from_venv,
+        validator=python_import_validator("mattersim.forcefield"),
+        prompt=prompt,
+        required=prompt,
+        prompt_text="Enter full path to MatterSim virtual environment or Python executable: ",
+    )
+
+
+other_python = _resolve_mattersim_python(prompt=False)
+
+
+def _require_mattersim_python(mattersim_python=None) -> Path:
+    global other_python
+    if mattersim_python is not None:
+        resolved = _resolve_mattersim_python(prompt=False, explicit_path=mattersim_python)
+    else:
+        resolved = other_python
+        if resolved is None:
+            resolved = _resolve_mattersim_python(prompt=True)
+            other_python = resolved
+    if resolved is None:
+        raise ExternalPathResolutionError(
+            "MatterSim Python environment is not configured. Set MATTERSIM_PYTHON "
+            "or configure external_paths.json."
+        )
+    return Path(resolved)
 
 HERE = Path(__file__).resolve().parent
 helpers_path = HERE / "mattersim_helpers"
@@ -46,16 +75,14 @@ def _normalize_force_gpu(force_gpu: int | None) -> int | None:
 
 def get_energy(atms, mattersim_python=None, force_gpu: int | None = None):
     # ---- serialise the structure to an in-memory JSON string -------------
-    if mattersim_python is None:
-        mattersim_python = other_python
-    assert Path(mattersim_python).exists(), "Path to mattersim python virtual environment not found"
+    mattersim_python = _require_mattersim_python(mattersim_python)
     buf = io.StringIO()
     write(buf, atms, format="json")
     json_atoms = buf.getvalue()
 
     # ---- call the calculator python and feed it via stdin ----------------
     proc = subprocess.run(
-        [other_python, energy_cli_single],
+        [mattersim_python.as_posix(), energy_cli_single],
         input=json_atoms,
         text=True,
         capture_output=True,
@@ -68,11 +95,9 @@ def get_energy(atms, mattersim_python=None, force_gpu: int | None = None):
 class EnergyStream:
     """Context-manager that streams Atoms objects to the other v-env."""
     def __init__(self, mattersim_python=None, force_gpu: int | None = None):
-        if mattersim_python is None: mattersim_python = other_python
-        self.other_python = mattersim_python
-        assert Path(self.other_python).exists(), "Path to mattersim python virtual environment not found"
+        self.other_python = _require_mattersim_python(mattersim_python)
         self.proc = subprocess.Popen(
-            [self.other_python, energy_worker],
+            [self.other_python.as_posix(), energy_worker],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             text=True,
@@ -120,12 +145,13 @@ def relax(ats, force_gpu: int | None = None):
     """
     Relax a single ASE Atoms object using the external mattersim venv.
     """
+    mattersim_python = _require_mattersim_python()
     buf = io.StringIO()
     write(buf, ats, format="json")
     json_atoms = buf.getvalue()
 
     proc = subprocess.run(
-        [str(other_python), "-u", str(relax_cli_single)],
+        [mattersim_python.as_posix(), "-u", str(relax_cli_single)],
         input=json_atoms,
         text=True,
         capture_output=True,  # inspect stdout / stderr ourselves
@@ -167,8 +193,9 @@ class RelaxStream:
     """
 
     def __init__(self, force_gpu: int | None = None):
+        mattersim_python = _require_mattersim_python()
         self.proc = subprocess.Popen(
-            [str(other_python), "-u", str(relax_worker)],
+            [mattersim_python.as_posix(), "-u", str(relax_worker)],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             text=True,

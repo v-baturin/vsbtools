@@ -297,7 +297,6 @@ Key options:
 | `materials_tools/el_spectra_tools` | Density/orbital/k-point/localization helpers. |
 | `materials_tools/tools_stability` | Binding, exchange, and fragmentation energy table helpers. |
 | `materials_tools/visualisation_utils` | Plot formatting, heatmaps, DOS/IPR plots, ternary phase diagrams, and rasterization helpers. |
-| `materials_tools/materials_dataset_legacy` | Older dataset/database API retained for legacy workflows. |
 
 ## General Utilities and WIP Modules
 
@@ -308,7 +307,7 @@ Key options:
 
 ## Installation
 
-Python 3.9 or newer is required.
+Python 3.10 or newer is required.
 
 ```bash
 python3 -m pip install -e .

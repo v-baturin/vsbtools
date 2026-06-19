@@ -1,31 +1,100 @@
 [build-system]
-requires = ["setuptools>=68", "wheel", "setuptools-scm>=8"]
+requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "vsbtools"
 dynamic = ["version"]
-requires-python = ">=3.9"
-dependencies = [ "numpy", "ase"]
-# (rest same as above)
+description = "Research toolbox for atomistic materials workflows."
+readme = "README.md"
+requires-python = ">=3.10"
+keywords = ["materials-science", "atomistic-simulation", "crystal-structures", "gaussian", "uspex"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering :: Chemistry",
+  "Topic :: Scientific/Engineering :: Physics",
+]
+dependencies = [
+  "ase",
+  "numpy",
+]
 
 [project.optional-dependencies]
 gaussian_calc_manager = [
-  "cclib>=1.8"
+  "cclib>=1.8",
+  "matplotlib",
+  "prettytable",
 ]
 genutils = [
-  # "rich>=13",
+  "matplotlib",
 ]
 materials_tools = [
-  "pandas", "torch", "pymatgen", "prettytable", "mp_api", "mysqlclient", "ijson"
+  "cclib>=1.8",
+  "dscribe",
+  "ijson",
+  "matplotlib",
+  "mp-api",
+  "mysqlclient",
+  "networkx",
+  "pandas",
+  "phonopy",
+  "prettytable",
+  "pymatgen",
+  "PyYAML",
+  "scipy",
+  "torch",
 ]
 uspex_gather_stat = [
-  # "matplotlib>=3.8",
+  "cclib>=1.8",
+]
+all = [
+  "cclib>=1.8",
+  "dscribe",
+  "ijson",
+  "matplotlib",
+  "mp-api",
+  "mysqlclient",
+  "networkx",
+  "pandas",
+  "phonopy",
+  "prettytable",
+  "pymatgen",
+  "PyYAML",
+  "scipy",
+  "torch",
 ]
 
-[tool.setuptools.package-data]
-"vsbtools.materials_tools" = ["external_paths_presets.json"]
+[tool.setuptools]
+include-package-data = true
 
-[tool.setuptools_scm]
-version_scheme = "guess-next-dev"
-local_scheme = "node-and-date"
+[tool.setuptools.packages.find]
+include = ["vsbtools*"]
+exclude = [
+  "vsbtools.*.unittests",
+  "vsbtools.*.unittests.*",
+  "vsbtools.*.test_dir",
+  "vsbtools.*.test_dir.*",
+  "vsbtools.*.tmp_proj",
+  "vsbtools.*.tmp_proj.*",
+]
+
+[tool.setuptools.exclude-package-data]
+"vsbtools" = [
+  "**/.ipynb_checkpoints/**",
+  "**/*.log",
+  "**/*.pkl",
+  "**/*.swp",
+  "**/*.tgz",
+  "**/test_dir/**",
+  "**/tmp_proj/**",
+  "**/unittests/**",
+  "**/unittests_datasets/**",
+]
+
+[tool.setuptools.dynamic]
+version = {attr = "vsbtools.__version__"}

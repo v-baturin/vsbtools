@@ -3,14 +3,17 @@
 */.idea/
 *.txt
 *.pkl
+*.log
 log
 RECALC*
 */__pycache__
 *.pyc
 src/__pycache__
 */test_dir/
+/build/
 /dist
 /vsbtools.egg-info
+*.egg-info/
 /uv.lock
 /vsbtools/materials_tools/materials_dataset/analysis/unittests/DB_CACHE/
 /vsbtools/materials_tools/materials_dataset/analysis/unittests/db_cache/

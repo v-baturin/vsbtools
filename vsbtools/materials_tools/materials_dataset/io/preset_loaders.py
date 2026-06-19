@@ -6,7 +6,6 @@ from ..io.yaml_csv_poscars import read, write
 from ..converters import df2ds
 from .sources.matproj_parser import MPClient
 from .sources.alexandria_parser import AlexandriaClient
-from .sources.uspex_output_parser import USPEXOutputClient
 from .sources.oqmd_parser import OQMDClient
 from .sources.optimade_parser import OptimadeClient
 from .sources.structure_and_energy_files_reader import CSV_and_POSCARS_client
@@ -121,12 +120,16 @@ def load_from_optimade(elements, message=None, **kwargs):
     return df2ds(df, message=message)
 
 def load_from_uspex_calc_folders(calcfolds_path: Path, stage=None, message=None, elements=None):
+    from .sources.uspex_output_parser import USPEXOutputClient
+
     uspex_client = USPEXOutputClient(calcfolds_path, stage=stage, mode='calcFolds')
     df = uspex_client.query(elements=elements)
     message = message or f"CalcFolds" +  (f' with elements={elements}' if elements else '.')
     return df2ds(df, message=message)
 
 def load_from_uspex_goodstructures(goodstructures_path: Path, message=None, elements=None):
+    from .sources.uspex_output_parser import USPEXOutputClient
+
     uspex_client = USPEXOutputClient(goodstructures_path, mode='goodStructures')
     df = uspex_client.query(elements=elements)
     message = message or f"goodStructures" +  (f' with elements={elements}' if elements else '.')
