@@ -11,6 +11,11 @@ from urllib.request import Request, urlopen
 import pandas as pd
 from pymatgen.core import Structure
 
+from ...analysis.similarity_tools import SimilarityTools
+from ...analysis.structural_distance.dscribe_bridge import DScribeBridge
+from ...crystal_dataset import CrystalDataset
+from ...crystal_entry import CrystalEntry
+
 
 @dataclass(slots=True)
 class OptimadeProvider:
@@ -32,6 +37,10 @@ class OptimadeClient:
     timeout: float = 60.0
     skip_missing_energy: bool = True
     strict_structures: bool = True
+    do_deduplication: bool = True
+    tol_FP: float | None = None
+    similarity_tk: SimilarityTools | None = None
+    similarity_bridge_kwargs: Dict[str, Any] = field(default_factory=dict)
 
     _provider_defs: Dict[str, OptimadeProvider] = field(init=False, repr=False)
 
@@ -74,10 +83,19 @@ class OptimadeClient:
         }
 
     def query(self, elements: Iterable[str]) -> pd.DataFrame:
+        elements = set(elements)
         rows = []
+        similarity_tk = self._similarity_tools(elements) if self.do_deduplication else None
+
         for provider in self._providers():
-            for subset in self._subspaces(set(elements)):
-                rows.extend(self._query_provider(provider, subset))
+            provider_rows = []
+            for subset in self._subspaces(elements):
+                provider_rows.extend(self._query_provider(provider, subset))
+
+            provider_rows = self._drop_duplicate_ids(provider_rows)
+            if similarity_tk is not None and rows:
+                provider_rows = self._unseen_rows(provider_rows, rows, similarity_tk)
+            rows.extend(provider_rows)
 
         if not rows:
             return pd.DataFrame(columns=["id", "formula", "energy", "structure", "metadata"])
@@ -88,6 +106,87 @@ class OptimadeClient:
     # legacy alias
     def lowest_energy(self, elements: set[str]) -> pd.DataFrame:
         return self.query(elements)
+
+    def _similarity_tools(self, elements: Iterable[str]) -> SimilarityTools:
+        if self.similarity_tk is not None:
+            return self.similarity_tk
+
+        bridge_kwargs = dict(self.similarity_bridge_kwargs)
+        if self.tol_FP is not None:
+            bridge_kwargs.setdefault("tol_FP", self.tol_FP)
+        bridge = DScribeBridge(elements, **bridge_kwargs)
+        return SimilarityTools(bridge.fp_dist, bridge.tol_FP)
+
+    @staticmethod
+    def _drop_duplicate_ids(rows: list[dict]) -> list[dict]:
+        seen = set()
+        unique = []
+        for row in rows:
+            row_id = row.get("id")
+            if row_id in seen:
+                continue
+            seen.add(row_id)
+            unique.append(row)
+        return unique
+
+    def _unseen_rows(self, rows: list[dict], reference_rows: list[dict], similarity_tk: SimilarityTools) -> list[dict]:
+        unseen = []
+        accepted = list(reference_rows)
+        for row in rows:
+            duplicate_of = self._duplicate_of(row, accepted, similarity_tk)
+            if duplicate_of is not None:
+                metadata = dict(row.get("metadata") or {})
+                metadata["duplicate_of"] = duplicate_of.get("id")
+                row["metadata"] = metadata
+                continue
+            unseen.append(row)
+            accepted.append(row)
+        return unseen
+
+    @staticmethod
+    def _duplicate_of(row: dict, reference_rows: list[dict], similarity_tk: SimilarityTools) -> dict | None:
+        row_formula = row.get("formula")
+        entry = OptimadeClient._entry_from_row(row)
+        candidates = [
+            ref
+            for ref in reference_rows
+            if not row_formula or not ref.get("formula") or row_formula == ref.get("formula")
+        ]
+        if not candidates:
+            return None
+
+        try:
+            matches, _ = similarity_tk.contains_structure(
+                entry,
+                OptimadeClient._dataset_from_rows(candidates, message="OPTIMADE duplicate candidates"),
+            )
+        except Exception:
+            matches = []
+
+        if matches:
+            return candidates[matches[0]]
+
+        for ref in candidates:
+            try:
+                if similarity_tk.is_duplicate(entry, OptimadeClient._entry_from_row(ref)):
+                    return ref
+            except Exception:
+                continue
+        return None
+
+    @staticmethod
+    def _entry_from_row(row: dict) -> CrystalEntry:
+        return CrystalEntry(
+            id=row["id"],
+            formula=row.get("formula"),
+            energy=row.get("energy"),
+            structure=row.get("structure"),
+            metadata=row.get("metadata") or {},
+        )
+
+    @classmethod
+    def _dataset_from_rows(cls, rows: list[dict], message: str = "") -> CrystalDataset:
+        return CrystalDataset([cls._entry_from_row(row) for row in rows], message=message)
 
     def _providers(self) -> list[OptimadeProvider]:
         names = [self.providers] if isinstance(self.providers, str) else list(self.providers)

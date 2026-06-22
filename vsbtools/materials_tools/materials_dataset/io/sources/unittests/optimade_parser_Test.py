@@ -1,6 +1,7 @@
 import unittest
 from unittest.mock import patch
 
+from ..oqmd_parser import OQMDClient
 from ..optimade_parser import OptimadeClient
 
 
@@ -18,6 +19,18 @@ class _FakeStructure:
 
     def __len__(self):
         return len(self.species)
+
+
+class _FakeMatcher:
+    def contains_structure(self, entry, ds):
+        matches = [i for i, ref in enumerate(ds) if self.is_duplicate(entry, ref)]
+        return matches, [ds[i].id for i in matches]
+
+    def is_duplicate(self, left, right):
+        return left.structure.positions == right.structure.positions
+
+    def fit(self, left, right):
+        return left.positions == right.positions
 
 
 def _optimade_item(entry_id="1", **attrs):
@@ -168,7 +181,7 @@ class OptimadeClientTest(unittest.TestCase):
 
     @patch("vsbtools.materials_tools.materials_dataset.io.sources.optimade_parser.Structure", _FakeStructure)
     def test_all_provider_interfaces_are_queried(self):
-        client = OptimadeClient(providers="all")
+        client = OptimadeClient(providers="all", do_deduplication=False)
         payloads = [
             {
                 "data": [
@@ -205,6 +218,126 @@ class OptimadeClientTest(unittest.TestCase):
         self.assertEqual(
             set(df["metadata"].map(lambda md: md["optimade_provider"])),
             {"materials_project", "oqmd", "alexandria"},
+        )
+
+    @patch("vsbtools.materials_tools.materials_dataset.io.sources.optimade_parser.Structure", _FakeStructure)
+    def test_provider_rows_are_deduplicated_sequentially(self):
+        client = OptimadeClient(providers=["materials_project", "oqmd", "alexandria"])
+        payloads = [
+            {
+                "data": [
+                    _optimade_item(
+                        "mp-1",
+                        cartesian_site_positions=[[0, 0, 0]],
+                        _mp_stability={"gga_gga+u": {"formation_energy_per_atom": -0.1}},
+                    )
+                ],
+                "links": {},
+            },
+            {
+                "data": [
+                    _optimade_item(
+                        "oqmd-duplicate",
+                        cartesian_site_positions=[[0, 0, 0]],
+                        _oqmd_delta_e=-0.2,
+                    )
+                ],
+                "links": {},
+            },
+            {
+                "data": [
+                    _optimade_item(
+                        "agm-new",
+                        cartesian_site_positions=[[0.5, 0.5, 0.5]],
+                        _alexandria_formation_energy_per_atom=-0.3,
+                    )
+                ],
+                "links": {},
+            },
+        ]
+
+        with patch.object(OptimadeClient, "_similarity_tools", autospec=True,
+                          return_value=_FakeMatcher()), \
+                patch.object(OptimadeClient, "_get_json", autospec=True,
+                             side_effect=payloads):
+            df = client.query({"Si"})
+
+        self.assertEqual(
+            list(df["id"]),
+            ["optimade_materials_project_mp-1", "optimade_alexandria_agm-new"],
+        )
+
+    @patch("vsbtools.materials_tools.materials_dataset.io.sources.optimade_parser.Structure", _FakeStructure)
+    def test_deduplication_can_be_disabled(self):
+        client = OptimadeClient(providers=["materials_project", "oqmd"], do_deduplication=False)
+        payloads = [
+            {
+                "data": [
+                    _optimade_item(
+                        "mp-1",
+                        cartesian_site_positions=[[0, 0, 0]],
+                        _mp_stability={"gga_gga+u": {"formation_energy_per_atom": -0.1}},
+                    )
+                ],
+                "links": {},
+            },
+            {
+                "data": [
+                    _optimade_item(
+                        "oqmd-duplicate",
+                        cartesian_site_positions=[[0, 0, 0]],
+                        _oqmd_delta_e=-0.2,
+                    )
+                ],
+                "links": {},
+            },
+        ]
+
+        with patch.object(OptimadeClient, "_get_json", autospec=True,
+                          side_effect=payloads):
+            df = client.query({"Si"})
+
+        self.assertEqual(
+            list(df["id"]),
+            ["optimade_materials_project_mp-1", "optimade_oqmd_oqmd-duplicate"],
+        )
+
+    def test_cu_si_p_oqmd_direct_and_optimade_counts_match_within_10_percent(self):
+        elements = {"Cu", "Si", "P"}
+        oqmd_client = OQMDClient()
+
+        try:
+            direct_df = oqmd_client.query(elements)
+        except Exception as err:
+            self.skipTest(f"Local OQMD is not available: {err}")
+        finally:
+            conn = getattr(oqmd_client, "_conn", None)
+            if conn is not None:
+                conn.close()
+
+        try:
+            optimade_df = OptimadeClient(
+                providers=["oqmd"],
+                do_deduplication=False,
+                page_limit=500,
+                timeout=12000,
+            ).query(elements)
+        except Exception as err:
+            self.skipTest(f"OQMD OPTIMADE endpoint is not available: {err}")
+
+        direct_count = len(direct_df)
+        optimade_count = len(optimade_df)
+        self.assertGreater(direct_count, 0)
+        self.assertGreater(optimade_count, 0)
+
+        relative_diff = abs(direct_count - optimade_count) / direct_count
+        self.assertLessEqual(
+            relative_diff,
+            0.10,
+            (
+                "Cu-Si-P entry count differs by more than 10% between direct OQMD "
+                f"({direct_count}) and OPTIMADE OQMD ({optimade_count})"
+            ),
         )
 
 
