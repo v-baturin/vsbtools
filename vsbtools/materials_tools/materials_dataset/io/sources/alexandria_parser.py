@@ -54,8 +54,12 @@ class AlexandriaClient:
         wanted = set(elements)
         rows: list[dict] = []
 
-        for file in self._files():
-            print(f"Parsing {file} ...")
+        files = self._files()
+        status_len = 0
+        for k, file in enumerate(files):
+            status = f"Parsing {file} ... ({k + 1}/{len(files)})"
+            print(f"\r{status}{' ' * max(0, status_len - len(status))}", end="", flush=True)
+            status_len = len(status)
             with open(file, 'rb') as fh:
                 for ent in ijson.items(fh, "entries.item"):
                     data = ent.get("data", {})
@@ -85,6 +89,9 @@ class AlexandriaClient:
                             "metadata": {"source": "Alexandria"},
                         }
                     )
+
+        if files:
+            print()
 
         return pd.DataFrame(rows)
 
