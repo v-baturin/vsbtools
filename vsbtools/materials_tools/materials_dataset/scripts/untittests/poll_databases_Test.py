@@ -1,4 +1,5 @@
 import unittest
+import shutil
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import Mock, patch
@@ -7,7 +8,29 @@ from ..poll_databases import poll_databases
 from ...analysis.summary import collect_summary_df, print_pretty_df
 
 
-PATH_WITH_TESTS = Path(__file__).parent
+PATH_WITH_TESTS = Path(__file__).resolve().parent
+
+
+def _repo_root() -> Path:
+    for path in (PATH_WITH_TESTS, *PATH_WITH_TESTS.parents):
+        if (path / ".git").exists():
+            return path
+    return PATH_WITH_TESTS.parents[4]
+
+
+REPO_ROOT = _repo_root()
+
+
+def _uspex_db_files() -> set[Path]:
+    return set(REPO_ROOT.rglob("uspex.db"))
+
+
+def _remove_paths(*paths: Path):
+    for path in paths:
+        if path.is_dir():
+            shutil.rmtree(path)
+        elif path.exists():
+            path.unlink()
 
 
 class _FakeEntry:
@@ -35,6 +58,11 @@ class yaml_csv_poscars_Test(unittest.TestCase):
 
     def setUp(self) -> None:
         self.elements = {'La', 'Te', 'C'} # , 'P'}
+        self._existing_uspex_dbs = _uspex_db_files()
+
+    def tearDown(self) -> None:
+        for path in _uspex_db_files() - self._existing_uspex_dbs:
+            path.unlink()
 
     def test_scrape(self):
         ds = poll_databases(self.elements, do_ehull_filtering=True,
@@ -45,7 +73,13 @@ class yaml_csv_poscars_Test(unittest.TestCase):
         print_pretty_df(collect_summary_df(ds_read, native_columns=("id", "composition", "energy", "metadata.duplicates")),
                         PATH_WITH_TESTS / 'table2.txt')
         write(ds_read, enforce_base_path=PATH_WITH_TESTS / "ds2")
-        self.assertEqual(len(ds), 65)
+        self.assertEqual(len(ds), 146)
+        _remove_paths(
+            PATH_WITH_TESTS / "ds2",
+            PATH_WITH_TESTS / "ds3",
+            PATH_WITH_TESTS / "table.txt",
+            PATH_WITH_TESTS / "table2.txt",
+        )
 
     def test_poll_databases_accepts_optimade_source(self):
         optimade_loader = Mock(return_value=_FakeDataset([_FakeEntry("op1")]))
@@ -69,8 +103,8 @@ class yaml_csv_poscars_Test(unittest.TestCase):
         self.assertEqual(len(ds), 1)
         self.assertIsNone(ds[0].energy)
 
-    def test_poll_databases_falls_back_to_optimade_when_local_source_fails(self):
-        local_loader = Mock(side_effect=FileNotFoundError("local snapshot missing"))
+    def test_poll_databases_uses_optimade_before_local_supported_source(self):
+        local_loader = Mock(return_value=_FakeDataset([_FakeEntry("local1")]))
         optimade_loader = Mock(return_value=_FakeDataset([_FakeEntry("op1")]))
 
         with TemporaryDirectory() as tmpdir, \
@@ -89,7 +123,32 @@ class yaml_csv_poscars_Test(unittest.TestCase):
                 cache_root_path=Path(tmpdir),
             )
 
-        local_loader.assert_called_once_with({"Si"}, prompt=False)
         optimade_loader.assert_called_once_with({"Si"}, page_limit=2, providers=["alexandria"])
+        local_loader.assert_not_called()
+        self.assertEqual(len(ds), 1)
+        self.assertIsNone(ds[0].energy)
+
+    def test_poll_databases_falls_back_to_local_when_optimade_fails(self):
+        local_loader = Mock(return_value=_FakeDataset([_FakeEntry("local1")]))
+        optimade_loader = Mock(side_effect=RuntimeError("optimade unavailable"))
+
+        with TemporaryDirectory() as tmpdir, \
+                patch("vsbtools.materials_tools.materials_dataset.scripts.poll_databases.LOADERS",
+                      {"al": local_loader, "op": optimade_loader}), \
+                patch("vsbtools.materials_tools.materials_dataset.scripts.poll_databases.load_from_optimade",
+                      optimade_loader), \
+                patch("vsbtools.materials_tools.materials_dataset.scripts.poll_databases.write"):
+            ds = poll_databases(
+                {"Si"},
+                database_names=["alexandria"],
+                pref_db="al",
+                do_ehull_filtering=False,
+                do_deduplication=False,
+                loader_kwargs={"op": {"page_limit": 2}},
+                cache_root_path=Path(tmpdir),
+            )
+
+        optimade_loader.assert_called_once_with({"Si"}, page_limit=2, providers=["alexandria"])
+        local_loader.assert_called_once_with({"Si"}, prompt=False)
         self.assertEqual(len(ds), 1)
         self.assertIsNone(ds[0].energy)

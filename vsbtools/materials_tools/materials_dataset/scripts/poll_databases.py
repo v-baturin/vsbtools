@@ -105,12 +105,20 @@ def poll_databases(elements,
         loader = LOADERS[short_name]
         if optimade_fallback and short_name == "al":
             local_kwargs.setdefault("prompt", False)
+        provider = OPTIMADE_FALLBACK_PROVIDERS.get(short_name)
+        if optimade_fallback and short_name != "op" and provider is not None:
+            optimade_kwargs = dict(loader_kw["op"])
+            optimade_kwargs.setdefault("providers", [provider])
+            try:
+                print(f"Fetching from OPTIMADE provider '{provider}' for {short_names_dict.get(short_name, short_name)}.")
+                return load_from_optimade(elements, **optimade_kwargs)
+            except Exception:
+                print(f"OPTIMADE provider '{provider}' failed; falling back to local {short_names_dict.get(short_name, short_name)}.")
         try:
             return loader(elements, **local_kwargs)
         except Exception:
             if not optimade_fallback or short_name == "op":
                 raise
-            provider = OPTIMADE_FALLBACK_PROVIDERS.get(short_name)
             if provider is None:
                 raise
             fallback_kwargs = dict(loader_kw["op"])
