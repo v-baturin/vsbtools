@@ -49,7 +49,7 @@ def _optimade_item(entry_id="1", **attrs):
 class OptimadeClientTest(unittest.TestCase):
 
     def test_unknown_provider_raises(self):
-        client = OptimadeClient(providers=["not-a-provider"])
+        client = OptimadeClient(providers=["not-a-provider"], show_progress=False)
         with self.assertRaisesRegex(ValueError, "Unknown OPTIMADE provider"):
             client.query({"Si"})
 
@@ -68,7 +68,7 @@ class OptimadeClientTest(unittest.TestCase):
 
     @patch("vsbtools.materials_tools.materials_dataset.io.sources.optimade_parser.Structure", _FakeStructure)
     def test_alexandria_query_maps_formation_energy_and_pagination(self):
-        client = OptimadeClient(providers=["alexandria"], page_limit=1)
+        client = OptimadeClient(providers=["alexandria"], page_limit=1, show_progress=False)
         payload_1 = {
             "data": [_optimade_item("agm1", _alexandria_formation_energy_per_atom=-0.25)],
             "links": {"next": "/pbe/v1/structures?page_offset=1"},
@@ -90,7 +90,7 @@ class OptimadeClientTest(unittest.TestCase):
 
     @patch("vsbtools.materials_tools.materials_dataset.io.sources.optimade_parser.Structure", _FakeStructure)
     def test_materials_project_query_maps_selected_thermo_type(self):
-        client = OptimadeClient(providers=["mp"], mp_thermo_type="gga_gga+u_r2scan")
+        client = OptimadeClient(providers=["mp"], mp_thermo_type="gga_gga+u_r2scan", show_progress=False)
         payload = {
             "data": [
                 _optimade_item(
@@ -113,7 +113,7 @@ class OptimadeClientTest(unittest.TestCase):
 
     @patch("vsbtools.materials_tools.materials_dataset.io.sources.optimade_parser.Structure", _FakeStructure)
     def test_materials_project_canonical_interface_maps_formation_energy(self):
-        client = OptimadeClient(providers=["materials_project"])
+        client = OptimadeClient(providers=["materials_project"], show_progress=False)
         payload = {
             "data": [
                 _optimade_item(
@@ -138,7 +138,7 @@ class OptimadeClientTest(unittest.TestCase):
 
     @patch("vsbtools.materials_tools.materials_dataset.io.sources.optimade_parser.Structure", _FakeStructure)
     def test_oqmd_interface_maps_delta_e_per_atom(self):
-        client = OptimadeClient(providers=["oqmd"])
+        client = OptimadeClient(providers=["oqmd"], show_progress=False)
         payload = {
             "data": [
                 _optimade_item(
@@ -169,7 +169,7 @@ class OptimadeClientTest(unittest.TestCase):
 
     @patch("vsbtools.materials_tools.materials_dataset.io.sources.optimade_parser.Structure", _FakeStructure)
     def test_total_energy_mode_keeps_only_providers_with_total_energy(self):
-        client = OptimadeClient(providers=["alexandria"], energy_mode="total")
+        client = OptimadeClient(providers=["alexandria"], energy_mode="total", show_progress=False)
         payload = {
             "data": [_optimade_item("agm1", _alexandria_energy=-10.0)],
             "links": {},
@@ -184,7 +184,7 @@ class OptimadeClientTest(unittest.TestCase):
 
     @patch("vsbtools.materials_tools.materials_dataset.io.sources.optimade_parser.Structure", _FakeStructure)
     def test_all_provider_interfaces_are_queried(self):
-        client = OptimadeClient(providers="all", do_deduplication=False)
+        client = OptimadeClient(providers="all", do_deduplication=False, show_progress=False)
         payloads = [
             {
                 "data": [
@@ -225,7 +225,7 @@ class OptimadeClientTest(unittest.TestCase):
 
     @patch("vsbtools.materials_tools.materials_dataset.io.sources.optimade_parser.Structure", _FakeStructure)
     def test_provider_rows_are_deduplicated_sequentially(self):
-        client = OptimadeClient(providers=["materials_project", "oqmd", "alexandria"])
+        client = OptimadeClient(providers=["materials_project", "oqmd", "alexandria"], show_progress=False)
         payloads = [
             {
                 "data": [
@@ -272,7 +272,7 @@ class OptimadeClientTest(unittest.TestCase):
 
     @patch("vsbtools.materials_tools.materials_dataset.io.sources.optimade_parser.Structure", _FakeStructure)
     def test_deduplication_can_be_disabled(self):
-        client = OptimadeClient(providers=["materials_project", "oqmd"], do_deduplication=False)
+        client = OptimadeClient(providers=["materials_project", "oqmd"], do_deduplication=False, show_progress=False)
         payloads = [
             {
                 "data": [

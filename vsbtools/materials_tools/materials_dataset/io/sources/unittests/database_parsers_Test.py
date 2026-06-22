@@ -49,6 +49,7 @@ def _optimade_query(provider, elements):
         providers=[provider],
         do_deduplication=False,
         page_limit=500,
+        show_progress=False,
         timeout=12000,
     ).query(elements)
 

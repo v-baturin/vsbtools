@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from itertools import combinations
 import json
-from typing import Any, Dict, Iterable, Iterator, Sequence
+from typing import Any, Callable, Dict, Iterable, Iterator, Sequence
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urljoin, urlparse, urlunparse
 from urllib.request import Request, urlopen
@@ -29,7 +29,7 @@ class OptimadeProvider:
 class OptimadeClient:
     """Query remote OPTIMADE endpoints and return rows ready for CrystalDataset."""
 
-    providers: Sequence[str] | str = ("materials_project", "oqmd", "alexandria")
+    providers: Sequence[str] | str = ("alexandria", "materials_project", "oqmd")
     alexandria_functional: str = "pbe"
     energy_mode: str = "formation"
     mp_thermo_type: str = "gga_gga+u"
@@ -38,6 +38,7 @@ class OptimadeClient:
     skip_missing_energy: bool = True
     strict_structures: bool = True
     do_deduplication: bool = True
+    show_progress: bool = True
     tol_FP: float | None = None
     similarity_tk: SimilarityTools | None = None
     similarity_bridge_kwargs: Dict[str, Any] = field(default_factory=dict)
@@ -86,16 +87,61 @@ class OptimadeClient:
         elements = set(elements)
         rows = []
         similarity_tk = self._similarity_tools(elements) if self.do_deduplication else None
+        providers = self._providers()
+        subspaces = list(self._subspaces(elements))
+        total_queries = len(providers) * len(subspaces)
+        status_len = 0
 
-        for provider in self._providers():
+        def progress(status: str):
+            nonlocal status_len
+            if not self.show_progress:
+                return
+            print(f"\r{status}{' ' * max(0, status_len - len(status))}", end="", flush=True)
+            status_len = len(status)
+
+        for provider_no, provider in enumerate(providers, start=1):
             provider_rows = []
-            for subset in self._subspaces(elements):
-                provider_rows.extend(self._query_provider(provider, subset))
+            provider_label = f"provider {provider_no}/{len(providers)} {provider.name}"
+            progress(f"OPTIMADE {provider_label}: starting")
+            for subset_no, subset in enumerate(subspaces, start=1):
+                query_no = (provider_no - 1) * len(subspaces) + subset_no
+                chemsys = "-".join(subset)
+                progress(
+                    f"OPTIMADE {provider_label}: querying {chemsys} "
+                    f"subspace {subset_no}/{len(subspaces)}, accepted {len(provider_rows)}"
+                )
+                subset_rows = self._query_provider(
+                    provider,
+                    subset,
+                    progress=progress,
+                    query_no=query_no,
+                    total_queries=total_queries,
+                    provider_label=provider_label,
+                    provider_accepted_offset=len(provider_rows),
+                )
+                provider_rows.extend(subset_rows)
+                progress(
+                    f"OPTIMADE {provider_label}: finished {chemsys}, "
+                    f"accepted {len(provider_rows)}"
+                )
 
+            before_id_dedup = len(provider_rows)
+            progress(f"OPTIMADE {provider_label}: deduplicating ids, accepted {before_id_dedup}")
             provider_rows = self._drop_duplicate_ids(provider_rows)
             if similarity_tk is not None and rows:
+                progress(
+                    f"OPTIMADE {provider_label}: comparing against previous providers, "
+                    f"accepted {len(provider_rows)}"
+                )
                 provider_rows = self._unseen_rows(provider_rows, rows, similarity_tk)
             rows.extend(provider_rows)
+            progress(
+                f"OPTIMADE {provider_label}: finished, kept {len(provider_rows)}, "
+                f"total accepted {len(rows)}"
+            )
+
+        if self.show_progress and status_len:
+            print()
 
         if not rows:
             return pd.DataFrame(columns=["id", "formula", "energy", "structure", "metadata"])
@@ -208,7 +254,16 @@ class OptimadeClient:
         for r in range(1, len(elements) + 1):
             yield from combinations(sorted(elements), r)
 
-    def _query_provider(self, provider: OptimadeProvider, elements: tuple[str, ...]) -> list[dict]:
+    def _query_provider(
+            self,
+            provider: OptimadeProvider,
+            elements: tuple[str, ...],
+            progress: Callable[[str], None] | None = None,
+            query_no: int | None = None,
+            total_queries: int | None = None,
+            provider_label: str | None = None,
+            provider_accepted_offset: int = 0,
+    ) -> list[dict]:
         fields = [
             "id",
             "chemical_formula_reduced",
@@ -230,12 +285,31 @@ class OptimadeClient:
         url = self._endpoint(provider.base_url, "v1/structures") + "?" + urlencode(params)
 
         rows = []
+        page_no = 0
+        query_label = f"{query_no}/{total_queries}" if query_no is not None and total_queries is not None else "?"
+        chemsys = "-".join(elements)
+        provider_label = provider_label or provider.name
         while url:
+            page_no += 1
+            if progress is not None:
+                progress(
+                    f"OPTIMADE {provider_label}: {chemsys} query {query_label} "
+                    f"page {page_no}: requesting, accepted {provider_accepted_offset + len(rows)}"
+                )
             payload = self._get_json(url)
+            page_items = len(payload.get("data", []))
+            accepted_before = len(rows)
             for item in payload.get("data", []):
                 row = self._row_from_item(provider, item)
                 if row is not None:
                     rows.append(row)
+            if progress is not None:
+                progress(
+                    f"OPTIMADE {provider_label}: {chemsys} query {query_label} "
+                    f"page {page_no}: fetched {page_items}, "
+                    f"accepted +{len(rows) - accepted_before}, "
+                    f"provider accepted {provider_accepted_offset + len(rows)}"
+                )
             url = self._next_url(url, payload)
         return rows
 
