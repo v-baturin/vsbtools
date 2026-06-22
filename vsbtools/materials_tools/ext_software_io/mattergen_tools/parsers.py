@@ -1,6 +1,9 @@
 from pathlib import Path
 from typing import List, Any
-from ....genutils.misc import serialize_structure
+try:
+    from ....genutils.misc import serialize_structure
+except ImportError:
+    from genutils.misc import serialize_structure
 import yaml, re
 
 STANDARD_PARAM_DICT_KEYS = ['chemical_system', 'guidance', 'diffusion_loss_weight', 'algo']

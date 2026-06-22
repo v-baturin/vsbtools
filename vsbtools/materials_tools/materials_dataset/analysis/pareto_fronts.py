@@ -10,7 +10,10 @@ import numpy as np
 from matplotlib.lines import Line2D
 from matplotlib.ticker import FuncFormatter, MaxNLocator
 
-from ....genutils.misc import serialize_structure
+try:
+    from ....genutils.misc import serialize_structure
+except ImportError:
+    from genutils.misc import serialize_structure
 from ...visualisation_utils.formatting import cm2inch
 
 try:

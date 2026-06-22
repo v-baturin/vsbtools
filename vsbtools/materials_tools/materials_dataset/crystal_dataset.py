@@ -2,7 +2,10 @@ from __future__ import annotations
 import os
 from pathlib import Path
 from typing import Iterable, Iterator, List, Sequence, Callable, NewType, Tuple, Set
-from ...genutils.misc import describe_predicate
+try:
+    from ...genutils.misc import describe_predicate
+except ImportError:
+    from genutils.misc import describe_predicate
 from .crystal_entry import CrystalEntry
 from datetime import datetime
 
@@ -73,4 +76,3 @@ class CrystalDataset(Sequence[CrystalEntry]):
     def filter(self, predicate: Callable[[CrystalEntry], bool], message=None) -> "CrystalDataset":
         message = message or f"Dataset {self.dataset_id} filtered by {describe_predicate(predicate)}"
         return CrystalDataset.from_parents([e for e in self if predicate(e)], parents=(self,), message=message)
-

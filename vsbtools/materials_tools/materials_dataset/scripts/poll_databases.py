@@ -2,7 +2,10 @@ import os
 from typing import Dict
 from collections import defaultdict
 from pathlib import Path
-from ....genutils.misc import serialize_structure, is_substructure
+try:
+    from ....genutils.misc import serialize_structure, is_substructure
+except ImportError:
+    from genutils.misc import serialize_structure, is_substructure
 from ..crystal_dataset import CrystalDataset
 from ..io.yaml_csv_poscars import read, write
 from ..io.preset_loaders import (

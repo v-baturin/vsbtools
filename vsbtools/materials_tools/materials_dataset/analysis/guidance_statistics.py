@@ -12,7 +12,10 @@ from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 from matplotlib.ticker import FuncFormatter
 
-from ....genutils.misc import is_subtree
+try:
+    from ....genutils.misc import is_subtree
+except ImportError:
+    from genutils.misc import is_subtree
 from ...visualisation_utils.formatting import cm2inch
 from ..scripts.diffusion_analysis_scripts.pvalue_utils import get_p_value, get_two_proportion_z_test
 from .pipeline_legacy import LEGACY_DICTIONARY, LEGACY_INDEX_TO_NAME, LEGACY_NAME_TO_INDEX

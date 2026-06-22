@@ -5,7 +5,10 @@ import numpy as np
 from ase import Atoms
 from ase.io import read as ase_read
 from ase.io import write as ase_write
-from ...genutils.filesystem_tools import add_index
+try:
+    from ...genutils.filesystem_tools import add_index
+except ImportError:
+    from genutils.filesystem_tools import add_index
 from pymatgen.core import Structure
 from pymatgen.io.cif import CifParser
 from pymatgen.io.vasp import Poscar
@@ -265,4 +268,3 @@ if __name__ == "__main__":
     # xyzfile2poscars(xyz_batch_fname, np.array([20, 20, 20]), poscars_fname)
     cif_dir_mopb = "/home/vsbat/SYNC/00__WORK/2025-2026_MOLTEN_SALTS/STRUCTURE_GENERATION/gen_results/20250403_MoPB_SG140/CIF_Mo2B1P1_140"
     cif_dir2poscars_dir(cif_dir_mopb)
-

@@ -4,7 +4,10 @@ from pathlib import Path
 from typing import Callable, Any, Tuple
 from ..crystal_entry import  CrystalEntry
 from ..crystal_dataset import CrystalDataset
-from ....genutils.duplicate_analysis import remove_duplicates
+try:
+    from ....genutils.duplicate_analysis import remove_duplicates
+except ImportError:
+    from genutils.duplicate_analysis import remove_duplicates
 
 DEBUG = False
 

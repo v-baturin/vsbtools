@@ -5,7 +5,10 @@ from pathlib import Path
 from typing import Dict, Callable
 from pymatgen.core import Composition
 
-from ....genutils.pareto_tools import pareto_subdataframe_indices
+try:
+    from ....genutils.pareto_tools import pareto_subdataframe_indices
+except ImportError:
+    from genutils.pareto_tools import pareto_subdataframe_indices
 from ..crystal_dataset import CrystalDataset
 from ..io.yaml_csv_poscars import read
 from ..analysis.guidance_statistics import callables_from_ds
