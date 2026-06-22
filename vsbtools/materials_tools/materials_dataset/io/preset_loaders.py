@@ -196,32 +196,33 @@ def _optimade_provider_datasets_to_df(
     do_deduplication = kwargs.get("do_deduplication", True)
     optimade_client = OptimadeClient(**kwargs)
     similarity_tk = optimade_client._similarity_tools(elements) if do_deduplication else None
+    provider_sizes = [len(dataset) for dataset in provider_datasets]
 
     for provider_no, (provider_name, dataset) in enumerate(zip(provider_names, provider_datasets), start=1):
-        provider_label = f"OPTIMADE combine providers {provider_no}/{len(provider_datasets)} {provider_name}"
+        provider_label = f"OPTIMADE dedup provider {provider_no}/{len(provider_datasets)} {provider_name}"
         if progress is not None:
             progress(f"{provider_label}: loading {len(dataset)} structures")
         provider_rows = _dataset_to_rows(dataset)
         if progress is not None:
-            progress(f"{provider_label}: loaded {len(provider_rows)} structures")
+            progress(
+                f"{provider_label}: cross-provider dataset {len(rows)} structures, "
+                f"remaining {sum(provider_sizes[provider_no - 1:])} structures"
+            )
         if similarity_tk is not None and rows:
-            if progress is not None:
-                progress(
-                    f"{provider_label}: checking {len(provider_rows)} structures "
-                    f"against {len(rows)} accepted previous-provider structures"
-                )
             provider_rows = optimade_client._unseen_rows(
                 provider_rows,
                 rows,
                 similarity_tk,
                 progress=progress,
-                progress_label=(
-                    f"{provider_label}: removing structures already present in previous providers"
-                ),
+                progress_label=provider_label,
+                remaining_after_current_provider=sum(provider_sizes[provider_no:]),
             )
         rows.extend(provider_rows)
         if progress is not None:
-            progress(f"{provider_label}: kept {len(provider_rows)}, accepted total {len(rows)}")
+            progress(
+                f"{provider_label}: cross-provider dataset {len(rows)} structures, "
+                f"remaining {sum(provider_sizes[provider_no:])} structures"
+            )
 
     if not rows:
         return pd.DataFrame(columns=["id", "formula", "energy", "structure", "metadata"])

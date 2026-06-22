@@ -169,18 +169,6 @@ class OptimadeClient:
         bridge = DScribeBridge(elements, **bridge_kwargs)
         return SimilarityTools(bridge.fp_dist, bridge.tol_FP)
 
-    @staticmethod
-    def _drop_duplicate_ids(rows: list[dict]) -> list[dict]:
-        seen = set()
-        unique = []
-        for row in rows:
-            row_id = row.get("id")
-            if row_id in seen:
-                continue
-            seen.add(row_id)
-            unique.append(row)
-        return unique
-
     def _unseen_rows(
             self,
             rows: list[dict],
@@ -188,19 +176,18 @@ class OptimadeClient:
             similarity_tk: SimilarityTools,
             progress: Callable[[str], None] | None = None,
             progress_label: str | None = None,
+            remaining_after_current_provider: int = 0,
     ) -> list[dict]:
         unseen = []
         accepted = list(reference_rows)
         total = len(rows)
-        progress_state = {"pairs": 0}
-        progress_label = progress_label or "OPTIMADE: comparing structures"
+        progress_label = progress_label or "OPTIMADE dedup"
         for structure_no, row in enumerate(rows, start=1):
-            structures_left = total - structure_no
+            remaining_structures = total - structure_no + 1 + remaining_after_current_provider
             if progress is not None and (structure_no == 1 or structure_no == total or structure_no % 25 == 0):
                 progress(
-                    f"{progress_label}: structures {structure_no}/{total}, "
-                    f"left {structures_left}, new {len(unseen)}, reference {len(accepted)}, "
-                    f"pairs checked {progress_state['pairs']}"
+                    f"{progress_label}: cross-provider dataset {len(accepted)} structures, "
+                    f"remaining {remaining_structures} structures"
                 )
             duplicate_of = self._duplicate_of(
                 row,
@@ -208,10 +195,8 @@ class OptimadeClient:
                 similarity_tk,
                 progress=progress,
                 progress_label=progress_label,
-                structure_no=structure_no,
-                total_structures=total,
-                structures_left=structures_left,
-                progress_state=progress_state,
+                accepted_count=len(accepted),
+                remaining_structures=remaining_structures,
             )
             if duplicate_of is not None:
                 metadata = dict(row.get("metadata") or {})
@@ -222,9 +207,8 @@ class OptimadeClient:
             accepted.append(row)
         if progress is not None:
             progress(
-                f"{progress_label}: structures {total}/{total}, left 0, "
-                f"new {len(unseen)}, reference {len(accepted)}, "
-                f"pairs checked {progress_state['pairs']}"
+                f"{progress_label}: cross-provider dataset {len(accepted)} structures, "
+                f"remaining {remaining_after_current_provider} structures"
             )
         return unseen
 
@@ -235,10 +219,8 @@ class OptimadeClient:
             similarity_tk: SimilarityTools,
             progress: Callable[[str], None] | None = None,
             progress_label: str | None = None,
-            structure_no: int | None = None,
-            total_structures: int | None = None,
-            structures_left: int | None = None,
-            progress_state: dict | None = None,
+            accepted_count: int | None = None,
+            remaining_structures: int | None = None,
     ) -> dict | None:
         row_formula = row.get("formula")
         entry = OptimadeClient._entry_from_row(row)
@@ -250,23 +232,13 @@ class OptimadeClient:
         if not candidates:
             return None
 
-        progress_label = progress_label or "OPTIMADE: comparing structures"
-        structure_label = (
-            f"{structure_no}/{total_structures}"
-            if structure_no is not None and total_structures is not None
-            else "?"
-        )
-        structures_left_label = str(structures_left) if structures_left is not None else "?"
-        progress_state = progress_state if progress_state is not None else {"pairs": 0}
-        candidate_total = len(candidates)
-        for candidate_no, ref in enumerate(candidates, start=1):
-            progress_state["pairs"] += 1
+        progress_label = progress_label or "OPTIMADE dedup"
+        for ref in candidates:
             if progress is not None:
                 progress(
-                    f"{progress_label}: structure {structure_label}, left {structures_left_label}, "
-                    f"same-formula candidate {candidate_no}/{candidate_total}, "
-                    f"pairs checked in provider {progress_state['pairs']}: "
-                    f"{OptimadeClient._short_id(row.get('id'))} -> {OptimadeClient._short_id(ref.get('id'))}"
+                    OptimadeClient._dedup_progress_message(
+                        progress_label, row, ref, accepted_count, remaining_structures
+                    )
                 )
             try:
                 ref_entry = OptimadeClient._entry_from_row(ref)
@@ -275,11 +247,10 @@ class OptimadeClient:
                     is_duplicate = similarity_tk.is_duplicate(entry, ref_entry)
                     if progress is not None:
                         progress(
-                            f"{progress_label}: structure {structure_label}, left {structures_left_label}, "
-                            f"same-formula candidate {candidate_no}/{candidate_total}, "
-                            f"pairs checked in provider {progress_state['pairs']}: "
-                            f"{OptimadeClient._short_id(row.get('id'))} -> "
-                            f"{OptimadeClient._short_id(ref.get('id'))}, duplicate={is_duplicate}"
+                            OptimadeClient._dedup_progress_message(
+                                progress_label, row, ref, accepted_count, remaining_structures,
+                                suffix=f"duplicate={is_duplicate}",
+                            )
                         )
                     if is_duplicate:
                         return ref
@@ -288,25 +259,40 @@ class OptimadeClient:
                 dist = dist_fn(entry, ref_entry)
                 if progress is not None:
                     progress(
-                        f"{progress_label}: structure {structure_label}, left {structures_left_label}, "
-                        f"same-formula candidate {candidate_no}/{candidate_total}, "
-                        f"pairs checked in provider {progress_state['pairs']}: "
-                        f"{OptimadeClient._short_id(row.get('id'))} -> {OptimadeClient._short_id(ref.get('id'))} "
-                        f"= {dist:.5g}"
+                        OptimadeClient._dedup_progress_message(
+                            progress_label, row, ref, accepted_count, remaining_structures,
+                            suffix=f"dist={dist:.5g}",
+                        )
                     )
                 if dist <= similarity_tk.tol_FP:
                     return ref
             except Exception as err:
                 if progress is not None:
                     progress(
-                        f"{progress_label}: structure {structure_label}, left {structures_left_label}, "
-                        f"same-formula candidate {candidate_no}/{candidate_total}, "
-                        f"pairs checked in provider {progress_state['pairs']}: "
-                        f"{OptimadeClient._short_id(row.get('id'))} -> "
-                        f"{OptimadeClient._short_id(ref.get('id'))} failed: {err.__class__.__name__}"
+                        OptimadeClient._dedup_progress_message(
+                            progress_label, row, ref, accepted_count, remaining_structures,
+                            suffix=f"failed={err.__class__.__name__}",
+                        )
                     )
                 continue
         return None
+
+    @staticmethod
+    def _dedup_progress_message(
+            label: str,
+            row: dict,
+            reference_row: dict,
+            accepted_count: int | None,
+            remaining_structures: int | None,
+            suffix: str | None = None,
+    ) -> str:
+        status = (
+            f"{label}: cross-provider dataset {accepted_count if accepted_count is not None else '?'} structures, "
+            f"remaining {remaining_structures if remaining_structures is not None else '?'} structures, "
+            f"checking {OptimadeClient._short_id(row.get('id'))} -> "
+            f"{OptimadeClient._short_id(reference_row.get('id'))}"
+        )
+        return f"{status}, {suffix}" if suffix else status
 
     @staticmethod
     def _short_id(entry_id, max_len: int = 36) -> str:
