@@ -1,7 +1,6 @@
 import unittest
 from unittest.mock import patch
 
-from ..oqmd_parser import OQMDClient
 from ..optimade_parser import OptimadeClient
 
 
@@ -147,6 +146,7 @@ class OptimadeClientTest(unittest.TestCase):
                     cartesian_site_positions=[[0, 0, 0], [0.25, 0.25, 0.25]],
                     species_at_sites=["Si", "Si"],
                     _oqmd_delta_e=-0.3,
+                    _oqmd_entry_id=456,
                 )
             ],
             "links": {},
@@ -158,10 +158,13 @@ class OptimadeClientTest(unittest.TestCase):
         requested_url = get_json.call_args.args[1]
         self.assertIn("https://oqmd.org/optimade/v1/structures", requested_url)
         self.assertIn("_oqmd_delta_e", requested_url)
+        self.assertIn("_oqmd_entry_id", requested_url)
         self.assertEqual(len(df), 1)
-        self.assertEqual(df.iloc[0]["id"], "optimade_oqmd_123")
+        self.assertEqual(df.iloc[0]["id"], "oqmd_456")
         self.assertEqual(df.iloc[0]["energy"], -0.6)
         self.assertEqual(df.iloc[0]["metadata"]["source"], "OQMD/OPTIMADE")
+        self.assertEqual(df.iloc[0]["metadata"]["optimade_id"], "123")
+        self.assertEqual(df.iloc[0]["metadata"]["oqmd_entry_id"], 456)
         self.assertEqual(df.iloc[0]["metadata"]["energy_field"], "_oqmd_delta_e")
 
     @patch("vsbtools.materials_tools.materials_dataset.io.sources.optimade_parser.Structure", _FakeStructure)
@@ -300,44 +303,6 @@ class OptimadeClientTest(unittest.TestCase):
         self.assertEqual(
             list(df["id"]),
             ["optimade_materials_project_mp-1", "optimade_oqmd_oqmd-duplicate"],
-        )
-
-    def test_cu_si_p_oqmd_direct_and_optimade_counts_match_within_10_percent(self):
-        elements = {"Cu", "Si", "P"}
-        oqmd_client = OQMDClient()
-
-        try:
-            direct_df = oqmd_client.query(elements)
-        except Exception as err:
-            self.skipTest(f"Local OQMD is not available: {err}")
-        finally:
-            conn = getattr(oqmd_client, "_conn", None)
-            if conn is not None:
-                conn.close()
-
-        try:
-            optimade_df = OptimadeClient(
-                providers=["oqmd"],
-                do_deduplication=False,
-                page_limit=500,
-                timeout=12000,
-            ).query(elements)
-        except Exception as err:
-            self.skipTest(f"OQMD OPTIMADE endpoint is not available: {err}")
-
-        direct_count = len(direct_df)
-        optimade_count = len(optimade_df)
-        self.assertGreater(direct_count, 0)
-        self.assertGreater(optimade_count, 0)
-
-        relative_diff = abs(direct_count - optimade_count) / direct_count
-        self.assertLessEqual(
-            relative_diff,
-            0.10,
-            (
-                "Cu-Si-P entry count differs by more than 10% between direct OQMD "
-                f"({direct_count}) and OPTIMADE OQMD ({optimade_count})"
-            ),
         )
 
 

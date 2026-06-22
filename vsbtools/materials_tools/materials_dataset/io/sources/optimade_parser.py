@@ -220,6 +220,8 @@ class OptimadeClient:
             "nsites",
             *provider.energy_fields,
         ]
+        if provider.name == "oqmd":
+            fields.append("_oqmd_entry_id")
         params = {
             "filter": self._elements_filter(elements),
             "page_limit": self.page_limit,
@@ -281,21 +283,30 @@ class OptimadeClient:
                 return None
             raise ValueError(f"No usable {self.energy_mode} energy for {provider.name}:{item.get('id')}")
 
-        entry_id = f"optimade_{provider.name}_{item.get('id')}"
+        optimade_id = item.get("id")
+        source_entry_id = self._source_entry_id(provider, attrs, optimade_id)
         metadata = {
             "source": provider.source,
             "optimade_provider": provider.name,
-            "optimade_id": item.get("id"),
+            "optimade_id": optimade_id,
             "energy_mode": self.energy_mode,
             **energy_meta,
         }
+        if provider.name == "oqmd" and attrs.get("_oqmd_entry_id") is not None:
+            metadata["oqmd_entry_id"] = attrs.get("_oqmd_entry_id")
         return {
-            "id": entry_id,
+            "id": source_entry_id,
             "formula": attrs.get("chemical_formula_reduced") or structure.composition.formula,
             "energy": energy,
             "structure": structure,
             "metadata": metadata,
         }
+
+    @staticmethod
+    def _source_entry_id(provider: OptimadeProvider, attrs: dict, optimade_id: Any) -> str:
+        if provider.name == "oqmd" and attrs.get("_oqmd_entry_id") is not None:
+            return f"oqmd_{attrs['_oqmd_entry_id']}"
+        return f"optimade_{provider.name}_{optimade_id}"
 
     def _structure_from_attributes(self, attrs: dict) -> Structure | None:
         features = set(attrs.get("structure_features") or [])
