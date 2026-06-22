@@ -198,22 +198,17 @@ def _optimade_provider_datasets_to_df(
     similarity_tk = optimade_client._similarity_tools(elements) if do_deduplication else None
 
     for provider_no, (provider_name, dataset) in enumerate(zip(provider_names, provider_datasets), start=1):
+        provider_label = f"OPTIMADE combine providers {provider_no}/{len(provider_datasets)} {provider_name}"
         if progress is not None:
-            progress(
-                f"OPTIMADE provider cache merge {provider_no}/{len(provider_datasets)} {provider_name}: "
-                f"loading {len(dataset)} structures"
-            )
+            progress(f"{provider_label}: loading {len(dataset)} structures")
         provider_rows = _dataset_to_rows(dataset)
         if progress is not None:
-            progress(
-                f"OPTIMADE provider cache merge {provider_no}/{len(provider_datasets)} {provider_name}: "
-                f"loaded {len(provider_rows)} structures"
-            )
+            progress(f"{provider_label}: loaded {len(provider_rows)} structures")
         if similarity_tk is not None and rows:
             if progress is not None:
                 progress(
-                    f"OPTIMADE provider cache merge {provider_no}/{len(provider_datasets)} {provider_name}: "
-                    f"structural dedup {len(provider_rows)} structures against {len(rows)} previous structures"
+                    f"{provider_label}: checking {len(provider_rows)} structures "
+                    f"against {len(rows)} accepted previous-provider structures"
                 )
             provider_rows = optimade_client._unseen_rows(
                 provider_rows,
@@ -221,16 +216,12 @@ def _optimade_provider_datasets_to_df(
                 similarity_tk,
                 progress=progress,
                 progress_label=(
-                    f"OPTIMADE provider cache merge {provider_no}/{len(provider_datasets)} {provider_name}: "
-                    f"structural dedup"
+                    f"{provider_label}: removing structures already present in previous providers"
                 ),
             )
         rows.extend(provider_rows)
         if progress is not None:
-            progress(
-                f"OPTIMADE provider cache merge {provider_no}/{len(provider_datasets)} {provider_name}: "
-                f"kept {len(provider_rows)}, total {len(rows)}"
-            )
+            progress(f"{provider_label}: kept {len(provider_rows)}, accepted total {len(rows)}")
 
     if not rows:
         return pd.DataFrame(columns=["id", "formula", "energy", "structure", "metadata"])

@@ -192,7 +192,7 @@ class OptimadeClient:
         unseen = []
         accepted = list(reference_rows)
         total = len(rows)
-        progress_state = {"distances": 0}
+        progress_state = {"pairs": 0}
         progress_label = progress_label or "OPTIMADE: comparing structures"
         for structure_no, row in enumerate(rows, start=1):
             structures_left = total - structure_no
@@ -200,7 +200,7 @@ class OptimadeClient:
                 progress(
                     f"{progress_label}: structures {structure_no}/{total}, "
                     f"left {structures_left}, new {len(unseen)}, reference {len(accepted)}, "
-                    f"distances {progress_state['distances']}"
+                    f"pairs checked {progress_state['pairs']}"
                 )
             duplicate_of = self._duplicate_of(
                 row,
@@ -224,7 +224,7 @@ class OptimadeClient:
             progress(
                 f"{progress_label}: structures {total}/{total}, left 0, "
                 f"new {len(unseen)}, reference {len(accepted)}, "
-                f"distances {progress_state['distances']}"
+                f"pairs checked {progress_state['pairs']}"
             )
         return unseen
 
@@ -257,14 +257,15 @@ class OptimadeClient:
             else "?"
         )
         structures_left_label = str(structures_left) if structures_left is not None else "?"
-        progress_state = progress_state if progress_state is not None else {"distances": 0}
+        progress_state = progress_state if progress_state is not None else {"pairs": 0}
         candidate_total = len(candidates)
         for candidate_no, ref in enumerate(candidates, start=1):
-            progress_state["distances"] += 1
+            progress_state["pairs"] += 1
             if progress is not None:
                 progress(
                     f"{progress_label}: structure {structure_label}, left {structures_left_label}, "
-                    f"distance {candidate_no}/{candidate_total}, total distances {progress_state['distances']}: "
+                    f"same-formula candidate {candidate_no}/{candidate_total}, "
+                    f"pairs checked in provider {progress_state['pairs']}: "
                     f"{OptimadeClient._short_id(row.get('id'))} -> {OptimadeClient._short_id(ref.get('id'))}"
                 )
             try:
@@ -275,8 +276,8 @@ class OptimadeClient:
                     if progress is not None:
                         progress(
                             f"{progress_label}: structure {structure_label}, left {structures_left_label}, "
-                            f"distance {candidate_no}/{candidate_total}, "
-                            f"total distances {progress_state['distances']}: "
+                            f"same-formula candidate {candidate_no}/{candidate_total}, "
+                            f"pairs checked in provider {progress_state['pairs']}: "
                             f"{OptimadeClient._short_id(row.get('id'))} -> "
                             f"{OptimadeClient._short_id(ref.get('id'))}, duplicate={is_duplicate}"
                         )
@@ -288,8 +289,8 @@ class OptimadeClient:
                 if progress is not None:
                     progress(
                         f"{progress_label}: structure {structure_label}, left {structures_left_label}, "
-                        f"distance {candidate_no}/{candidate_total}, "
-                        f"total distances {progress_state['distances']}: "
+                        f"same-formula candidate {candidate_no}/{candidate_total}, "
+                        f"pairs checked in provider {progress_state['pairs']}: "
                         f"{OptimadeClient._short_id(row.get('id'))} -> {OptimadeClient._short_id(ref.get('id'))} "
                         f"= {dist:.5g}"
                     )
@@ -299,8 +300,8 @@ class OptimadeClient:
                 if progress is not None:
                     progress(
                         f"{progress_label}: structure {structure_label}, left {structures_left_label}, "
-                        f"distance {candidate_no}/{candidate_total}, "
-                        f"total distances {progress_state['distances']}: "
+                        f"same-formula candidate {candidate_no}/{candidate_total}, "
+                        f"pairs checked in provider {progress_state['pairs']}: "
                         f"{OptimadeClient._short_id(row.get('id'))} -> "
                         f"{OptimadeClient._short_id(ref.get('id'))} failed: {err.__class__.__name__}"
                     )
