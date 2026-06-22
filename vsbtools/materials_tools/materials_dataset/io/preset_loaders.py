@@ -2,6 +2,7 @@ from pathlib import Path
 import json
 import hashlib
 from typing import Callable, Any, Dict
+import pandas as pd
 from ..io.yaml_csv_poscars import read, write
 from ..converters import df2ds
 from .sources.matproj_parser import MPClient
@@ -40,7 +41,20 @@ def _kwargs_hash(kwargs: Dict[str, Any]) -> str:
     """
     Stable short hash of kwargs, excluding non-semantic controls.
     """
-    filtered = {k: v for k, v in kwargs.items() if k not in ("force_refresh", "message")}
+    filtered = {
+        k: v
+        for k, v in kwargs.items()
+        if k not in (
+            "force_refresh",
+            "message",
+            "per_provider_cache",
+            "force_provider_refresh",
+            "cache_label",
+            "show_progress",
+            "progress_provider_no",
+            "progress_total_providers",
+        )
+    }
     if not filtered:
         return "none"
     payload = json.dumps(filtered, sort_keys=True, default=repr).encode("utf-8")
@@ -64,9 +78,10 @@ def cache_loader(read_fn, write_fn, *, cache_root: Path = CACHE_DIR, manifest_na
 
         def wrapper(elements, message=None, **kwargs):
             force_refresh = bool(kwargs.get("force_refresh", False))
+            cache_label = kwargs.get("cache_label")
             elements_key = _normalize_elements(elements)
             kw_hash = _kwargs_hash(kwargs)
-            folder_name = f"{source}_{elements_key}_{kw_hash}"
+            folder_name = f"{cache_label or source}_{elements_key}_{kw_hash}"
             folder = Path(cache_root) / folder_name
             manifest_path = folder / manifest_name
 
@@ -76,7 +91,9 @@ def cache_loader(read_fn, write_fn, *, cache_root: Path = CACHE_DIR, manifest_na
 
             # 2) Miss: compute dataset via underlying loader
             #    (Do not pass control-only kwarg to the client)
-            client_kwargs = {k: v for k, v in kwargs.items() if k not in ("force_refresh",)}
+            client_kwargs = {k: v for k, v in kwargs.items() if k not in ("force_refresh", "cache_label")}
+            if source == "optimade" and force_refresh:
+                client_kwargs["force_provider_refresh"] = True
             dataset = fn(elements, message=message, **client_kwargs)
 
             # 3) Persist using your writer into the cache folder
@@ -114,10 +131,124 @@ def load_from_oqmd(elements, message=None, **kwargs):
 
 @cache_loader(read, write)
 def load_from_optimade(elements, message=None, **kwargs):
+    per_provider_cache = kwargs.pop("per_provider_cache", True)
+    force_provider_refresh = kwargs.pop("force_provider_refresh", False)
+    if not per_provider_cache:
+        optimade_client = OptimadeClient(**kwargs)
+        df = optimade_client.query(elements)
+        message = message or f"Full {elements} system from OPTIMADE"
+        return df2ds(df, message=message)
+
+    provider_names = _optimade_provider_names(kwargs)
+    provider_datasets = []
+    for provider_no, provider_name in enumerate(provider_names, start=1):
+        provider_kwargs = dict(kwargs)
+        provider_kwargs["providers"] = [provider_name]
+        provider_kwargs["do_deduplication"] = False
+        provider_kwargs["cache_label"] = f"optimade_{provider_name}"
+        provider_kwargs["force_refresh"] = force_provider_refresh
+        provider_kwargs["progress_provider_no"] = provider_no
+        provider_kwargs["progress_total_providers"] = len(provider_names)
+        provider_message = f"Full {elements} system from OPTIMADE provider {provider_name}"
+        provider_datasets.append(_load_from_optimade_provider(elements, message=provider_message, **provider_kwargs))
+
+    show_progress = kwargs.get("show_progress", True)
+    status_len = 0
+
+    def progress(status: str):
+        nonlocal status_len
+        if not show_progress:
+            return
+        print(f"\r{status}{' ' * max(0, status_len - len(status))}", end="", flush=True)
+        status_len = len(status)
+
+    df = _optimade_provider_datasets_to_df(elements, provider_names, provider_datasets, kwargs, progress=progress)
+    if show_progress and status_len:
+        print()
+    message = message or f"Full {elements} system from OPTIMADE"
+    return df2ds(df, message=message)
+
+
+@cache_loader(read, write)
+def _load_from_optimade_provider(elements, message=None, **kwargs):
     optimade_client = OptimadeClient(**kwargs)
     df = optimade_client.query(elements)
     message = message or f"Full {elements} system from OPTIMADE"
     return df2ds(df, message=message)
+
+
+def _optimade_provider_names(kwargs: Dict[str, Any]) -> list[str]:
+    names = []
+    for provider in OptimadeClient(**kwargs)._providers():
+        if provider.name not in names:
+            names.append(provider.name)
+    return names
+
+
+def _optimade_provider_datasets_to_df(
+        elements,
+        provider_names,
+        provider_datasets,
+        kwargs: Dict[str, Any],
+        progress: Callable[[str], None] | None = None,
+):
+    rows = []
+    do_deduplication = kwargs.get("do_deduplication", True)
+    optimade_client = OptimadeClient(**kwargs)
+    similarity_tk = optimade_client._similarity_tools(elements) if do_deduplication else None
+
+    for provider_no, (provider_name, dataset) in enumerate(zip(provider_names, provider_datasets), start=1):
+        if progress is not None:
+            progress(
+                f"OPTIMADE provider cache merge {provider_no}/{len(provider_datasets)} {provider_name}: "
+                f"loading {len(dataset)} structures"
+            )
+        provider_rows = _dataset_to_rows(dataset)
+        if progress is not None:
+            progress(
+                f"OPTIMADE provider cache merge {provider_no}/{len(provider_datasets)} {provider_name}: "
+                f"loaded {len(provider_rows)} structures"
+            )
+        if similarity_tk is not None and rows:
+            if progress is not None:
+                progress(
+                    f"OPTIMADE provider cache merge {provider_no}/{len(provider_datasets)} {provider_name}: "
+                    f"structural dedup {len(provider_rows)} structures against {len(rows)} previous structures"
+                )
+            provider_rows = optimade_client._unseen_rows(
+                provider_rows,
+                rows,
+                similarity_tk,
+                progress=progress,
+                progress_label=(
+                    f"OPTIMADE provider cache merge {provider_no}/{len(provider_datasets)} {provider_name}: "
+                    f"structural dedup"
+                ),
+            )
+        rows.extend(provider_rows)
+        if progress is not None:
+            progress(
+                f"OPTIMADE provider cache merge {provider_no}/{len(provider_datasets)} {provider_name}: "
+                f"kept {len(provider_rows)}, total {len(rows)}"
+            )
+
+    if not rows:
+        return pd.DataFrame(columns=["id", "formula", "energy", "structure", "metadata"])
+    return pd.DataFrame(rows).reset_index(drop=True)
+
+
+def _dataset_to_rows(dataset):
+    return [
+        {
+            "id": entry.id,
+            "formula": entry.formula,
+            "energy": entry.energy,
+            "structure": entry.structure,
+            "metadata": entry.metadata,
+        }
+        for entry in dataset
+    ]
+
 
 def load_from_uspex_calc_folders(calcfolds_path: Path, stage=None, message=None, elements=None):
     from .sources.uspex_output_parser import USPEXOutputClient

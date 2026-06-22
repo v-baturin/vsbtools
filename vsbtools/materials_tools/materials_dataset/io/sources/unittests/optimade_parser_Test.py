@@ -1,4 +1,6 @@
+import io
 import unittest
+from contextlib import redirect_stdout
 from unittest.mock import patch
 
 from ..optimade_parser import OptimadeClient
@@ -65,6 +67,25 @@ class OptimadeClientTest(unittest.TestCase):
             {"links": {"next": "http://optimade.materialsproject.org/v1/structures?page_offset=1"}},
         )
         self.assertTrue(next_url.startswith("https://"))
+
+    @patch("vsbtools.materials_tools.materials_dataset.io.sources.optimade_parser.Structure", _FakeStructure)
+    def test_progress_can_use_external_provider_count(self):
+        client = OptimadeClient(
+            providers=["oqmd"],
+            progress_provider_no=2,
+            progress_total_providers=3,
+        )
+        payload = {
+            "data": [_optimade_item("oqmd-1", _oqmd_delta_e=-0.2)],
+            "links": {},
+        }
+
+        out = io.StringIO()
+        with patch.object(OptimadeClient, "_get_json", autospec=True, return_value=payload), \
+                redirect_stdout(out):
+            client.query({"Si"})
+
+        self.assertIn("OPTIMADE provider 2/3 oqmd", out.getvalue())
 
     @patch("vsbtools.materials_tools.materials_dataset.io.sources.optimade_parser.Structure", _FakeStructure)
     def test_alexandria_query_maps_formation_energy_and_pagination(self):

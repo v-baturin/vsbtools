@@ -39,6 +39,8 @@ class OptimadeClient:
     strict_structures: bool = True
     do_deduplication: bool = True
     show_progress: bool = True
+    progress_provider_no: int | None = None
+    progress_total_providers: int | None = None
     tol_FP: float | None = None
     similarity_tk: SimilarityTools | None = None
     similarity_bridge_kwargs: Dict[str, Any] = field(default_factory=dict)
@@ -101,7 +103,9 @@ class OptimadeClient:
 
         for provider_no, provider in enumerate(providers, start=1):
             provider_rows = []
-            provider_label = f"provider {provider_no}/{len(providers)} {provider.name}"
+            display_provider_no = self.progress_provider_no or provider_no
+            display_total_providers = self.progress_total_providers or len(providers)
+            provider_label = f"provider {display_provider_no}/{display_total_providers} {provider.name}"
             progress(f"OPTIMADE {provider_label}: starting")
             for subset_no, subset in enumerate(subspaces, start=1):
                 query_no = (provider_no - 1) * len(subspaces) + subset_no
@@ -125,15 +129,18 @@ class OptimadeClient:
                     f"accepted {len(provider_rows)}"
                 )
 
-            before_id_dedup = len(provider_rows)
-            progress(f"OPTIMADE {provider_label}: deduplicating ids, accepted {before_id_dedup}")
-            provider_rows = self._drop_duplicate_ids(provider_rows)
             if similarity_tk is not None and rows:
                 progress(
                     f"OPTIMADE {provider_label}: comparing against previous providers, "
                     f"accepted {len(provider_rows)}"
                 )
-                provider_rows = self._unseen_rows(provider_rows, rows, similarity_tk)
+                provider_rows = self._unseen_rows(
+                    provider_rows,
+                    rows,
+                    similarity_tk,
+                    progress=progress,
+                    progress_label=f"OPTIMADE {provider_label}: comparing against previous providers",
+                )
             rows.extend(provider_rows)
             progress(
                 f"OPTIMADE {provider_label}: finished, kept {len(provider_rows)}, "
@@ -146,8 +153,7 @@ class OptimadeClient:
         if not rows:
             return pd.DataFrame(columns=["id", "formula", "energy", "structure", "metadata"])
 
-        df = pd.DataFrame(rows)
-        return df.drop_duplicates(subset=["id"], keep="first").reset_index(drop=True)
+        return pd.DataFrame(rows).reset_index(drop=True)
 
     # legacy alias
     def lowest_energy(self, elements: set[str]) -> pd.DataFrame:
@@ -175,11 +181,38 @@ class OptimadeClient:
             unique.append(row)
         return unique
 
-    def _unseen_rows(self, rows: list[dict], reference_rows: list[dict], similarity_tk: SimilarityTools) -> list[dict]:
+    def _unseen_rows(
+            self,
+            rows: list[dict],
+            reference_rows: list[dict],
+            similarity_tk: SimilarityTools,
+            progress: Callable[[str], None] | None = None,
+            progress_label: str | None = None,
+    ) -> list[dict]:
         unseen = []
         accepted = list(reference_rows)
-        for row in rows:
-            duplicate_of = self._duplicate_of(row, accepted, similarity_tk)
+        total = len(rows)
+        progress_state = {"distances": 0}
+        progress_label = progress_label or "OPTIMADE: comparing structures"
+        for structure_no, row in enumerate(rows, start=1):
+            structures_left = total - structure_no
+            if progress is not None and (structure_no == 1 or structure_no == total or structure_no % 25 == 0):
+                progress(
+                    f"{progress_label}: structures {structure_no}/{total}, "
+                    f"left {structures_left}, new {len(unseen)}, reference {len(accepted)}, "
+                    f"distances {progress_state['distances']}"
+                )
+            duplicate_of = self._duplicate_of(
+                row,
+                accepted,
+                similarity_tk,
+                progress=progress,
+                progress_label=progress_label,
+                structure_no=structure_no,
+                total_structures=total,
+                structures_left=structures_left,
+                progress_state=progress_state,
+            )
             if duplicate_of is not None:
                 metadata = dict(row.get("metadata") or {})
                 metadata["duplicate_of"] = duplicate_of.get("id")
@@ -187,10 +220,26 @@ class OptimadeClient:
                 continue
             unseen.append(row)
             accepted.append(row)
+        if progress is not None:
+            progress(
+                f"{progress_label}: structures {total}/{total}, left 0, "
+                f"new {len(unseen)}, reference {len(accepted)}, "
+                f"distances {progress_state['distances']}"
+            )
         return unseen
 
     @staticmethod
-    def _duplicate_of(row: dict, reference_rows: list[dict], similarity_tk: SimilarityTools) -> dict | None:
+    def _duplicate_of(
+            row: dict,
+            reference_rows: list[dict],
+            similarity_tk: SimilarityTools,
+            progress: Callable[[str], None] | None = None,
+            progress_label: str | None = None,
+            structure_no: int | None = None,
+            total_structures: int | None = None,
+            structures_left: int | None = None,
+            progress_state: dict | None = None,
+    ) -> dict | None:
         row_formula = row.get("formula")
         entry = OptimadeClient._entry_from_row(row)
         candidates = [
@@ -201,24 +250,69 @@ class OptimadeClient:
         if not candidates:
             return None
 
-        try:
-            matches, _ = similarity_tk.contains_structure(
-                entry,
-                OptimadeClient._dataset_from_rows(candidates, message="OPTIMADE duplicate candidates"),
-            )
-        except Exception:
-            matches = []
-
-        if matches:
-            return candidates[matches[0]]
-
-        for ref in candidates:
+        progress_label = progress_label or "OPTIMADE: comparing structures"
+        structure_label = (
+            f"{structure_no}/{total_structures}"
+            if structure_no is not None and total_structures is not None
+            else "?"
+        )
+        structures_left_label = str(structures_left) if structures_left is not None else "?"
+        progress_state = progress_state if progress_state is not None else {"distances": 0}
+        candidate_total = len(candidates)
+        for candidate_no, ref in enumerate(candidates, start=1):
+            progress_state["distances"] += 1
+            if progress is not None:
+                progress(
+                    f"{progress_label}: structure {structure_label}, left {structures_left_label}, "
+                    f"distance {candidate_no}/{candidate_total}, total distances {progress_state['distances']}: "
+                    f"{OptimadeClient._short_id(row.get('id'))} -> {OptimadeClient._short_id(ref.get('id'))}"
+                )
             try:
-                if similarity_tk.is_duplicate(entry, OptimadeClient._entry_from_row(ref)):
+                ref_entry = OptimadeClient._entry_from_row(ref)
+                dist_fn = getattr(similarity_tk, "dist", None)
+                if dist_fn is None:
+                    is_duplicate = similarity_tk.is_duplicate(entry, ref_entry)
+                    if progress is not None:
+                        progress(
+                            f"{progress_label}: structure {structure_label}, left {structures_left_label}, "
+                            f"distance {candidate_no}/{candidate_total}, "
+                            f"total distances {progress_state['distances']}: "
+                            f"{OptimadeClient._short_id(row.get('id'))} -> "
+                            f"{OptimadeClient._short_id(ref.get('id'))}, duplicate={is_duplicate}"
+                        )
+                    if is_duplicate:
+                        return ref
+                    continue
+
+                dist = dist_fn(entry, ref_entry)
+                if progress is not None:
+                    progress(
+                        f"{progress_label}: structure {structure_label}, left {structures_left_label}, "
+                        f"distance {candidate_no}/{candidate_total}, "
+                        f"total distances {progress_state['distances']}: "
+                        f"{OptimadeClient._short_id(row.get('id'))} -> {OptimadeClient._short_id(ref.get('id'))} "
+                        f"= {dist:.5g}"
+                    )
+                if dist <= similarity_tk.tol_FP:
                     return ref
-            except Exception:
+            except Exception as err:
+                if progress is not None:
+                    progress(
+                        f"{progress_label}: structure {structure_label}, left {structures_left_label}, "
+                        f"distance {candidate_no}/{candidate_total}, "
+                        f"total distances {progress_state['distances']}: "
+                        f"{OptimadeClient._short_id(row.get('id'))} -> "
+                        f"{OptimadeClient._short_id(ref.get('id'))} failed: {err.__class__.__name__}"
+                    )
                 continue
         return None
+
+    @staticmethod
+    def _short_id(entry_id, max_len: int = 36) -> str:
+        entry_id = str(entry_id)
+        if len(entry_id) <= max_len:
+            return entry_id
+        return entry_id[:max_len - 3] + "..."
 
     @staticmethod
     def _entry_from_row(row: dict) -> CrystalEntry:

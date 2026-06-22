@@ -80,7 +80,7 @@ class DSLoaders_Test(unittest.TestCase):
         self.assertIn("Alexandria", df2ds.call_args.kwargs["message"])
         self.assertIs(result, dataset)
 
-    def test_load_from_optimade(self):
+    def test_load_from_optimade_direct_interface(self):
         query_df = Mock(name="query_df")
         dataset = Mock(name="dataset")
         client = Mock()
@@ -90,12 +90,50 @@ class DSLoaders_Test(unittest.TestCase):
                    return_value=client) as client_cls, \
                 patch("vsbtools.materials_tools.materials_dataset.io.preset_loaders.df2ds",
                       return_value=dataset) as df2ds:
-            result = load_from_optimade.__wrapped__({'Mo', 'Si'}, providers=["oqmd"], page_limit=10)
+            result = load_from_optimade.__wrapped__(
+                {'Mo', 'Si'},
+                providers=["oqmd"],
+                page_limit=10,
+                per_provider_cache=False,
+            )
 
         client_cls.assert_called_once_with(providers=["oqmd"], page_limit=10)
         client.query.assert_called_once_with({'Mo', 'Si'})
         self.assertTrue(df2ds.call_args.kwargs["message"].startswith("Full "))
         self.assertIn("OPTIMADE", df2ds.call_args.kwargs["message"])
+        self.assertIs(result, dataset)
+
+    def test_load_from_optimade_uses_provider_cache_loaders(self):
+        query_df = Mock(name="query_df")
+        dataset = Mock(name="dataset")
+        provider_datasets = [Mock(name="oqmd_dataset"), Mock(name="alexandria_dataset")]
+
+        with patch("vsbtools.materials_tools.materials_dataset.io.preset_loaders._load_from_optimade_provider",
+                   side_effect=provider_datasets) as provider_loader, \
+                patch("vsbtools.materials_tools.materials_dataset.io.preset_loaders._optimade_provider_datasets_to_df",
+                      return_value=query_df) as datasets_to_df, \
+                patch("vsbtools.materials_tools.materials_dataset.io.preset_loaders.df2ds",
+                      return_value=dataset) as df2ds:
+            result = load_from_optimade.__wrapped__(
+                {'Mo', 'Si'},
+                providers=["oqmd", "alexandria"],
+                page_limit=10,
+            )
+
+        self.assertEqual(provider_loader.call_count, 2)
+        self.assertEqual(provider_loader.call_args_list[0].kwargs["providers"], ["oqmd"])
+        self.assertEqual(provider_loader.call_args_list[1].kwargs["providers"], ["alexandria"])
+        self.assertEqual(provider_loader.call_args_list[0].kwargs["cache_label"], "optimade_oqmd")
+        self.assertEqual(provider_loader.call_args_list[1].kwargs["cache_label"], "optimade_alexandria")
+        self.assertEqual(provider_loader.call_args_list[0].kwargs["progress_provider_no"], 1)
+        self.assertEqual(provider_loader.call_args_list[1].kwargs["progress_provider_no"], 2)
+        self.assertEqual(provider_loader.call_args_list[0].kwargs["progress_total_providers"], 2)
+        self.assertEqual(provider_loader.call_args_list[1].kwargs["progress_total_providers"], 2)
+        self.assertFalse(provider_loader.call_args_list[0].kwargs["do_deduplication"])
+        datasets_to_df.assert_called_once()
+        self.assertEqual(datasets_to_df.call_args.args[1], ["oqmd", "alexandria"])
+        self.assertIs(datasets_to_df.call_args.args[2], provider_datasets)
+        self.assertIs(df2ds.call_args.args[0], query_df)
         self.assertIs(result, dataset)
 
     def test_load_from_uspex_goodstructures(self):
