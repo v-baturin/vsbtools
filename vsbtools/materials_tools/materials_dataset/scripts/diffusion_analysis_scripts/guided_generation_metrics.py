@@ -14,7 +14,7 @@ from ...io.yaml_csv_poscars import load_yaml_recursively
 from ...analysis.phase_diagram_tools import PhaseDiagramTools
 from ...analysis import summary as summary_tools
 from ...analysis import symmetry_tools as symmetry_tools_module
-from .guidance_stats import LEGACY_TO_CANONICAL_GUIDANCE, callables_from_ds, get_two_proportion_z_test
+from ...analysis.guidance_statistics import LEGACY_TO_CANONICAL_GUIDANCE, callables_from_ds, get_two_proportion_z_test
 MAX_ECH = 0.2
 CANONICAL_MAX_DEVIATION = {
     "mean_coordination": 0.2,

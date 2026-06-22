@@ -8,7 +8,7 @@ from pymatgen.core import Composition
 from ....genutils.pareto_tools import pareto_subdataframe_indices
 from ..crystal_dataset import CrystalDataset
 from ..io.yaml_csv_poscars import read
-from .diffusion_analysis_scripts.guidance_stats import callables_from_ds
+from ..analysis.guidance_statistics import callables_from_ds
 from ..analysis import (
     phase_diagram_tools as pdt,
     symmetry_tools as st,
@@ -175,7 +175,7 @@ def build_guidance_summary_for_processed_system(
 if __name__ == "__main__":
     from pathlib import Path
     from vsbtools.materials_tools.materials_dataset.analysis.scenario_pipeline import Scenario
-    from vsbtools.materials_tools.materials_dataset.scripts.diffusion_analysis_scripts.guidance_stats import get_guidance_generation_dirs
+    from vsbtools.materials_tools.materials_dataset.analysis.guidance_statistics import get_guidance_generation_dirs
 
     repo = Path("/home/vsbat/SYNC/00__WORK/2025-2026_MOLTEN_SALTS/"
                 "MG_postprocess_pipelines/PROCESSED/Ca-Cu-P-Si/"
