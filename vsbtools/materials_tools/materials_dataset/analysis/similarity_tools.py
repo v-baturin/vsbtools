@@ -40,6 +40,7 @@ class SimilarityTools:
             match_formula: bool = True,
             progress: Callable[[str], None] | None = None,
             progress_prefix: str | None = None,
+            progress_interval_s: float = 0.5,
             on_duplicate: Callable[[T, T], None] | None = None,
             on_slow_distance: Callable[[int, T], None] | None = None,
             skip_errors: bool = False,
@@ -50,10 +51,21 @@ class SimilarityTools:
         accepted = list(reference_items or [])
         unseen = []
         tol_FP = self.tol_FP if tol_FP is None else tol_FP
+        last_progress = 0.0
 
         for item_no, item in enumerate(items, start=1):
-            if progress is not None and progress_prefix is not None:
+            now = time.monotonic()
+            if (
+                    progress is not None
+                    and progress_prefix is not None
+                    and (
+                            item_no == 1
+                            or item_no == len(items)
+                            or now - last_progress >= progress_interval_s
+                    )
+            ):
                 progress(f"{progress_prefix}: merging entry {item_no}/{len(items)}")
+                last_progress = now
             entry = entry_factory(item)
             duplicate = None
             for reference in accepted:
@@ -88,12 +100,17 @@ class SimilarityTools:
     def deduplicate(self, ds: CrystalDataset,
                     check_clusters_file=False, clusters_file: Path = None, check_dist_matrix_file=False,
                     dist_matrix_file=None, fitness_list=None, tol_FP: float = None,
-                    enforce_compositions_separation=True, **kwargs) -> tuple[CrystalDataset, Any, Any]:
+                    enforce_compositions_separation=True,
+                    save_clusters_file: bool = False,
+                    save_dist_matrix_file: bool = False,
+                    **kwargs) -> tuple[CrystalDataset, Any, Any]:
 
         """
         Remove duplicates from the dataset using USPEX's remove_duplicates function.
-        :param check_clusters_file: If True, will write clusters to a file.
-        :param check_dist_matrix_file: If True, will write distance matrix to a file.
+        :param check_clusters_file: If True, try to read clusters from a file.
+        :param check_dist_matrix_file: If True, try to read distance matrix from a file.
+        :param save_clusters_file: If True, write clusters to a file.
+        :param save_dist_matrix_file: If True, write distance matrix to a file.
         :param tol_FP: Tolerance for fingerprint distance.
         :param enforce_compositions_separation: If True, will enforce separation of compositions in clusters.
         :param fitness_list: List of fitness values (e.g., energies) for each entry.
@@ -109,8 +126,10 @@ class SimilarityTools:
         else:
             reduced_compositions = None
 
-        clusters_file = clusters_file or ds.base_path / f"{ds.dataset_id}_clusters.pkl"
-        dist_matrix_file = dist_matrix_file or ds.base_path / f"{ds.dataset_id}_dist_matrix.pkl"
+        if (check_clusters_file or save_clusters_file) and clusters_file is None:
+            clusters_file = ds.base_path / f"{ds.dataset_id}_clusters.pkl"
+        if (check_dist_matrix_file or save_dist_matrix_file) and dist_matrix_file is None:
+            dist_matrix_file = ds.base_path / f"{ds.dataset_id}_dist_matrix.pkl"
         best_representatives, clusters, best_idx = remove_duplicates(ds, dist_fn=self.dist,
                                                                      fitness_list=fitness_list,
                                                                      intercluster_mindistance=tol_FP,
@@ -119,7 +138,9 @@ class SimilarityTools:
                                                                      dist_matrix_file=dist_matrix_file,
                                                                      clusters_file=clusters_file,
                                                                      do_split_clusters_by_labels=enforce_compositions_separation,
-                                                                     labels_list=reduced_compositions)
+                                                                     labels_list=reduced_compositions,
+                                                                     save_clusters_file=save_clusters_file,
+                                                                     save_dist_matrix_file=save_dist_matrix_file)
         for no, idx in enumerate(best_idx):
             if "duplicates" not in ds[idx].metadata or ds[idx].metadata["duplicates"] is None:
                 ds[idx].metadata["duplicates"] = set([ds[j].id for j in clusters[no] if j != idx])

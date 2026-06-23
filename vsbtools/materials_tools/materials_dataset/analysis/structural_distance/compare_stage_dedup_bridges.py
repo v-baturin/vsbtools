@@ -153,6 +153,8 @@ def deduplicate_with_bridge(
             dist_matrix_file=dist_matrix_file,
             tol_FP=tol_fp,
             enforce_compositions_separation=enforce_compositions_separation,
+            save_clusters_file=True,
+            save_dist_matrix_file=True,
         )
     elapsed_s = time.perf_counter() - start
 

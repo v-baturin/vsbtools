@@ -32,7 +32,8 @@ class SimilarityTools_Test(unittest.TestCase):
         deduped_ds, _, _ = self.sim_tools.deduplicate(self.ds, enforce_compositions_separation=True,
                                                       clusters_file = clusters_file,
                                                       dist_matrix_file = dist_matrix_file,
-                                                      check_clusters_file=True, check_dist_matrix_file=True)
+                                                      check_clusters_file=True, check_dist_matrix_file=True,
+                                                      save_clusters_file=True, save_dist_matrix_file=True)
         self.assertEqual(len(deduped_ds), 294)
         clusters_file.unlink()
         dist_matrix_file.unlink()

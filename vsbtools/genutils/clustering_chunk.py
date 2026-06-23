@@ -1,19 +1,24 @@
 import os
+import time
 import numpy as np
 from collections import deque
 import pickle as pkl
 from datetime import datetime
 tdy = datetime.today().strftime('%Y%m%d')
 
-def make_dist_matrix(points, dist_fun, dist_matrix_out_file=None):
+def make_dist_matrix(points, dist_fun, dist_matrix_out_file=None, progress_interval_s=0.5):
     matrix_dim = len(points)
     dist_mat = np.zeros((matrix_dim, matrix_dim), dtype=float)
+    last_progress = 0.0
     for i in range(matrix_dim):
         for j in range(i, matrix_dim):
-            print(f"\ri = {i}, j = {j}", end="", flush=True)
+            now = time.monotonic()
+            if now - last_progress >= progress_interval_s:
+                print(f"\ri = {i}, j = {j}", end="", flush=True)
+                last_progress = now
             dist_mat[i, j] = dist_mat[j, i] = dist_fun(points[i], points[j])
     if matrix_dim:
-        print()
+        print(f"\ri = {matrix_dim - 1}, j = {matrix_dim - 1}")
     if dist_matrix_out_file is not None:
         with open(dist_matrix_out_file, 'wb') as dm_file:
             pkl.dump(dist_mat, dm_file)
@@ -41,16 +46,18 @@ def get_clusters_from_adj_mat(adj_mat):
     return clusters
 
 
-def clusterize_dist_matrix(dist_matrix=None, clusters_out_file=None, separation_labels=None, tolFP=0.16, **kwargs):
+def clusterize_dist_matrix(dist_matrix=None, clusters_out_file=None, separation_labels=None,
+                           tolFP=0.16, save_clusters=False, **kwargs):
     adj_mat = dist_matrix <= tolFP
     clusters = get_clusters_from_adj_mat(adj_mat)
     if separation_labels:
         clusters = separate_by_labels(clusters, separation_labels)
-    if clusters_out_file is None:
-        clusters_out_file = f'{os.getcwd()}/clusters_{tdy}.pkl'
-    with open(clusters_out_file, 'wb') as cl_file:
-        pkl.dump(clusters, cl_file)
-        print(f'clustering saved in {clusters_out_file}')
+    if save_clusters:
+        if clusters_out_file is None:
+            clusters_out_file = f'{os.getcwd()}/clusters_{tdy}.pkl'
+        with open(clusters_out_file, 'wb') as cl_file:
+            pkl.dump(clusters, cl_file)
+            print(f'clustering saved in {clusters_out_file}')
     return clusters
 
 def separate_by_labels(clusters, labels_list):

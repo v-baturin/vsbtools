@@ -800,8 +800,10 @@ def op_deduplicate(
     similarity_tk: SimilarityTools = ctx.get_tool("similarity")
     ds, _, _ = similarity_tk.deduplicate(
         parent,
-        check_clusters_file=bool(params.get("check_clusters_file", True)),
-        check_dist_matrix_file=bool(params.get("check_dist_matrix_file", True)),
+        check_clusters_file=bool(params.get("check_clusters_file", False)),
+        check_dist_matrix_file=bool(params.get("check_dist_matrix_file", False)),
+        save_clusters_file=bool(params.get("save_clusters_file", False)),
+        save_dist_matrix_file=bool(params.get("save_dist_matrix_file", False)),
         tol_FP=tol_FP
     )
 

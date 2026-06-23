@@ -88,7 +88,12 @@ def remove_duplicates_from_atoms_list(atoms_list, fitness_list, threshold=np.inf
         else:
             rho = prepare_dist_function(systems, legacy=legacy, elements=elements, **kwargs)
             dist_matrix = make_dist_matrix(systems, rho, dist_matrix_file)
-        clusters = clusterize_dist_matrix(dist_matrix, clusters_out_file=clusters_file, tolFP=tolFp)
+        clusters = clusterize_dist_matrix(
+            dist_matrix,
+            clusters_out_file=clusters_file,
+            tolFP=tolFp,
+            save_clusters=True,
+        )
     best_representatives, _ = select_best_representatives(clusters, systems, fitness_list, threshold)
     atomistic.writeAtomicStructures(Path(out_path), [sb.getFlavour('origin') for sb in best_representatives])
 
@@ -134,7 +139,12 @@ def remove_duplicates_from_files(struct_file: Path,
         else:
             rho = prepare_dist_function(systems, legacy=legacy)
             dist_matrix = make_dist_matrix(systems, rho, dist_matrix_file)
-        clusters = clusterize_dist_matrix(dist_matrix, clusters_out_file=clusters_file, tolFP=tolFp)
+        clusters = clusterize_dist_matrix(
+            dist_matrix,
+            clusters_out_file=clusters_file,
+            tolFP=tolFp,
+            save_clusters=True,
+        )
     best_representatives, _ = select_best_representatives(clusters, systems, fitness_list, threshold)
     atomistic.writeAtomicStructures(Path(out_path), [sb.getFlavour('origin') for sb in best_representatives])
         
@@ -203,5 +213,4 @@ def prepare_dist_function(systems, legacy=True, elements=None, **kwargs):
 #     # dist_marix += dist_marix.T
 #     adj_mat = dist_marix <= 0.35
 #     clusters = get_clusters_from_adj_mat(adj_mat)
-
 

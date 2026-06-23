@@ -14,14 +14,16 @@ def remove_duplicates(entries, dist_fn: Callable[[Any, Any], float],
                       fitness_list=None, threshold=np.inf,
                       data_path: Path | None = None, clusters_file=None, dist_matrix_file=None,
                       check_clusters_file=False, check_dist_matrix_file=False, do_split_clusters_by_labels=False,
-                      labels_list=None):
+                      labels_list=None, save_clusters_file=False, save_dist_matrix_file=False):
     """
     Abstract deduplication of entries
     """
 
     data_path = data_path or Path(os.getcwd())
-    clusters_file = clusters_file or data_path / f"clusters_{tdy}.pkl"
-    dist_matrix_file = dist_matrix_file or data_path / f"dist_mat_{tdy}.pkl"
+    if (check_clusters_file or save_clusters_file) and clusters_file is None:
+        clusters_file = data_path / f"clusters_{tdy}.pkl"
+    if (check_dist_matrix_file or save_dist_matrix_file) and dist_matrix_file is None:
+        dist_matrix_file = data_path / f"dist_mat_{tdy}.pkl"
 
     clusters = None
     if check_clusters_file:
@@ -30,7 +32,7 @@ def remove_duplicates(entries, dist_fn: Callable[[Any, Any], float],
                 clusters = pkl.load(f)
             warnings.warn(f"Clusters are loaded from {clusters_file}. tolFP is ignored")
         else:
-            warnings.warn("Clusters are not loaded, will be created from the distance matrix.")
+            warnings.warn("Clusters are not loaded, will be computed from the distance matrix.")
 
     # If clusters weren’t loaded, ensure we have a distance matrix
     if clusters is None:
@@ -41,18 +43,27 @@ def remove_duplicates(entries, dist_fn: Callable[[Any, Any], float],
                     dist_matrix = pkl.load(f)
                 warnings.warn(f"Distance matrix is loaded from {dist_matrix_file}.")
             else:
-                warnings.warn("Distance matrix is not loaded, will be created from the entries.")
-                dist_matrix = make_dist_matrix(entries, dist_fn, dist_matrix_file)
+                warnings.warn("Distance matrix is not loaded, will be computed from the entries.")
+                dist_matrix = make_dist_matrix(
+                    entries,
+                    dist_fn,
+                    dist_matrix_file if save_dist_matrix_file else None,
+                )
         else:
             # Always create if not checking for a pre-existing file
-            dist_matrix = make_dist_matrix(entries, dist_fn, dist_matrix_file)
+            dist_matrix = make_dist_matrix(
+                entries,
+                dist_fn,
+                dist_matrix_file if save_dist_matrix_file else None,
+            )
 
         # Finally clusterize
         clusters = clusterize_dist_matrix(
             dist_matrix,
-            clusters_out_file=clusters_file,
+            clusters_out_file=clusters_file if save_clusters_file else None,
             tolFP=intercluster_mindistance,
-            separation_labels=(labels_list if labels_list and do_split_clusters_by_labels else None)
+            separation_labels=(labels_list if labels_list and do_split_clusters_by_labels else None),
+            save_clusters=save_clusters_file,
         )
 
     best_representatives, best_idc = select_best_representatives(clusters, entries, fitness_list, threshold)
