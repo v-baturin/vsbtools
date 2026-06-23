@@ -40,7 +40,7 @@ OPTIMADE_FALLBACK_PROVIDERS = {
 
 def poll_databases(elements,
                    database_names=None,
-                   pref_db: str = 'al',
+                   pref_db: str = 'op',
                    do_ehull_filtering=True,
                    max_ehull=None,
                    do_deduplication=True,
@@ -51,12 +51,12 @@ def poll_databases(elements,
                    optimade_fallback: bool = True,
                    **kwargs):
     """
-    Fetch data from Alexandria, OQMD, and Materials Project databases.
-    Data is first taken from the reference database (Alexandria) then only the structures unseen in the reference DB
+    Fetch data from OPTIMADE gate or Alexandria, OQMD, and Materials Project databases.
+    Data is first taken from the reference database (pref_db) then only the structures unseen in the reference DB
     are added.
     """
 
-    parameters_dict: Dict[str, str|float|int|bool] = {
+    parameters_dict: Dict[str, str|float|int|bool|None] = {
         'e_hull_filtering': do_ehull_filtering,
         'deduplication': do_deduplication,
         'optimade_fallback': optimade_fallback,
@@ -92,7 +92,7 @@ def poll_databases(elements,
     if loader_kwargs is None: loader_kwargs = dict()
 
     pref_db = pref_db[:2].casefold()
-    database_names = database_names or ['alexandria', 'oqmd', 'MatProj']  # Default databases to fetch data from
+    database_names = database_names or ['optimade'] #, 'alexandria', 'oqmd', 'MatProj']  # Default databases to fetch data from
     short_names_dict = {name[:2].casefold(): name for name in database_names}
     loader_kw = defaultdict(dict, {k.casefold()[:2]: v for k, v in loader_kwargs.items()})
     for db in short_names_dict:
