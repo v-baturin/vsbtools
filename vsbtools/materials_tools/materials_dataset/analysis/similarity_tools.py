@@ -1,7 +1,7 @@
 from __future__ import annotations
 import time
 from pathlib import Path
-from typing import Callable, Any, Tuple
+from typing import Callable, Any, Tuple, Iterable, TypeVar
 from ..crystal_entry import  CrystalEntry
 from ..crystal_dataset import CrystalDataset
 try:
@@ -10,6 +10,7 @@ except ImportError:
     from genutils.duplicate_analysis import remove_duplicates
 
 DEBUG = False
+T = TypeVar("T")
 
 
 def describe_similarity_tool(similarity_tk: "SimilarityTools") -> str:
@@ -28,6 +29,57 @@ class SimilarityTools:
     def is_duplicate(self, a: CrystalEntry, b: CrystalEntry) -> bool:
         """Fingerprint-distance based criterion"""
         return self.dist(a,b) < self.tol_FP
+
+    def get_unseen_successively(
+            self,
+            items: Iterable[T],
+            reference_items: Iterable[T] | None = None,
+            *,
+            entry_factory: Callable[[T], CrystalEntry] | None = None,
+            tol_FP: float | None = None,
+            match_formula: bool = True,
+            progress: Callable[[str], None] | None = None,
+            progress_prefix: str | None = None,
+            on_duplicate: Callable[[T, T], None] | None = None,
+            on_slow_distance: Callable[[int, T], None] | None = None,
+            skip_errors: bool = False,
+    ) -> list[T]:
+        """Return items that are unseen in the accepted reference set."""
+        entry_factory = entry_factory or (lambda item: item)
+        items = list(items)
+        accepted = list(reference_items or [])
+        unseen = []
+        tol_FP = self.tol_FP if tol_FP is None else tol_FP
+
+        for item_no, item in enumerate(items, start=1):
+            if progress is not None and progress_prefix is not None:
+                progress(f"{progress_prefix}: merging entry {item_no}/{len(items)}")
+            entry = entry_factory(item)
+            duplicate = None
+            for reference in accepted:
+                reference_entry = entry_factory(reference)
+                if match_formula and entry.formula and reference_entry.formula and entry.formula != reference_entry.formula:
+                    continue
+                try:
+                    tic = time.time()
+                    dist = self.dist(entry, reference_entry)
+                except Exception:
+                    if skip_errors:
+                        continue
+                    raise
+                if time.time() - tic > 10 and on_slow_distance is not None:
+                    on_slow_distance(item_no, item)
+                if dist <= tol_FP:
+                    duplicate = reference
+                    break
+            if duplicate is not None:
+                if on_duplicate is not None:
+                    on_duplicate(item, duplicate)
+                continue
+            unseen.append(item)
+            accepted.append(item)
+
+        return unseen
 
     def contains_structure(self, entry: CrystalEntry, ds: CrystalDataset) -> Tuple[list, list]:
         true_idcs = [i for i, ds_entry in enumerate(ds) if self.dist(entry, ds_entry) <= self.tol_FP]
@@ -81,32 +133,36 @@ class SimilarityTools:
 
     def get_unseen_in_ref(self, ds: CrystalDataset, ref_ds: CrystalDataset, tol_FP=None):
         tol_FP = self.tol_FP if tol_FP is None else tol_FP
-        new_entries = []
         duplicates_counter = set()
         reproduced = set()
-        rho = self.dist
-        for i, examined in enumerate(ds):
+
+        def on_duplicate(examined: CrystalEntry, reference: CrystalEntry):
+            reference_idx = ref_index_by_identity.get(id(reference))
+            if reference_idx is not None:
+                duplicates_counter.add(reference_idx)
+                reproduced.add(reference.id)
+                if not "duplicates" in reference.metadata:
+                    reference.metadata["duplicates"] = {examined.id}
+                else:
+                    reference.metadata["duplicates"].add(examined.id)
+            examined.metadata["known"] = True
+            if DEBUG:
+                print(f"{examined.id} in {examined.metadata['source']} is a duplicate of {reference.id} in {reference.metadata['source']}")
+
+        def on_slow_distance(i: int, examined: CrystalEntry):
+            print(f"Fingerprint for i = {i - 1} Took too long")
+            examined.structure.to_file(f"PROBLEM_POSCAR{i - 1}", fmt='poscar')
+
+        ref_index_by_identity = {id(entry): i for i, entry in enumerate(ref_ds)}
+        for examined in ds:
             examined.metadata["known"] = False
-            for j, reference in enumerate(ref_ds):
-                tic = time.time()
-                dist = rho(examined, reference)
-                duration = time.time() - tic
-                if duration > 10:
-                    print(f"Fingerprint for i = {i} Took too long")
-                    examined.structure.to_file(f"PROBLEM_POSCAR{i}", fmt='poscar')
-                if dist <= tol_FP:
-                    duplicates_counter.add(j)
-                    reproduced.add(reference.id)
-                    if not "duplicates" in reference.metadata:
-                        reference.metadata["duplicates"] = {examined.id}
-                    else:
-                        reference.metadata["duplicates"].add(examined.id)
-                    examined.metadata["known"] = True
-                    if DEBUG:
-                        print(f"{examined.id} in {examined.metadata['source']} is a duplicate of {reference.id} in {reference.metadata['source']}")
-                    break
-            else:
-                new_entries.append(ds[i])
+        new_entries = self.get_unseen_successively(
+            ds,
+            ref_ds,
+            tol_FP=tol_FP,
+            on_duplicate=on_duplicate,
+            on_slow_distance=on_slow_distance,
+        )
 
         reproducibility = len(duplicates_counter) / len(ref_ds) if len(ref_ds) > 0 else 1.
         message = (f"{duplicates_counter} out of {len(ds)} in dataset {ds.dataset_id} are duplicates of {ref_ds.dataset_id}\n"

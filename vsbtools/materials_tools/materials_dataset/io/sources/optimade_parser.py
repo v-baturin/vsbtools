@@ -139,7 +139,7 @@ class OptimadeClient:
                     rows,
                     similarity_tk,
                     progress=progress,
-                    progress_label=f"OPTIMADE {provider_label}: comparing against previous providers",
+                    progress_prefix=f"OPTIMADE {provider_label}: comparing against previous providers",
                 )
             rows.extend(provider_rows)
             progress(
@@ -175,131 +175,22 @@ class OptimadeClient:
             reference_rows: list[dict],
             similarity_tk: SimilarityTools,
             progress: Callable[[str], None] | None = None,
-            progress_label: str | None = None,
-            remaining_after_current_provider: int = 0,
+            progress_prefix: str | None = None,
     ) -> list[dict]:
-        unseen = []
-        accepted = list(reference_rows)
-        total = len(rows)
-        progress_label = progress_label or "OPTIMADE dedup"
-        for structure_no, row in enumerate(rows, start=1):
-            remaining_structures = total - structure_no + 1 + remaining_after_current_provider
-            if progress is not None and (structure_no == 1 or structure_no == total or structure_no % 25 == 0):
-                progress(
-                    f"{progress_label}: cross-provider dataset {len(accepted)} structures, "
-                    f"remaining {remaining_structures} structures"
-                )
-            duplicate_of = self._duplicate_of(
-                row,
-                accepted,
-                similarity_tk,
-                progress=progress,
-                progress_label=progress_label,
-                accepted_count=len(accepted),
-                remaining_structures=remaining_structures,
-            )
-            if duplicate_of is not None:
-                metadata = dict(row.get("metadata") or {})
-                metadata["duplicate_of"] = duplicate_of.get("id")
-                row["metadata"] = metadata
-                continue
-            unseen.append(row)
-            accepted.append(row)
-        if progress is not None:
-            progress(
-                f"{progress_label}: cross-provider dataset {len(accepted)} structures, "
-                f"remaining {remaining_after_current_provider} structures"
-            )
-        return unseen
+        def mark_duplicate(row: dict, duplicate_of: dict):
+            metadata = dict(row.get("metadata") or {})
+            metadata["duplicate_of"] = duplicate_of.get("id")
+            row["metadata"] = metadata
 
-    @staticmethod
-    def _duplicate_of(
-            row: dict,
-            reference_rows: list[dict],
-            similarity_tk: SimilarityTools,
-            progress: Callable[[str], None] | None = None,
-            progress_label: str | None = None,
-            accepted_count: int | None = None,
-            remaining_structures: int | None = None,
-    ) -> dict | None:
-        row_formula = row.get("formula")
-        entry = OptimadeClient._entry_from_row(row)
-        candidates = [
-            ref
-            for ref in reference_rows
-            if not row_formula or not ref.get("formula") or row_formula == ref.get("formula")
-        ]
-        if not candidates:
-            return None
-
-        progress_label = progress_label or "OPTIMADE dedup"
-        for ref in candidates:
-            if progress is not None:
-                progress(
-                    OptimadeClient._dedup_progress_message(
-                        progress_label, row, ref, accepted_count, remaining_structures
-                    )
-                )
-            try:
-                ref_entry = OptimadeClient._entry_from_row(ref)
-                dist_fn = getattr(similarity_tk, "dist", None)
-                if dist_fn is None:
-                    is_duplicate = similarity_tk.is_duplicate(entry, ref_entry)
-                    if progress is not None:
-                        progress(
-                            OptimadeClient._dedup_progress_message(
-                                progress_label, row, ref, accepted_count, remaining_structures,
-                                suffix=f"duplicate={is_duplicate}",
-                            )
-                        )
-                    if is_duplicate:
-                        return ref
-                    continue
-
-                dist = dist_fn(entry, ref_entry)
-                if progress is not None:
-                    progress(
-                        OptimadeClient._dedup_progress_message(
-                            progress_label, row, ref, accepted_count, remaining_structures,
-                            suffix=f"dist={dist:.5g}",
-                        )
-                    )
-                if dist <= similarity_tk.tol_FP:
-                    return ref
-            except Exception as err:
-                if progress is not None:
-                    progress(
-                        OptimadeClient._dedup_progress_message(
-                            progress_label, row, ref, accepted_count, remaining_structures,
-                            suffix=f"failed={err.__class__.__name__}",
-                        )
-                    )
-                continue
-        return None
-
-    @staticmethod
-    def _dedup_progress_message(
-            label: str,
-            row: dict,
-            reference_row: dict,
-            accepted_count: int | None,
-            remaining_structures: int | None,
-            suffix: str | None = None,
-    ) -> str:
-        status = (
-            f"{label}: cross-provider dataset {accepted_count if accepted_count is not None else '?'} structures, "
-            f"remaining {remaining_structures if remaining_structures is not None else '?'} structures, "
-            f"checking {OptimadeClient._short_id(row.get('id'))} -> "
-            f"{OptimadeClient._short_id(reference_row.get('id'))}"
+        return similarity_tk.get_unseen_successively(
+            rows,
+            reference_rows,
+            entry_factory=OptimadeClient._entry_from_row,
+            progress=progress,
+            progress_prefix=progress_prefix,
+            on_duplicate=mark_duplicate,
+            skip_errors=True,
         )
-        return f"{status}, {suffix}" if suffix else status
-
-    @staticmethod
-    def _short_id(entry_id, max_len: int = 36) -> str:
-        entry_id = str(entry_id)
-        if len(entry_id) <= max_len:
-            return entry_id
-        return entry_id[:max_len - 3] + "..."
 
     @staticmethod
     def _entry_from_row(row: dict) -> CrystalEntry:
