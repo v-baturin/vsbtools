@@ -370,6 +370,7 @@ def process_generation_dir(
     repo_root: str | Path,
     scenario_file: str | Path,
     *,
+    repo_name: str | None = None,
     batch_metadata_file: str | Path = "input_parameters.txt",
     ignore_unknown_existing_stages: bool = True,
 ) -> DatasetRepo | None:
@@ -403,7 +404,10 @@ def process_generation_dir(
 
     system_elements = sorted(str(raw_system).split("-"))
     system = "-".join(system_elements)
-    repo_path = repo_root / system / fname_friendly_serialize(param_dict)
+    if repo_name is None:
+        repo_path = repo_root / system / fname_friendly_serialize(param_dict)
+    else:
+        repo_path = repo_root / repo_name
     elements = sorted(set(system_elements))
 
     repo = DatasetRepo(root=repo_path)
