@@ -64,7 +64,7 @@ duplicates, and evaluate generation quality.
 | `analysis/similarity_tools.py` | Reference comparison and structural deduplication workflows. |
 | `analysis/phase_diagram_tools.py` | Phase diagram and energy-above-hull calculations. |
 | `energy_estimation/` | Bridges to MatterSim and GRACE through `NNEstimator`. |
-| `scripts/poll_databases.py` | Integrates Alexandria, OQMD, and Materials Project reference structures with optional hull filtering and deduplication. |
+| `scripts/poll_databases.py` | Integrates OPTIMADE, Alexandria, OQMD, and Materials Project reference structures with optional hull filtering and deduplication. OPTIMADE is the preferred default source. |
 
 ### Scenario Pipeline
 
@@ -86,6 +86,24 @@ Registered operations include:
 | `relax` | Relax structures using a registered ML model. |
 | `filter_hull` | Keep entries below a configured energy above hull. |
 | `deduplicate` | Remove structural duplicates using USPEX fingerprint distances. |
+
+Reference database polling prefers OPTIMADE by default. `poll_databases()`
+uses `pref_db="op"` and includes `optimade` in the default database list, so
+OPTIMADE data is used as the reference source before additional local/provider
+sources are merged in. Per-scenario configuration can still override `pref_db`
+or pass provider-specific loader options.
+
+The raw-generation examples used by the notebook documentation are stored under:
+
+```text
+vsbtools/materials_tools/materials_dataset/Examples/raw_generations/
+```
+
+The rendered tutorial is kept in:
+
+```text
+vsbtools/materials_tools/materials_dataset/Doc/Crystal Dataset Use Cases.md
+```
 
 Example:
 
@@ -111,6 +129,13 @@ package through `io/uspex_bridge.py`. That module imports `USPEX.components`,
 If `USPEX` is not importable, the rest of `materials_dataset` can still be used,
 but stages that instantiate `USPEXBridge`, reference-comparison fingerprint
 distances, and `deduplicate` will fail.
+
+By default, dataset deduplication computes distance matrices and clusters in
+memory without writing `*_dist_matrix.pkl` or `*_clusters.pkl` files. To persist
+those artifacts, pass `save_dist_matrix_file=True` and/or
+`save_clusters_file=True` to `SimilarityTools.deduplicate()` or the corresponding
+scenario-stage parameters. The `check_dist_matrix_file` and
+`check_clusters_file` flags only request reuse of existing files.
 
 ### Diffusion Guidance Analysis
 
