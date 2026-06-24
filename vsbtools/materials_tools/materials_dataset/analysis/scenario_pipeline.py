@@ -522,7 +522,11 @@ def op_discard_close_atoms(ctx: Context,
         return check_min_dist_pmg(entry.structure)[0]
     parent: CrystalDataset = next(iter(inputs.values()))
     ds = parent.filter(is_structure_ok)
-    ds.metadata["message"] = f"Dataset {parent.dataset_id} cleared from {len(parent) - len(ds)} pathological structures"
+    ds.metadata["message"] = (
+        f"Min distance check passed for {len(ds)}/{len(parent)} structures; "
+        f"removed {len(parent) - len(ds)} pathological structures"
+    )
+    print(ds.metadata["message"])
     return ds
 
 
@@ -538,7 +542,9 @@ def op_symmetrize(
     parent = next(iter(inputs.values()))
 
     symtool: SymmetryToolkit = ctx.get_tool("symmetry")
-    return symtool.get_symmetrized_dataset(parent)
+    ds = symtool.get_symmetrized_dataset(parent)
+    print(ds.metadata["message"])
+    return ds
 
 
 # --- poll_db ------------------------------------------------------

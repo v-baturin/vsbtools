@@ -32,6 +32,9 @@ class SymmetryToolkit:
     def sym_group_symbol(self, e: CrystalEntry) -> str:
         return self._sga(e).get_space_group_symbol()
 
+    def symmetry_order(self, e: CrystalEntry, symprec=None) -> int:
+        return len(self._sga(e, symprec=symprec).get_symmetry_operations())
+
     def nonequivalent_sites(self, e: CrystalEntry) -> dict:
         symm_struct = self._sga(e).get_symmetrized_structure()
         nonequivalent_positions = {}
@@ -48,8 +51,11 @@ class SymmetryToolkit:
             struc = sga.get_refined_structure()
         energy = None if drop_energy else e.energy * len(struc) / len(e.structure)
 
-        new_symmetry = SpacegroupAnalyzer(struc, self.enforcing_symprec).get_space_group_symbol()
-        msg = f'symmetrized from {self.sym_group_symbol(e)} to {new_symmetry}'
+        old_order = self.symmetry_order(e)
+        new_analyzer = SpacegroupAnalyzer(struc, self.analyzing_symprec)
+        new_symmetry = new_analyzer.get_space_group_symbol()
+        new_order = len(new_analyzer.get_symmetry_operations())
+        msg = f'symmetrized from {self.sym_group_symbol(e)} ({old_order} operations) to {new_symmetry} ({new_order} operations)'
         kw = {"structure": struc, "energy": energy}
         new_entry = e.copy_with(**kw)
         new_entry.log_message(msg)
@@ -57,5 +63,12 @@ class SymmetryToolkit:
 
     def get_symmetrized_dataset(self, ds: CrystalDataset, primitive=True, drop_energy=True):
         new_entries = [self.get_symmetrized_entry(e, primitive=primitive, drop_energy=drop_energy) for e in ds]
-        message = f'Symmetrized with symprec = {self.enforcing_symprec}'
+        increased_count = sum(
+            self.symmetry_order(new_entry) > self.symmetry_order(old_entry)
+            for old_entry, new_entry in zip(ds, new_entries)
+        )
+        message = (
+            f'Symmetrized with symprec = {self.enforcing_symprec}. '
+            f'Symmetry increased for {increased_count}/{len(new_entries)} structures'
+        )
         return CrystalDataset.from_parents(new_entries, parents=(ds,), message=message)
