@@ -85,7 +85,7 @@ Registered operations include:
 | `estimate` | Estimate energies using a registered ML model. |
 | `relax` | Relax structures using a registered ML model. |
 | `filter_hull` | Keep entries below a configured energy above hull. |
-| `deduplicate` | Remove structural duplicates using USPEX fingerprint distances. |
+| `deduplicate` | Remove structural duplicates using the configured structural-distance backend. |
 
 Reference database polling prefers OPTIMADE by default. `poll_databases()`
 uses `pref_db="op"` and includes `optimade` in the default database list, so
@@ -120,22 +120,16 @@ for stage_name, dataset in pipeline.run():
     write(dataset, enforce_base_path=Path("processed") / stage_name)
 ```
 
-### USPEX Dependency
-
-The similarity and deduplication path depends on an external Python `USPEX`
-package through `io/uspex_bridge.py`. That module imports `USPEX.components`,
-`USPEX.DataModel`, and `USPEX.Atomistic.RadialDistributionUtility` directly.
-
-If `USPEX` is not importable, the rest of `materials_dataset` can still be used,
-but stages that instantiate `USPEXBridge`, reference-comparison fingerprint
-distances, and `deduplicate` will fail.
-
 By default, dataset deduplication computes distance matrices and clusters in
 memory without writing `*_dist_matrix.pkl` or `*_clusters.pkl` files. To persist
 those artifacts, pass `save_dist_matrix_file=True` and/or
 `save_clusters_file=True` to `SimilarityTools.deduplicate()` or the corresponding
 scenario-stage parameters. The `check_dist_matrix_file` and
 `check_clusters_file` flags only request reuse of existing files.
+
+Several structural-distance backends are available. The current default workflow
+uses DScribe-based fingerprints. The older `USPEXBridge` backend is optional and
+requires a separate Python `USPEX` installation only when that backend is chosen.
 
 ### Diffusion Guidance Analysis
 
@@ -352,7 +346,7 @@ Additional external requirements depend on the workflow:
 | Workflow | External dependency |
 | --- | --- |
 | Gaussian manager | Gaussian executable, local/cluster scheduler, `cclib`. |
-| USPEX similarity/deduplication | Python `USPEX` package/installation importable as `USPEX`. |
+| Optional legacy `USPEXBridge` similarity backend | Python `USPEX` package/installation importable as `USPEX`. |
 | Database polling | Materials Project credentials and/or Alexandria/OQMD access. |
 | ML energy estimation | MatterSim and/or GRACE environment. |
 | Diffusion guidance analysis | MatterGen importability via `MATTERGEN_PYTHON_PATH` or host-specific configuration. |
