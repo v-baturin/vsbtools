@@ -3,6 +3,7 @@ import json
 import hashlib
 from typing import Callable, Any, Dict
 import pandas as pd
+from ...cache_paths import database_cache_dir, safe_cache_component
 from ..io.yaml_csv_poscars import read, write
 from ..converters import df2ds
 from .sources.matproj_parser import MPClient
@@ -13,9 +14,7 @@ from .sources.structure_and_energy_files_reader import CSV_and_POSCARS_client
 
 mp_client = MPClient()
 oqmd_client = OQMDClient()
-HOME = Path.home()
-CACHE_DIR = HOME / ".cache" / "vsbtools" / "DB_caches"
-CACHE_DIR.mkdir(parents=True, exist_ok=True)  # ensure tree exists
+CACHE_DIR = database_cache_dir()
 
 
 # --------------------------------------------------------------------------------------
@@ -81,7 +80,10 @@ def cache_loader(read_fn, write_fn, *, cache_root: Path = CACHE_DIR, manifest_na
             cache_label = kwargs.get("cache_label")
             elements_key = _normalize_elements(elements)
             kw_hash = _kwargs_hash(kwargs)
-            folder_name = f"{cache_label or source}_{elements_key}_{kw_hash}"
+            folder_name = safe_cache_component(
+                f"{cache_label or source}_{elements_key}_{kw_hash}",
+                max_length=120,
+            )
             folder = Path(cache_root) / folder_name
             manifest_path = folder / manifest_name
 

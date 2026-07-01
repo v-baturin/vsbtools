@@ -23,6 +23,35 @@ class _FakeStructure:
 
 
 class _FakeMatcher:
+    def get_unseen_successively(
+            self,
+            items,
+            reference_items=None,
+            *,
+            entry_factory=None,
+            on_duplicate=None,
+            **_,
+    ):
+        entry_factory = entry_factory or (lambda item: item)
+        accepted = list(reference_items or [])
+        unseen = []
+        for item in items:
+            duplicate = next(
+                (
+                    reference
+                    for reference in accepted
+                    if self.is_duplicate(entry_factory(item), entry_factory(reference))
+                ),
+                None,
+            )
+            if duplicate is not None:
+                if on_duplicate is not None:
+                    on_duplicate(item, duplicate)
+                continue
+            unseen.append(item)
+            accepted.append(item)
+        return unseen
+
     def contains_structure(self, entry, ds):
         matches = [i for i, ref in enumerate(ds) if self.is_duplicate(entry, ref)]
         return matches, [ds[i].id for i in matches]

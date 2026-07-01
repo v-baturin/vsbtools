@@ -33,6 +33,12 @@ gaussian_calc_manager = [
 genutils = [
   "matplotlib",
 ]
+optimade = [
+  "dscribe",
+  "pandas",
+  "pymatgen",
+  "PyYAML",
+]
 materials_tools = [
   "cclib>=1.8",
   "dscribe",

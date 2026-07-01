@@ -6,10 +6,7 @@ import os
 import pandas as pd
 from pymatgen.core import Structure
 
-try:
-    from mp_api.client import MPRester as _BaseRester  # ≥0.9
-except ImportError:                                     # older mp-api
-    from mp_api.client import MPAPIRester as _BaseRester  # type: ignore
+_BaseRester = None
 
 _DEFAULT_MP_KEY = "g1nTPIwz3KjPNNFt7lwkPdFammLCE66v"
 
@@ -25,7 +22,13 @@ class MPClient:
     # Internals                                                          #
     # ------------------------------------------------------------------ #
 
-    def _connect(self) -> _BaseRester:
+    def _connect(self):
+        global _BaseRester
+        if _BaseRester is None:
+            try:
+                from mp_api.client import MPRester as _BaseRester
+            except ImportError as err:
+                raise ImportError("Install `mp-api` to use MPClient.") from err
         if self._mpr is None:
             key = self.api_key or os.getenv("MAPI_KEY") or _DEFAULT_MP_KEY
             self._mpr = _BaseRester(api_key=key)

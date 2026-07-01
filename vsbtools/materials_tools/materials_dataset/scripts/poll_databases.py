@@ -1,4 +1,4 @@
-import os
+import hashlib
 from typing import Dict
 from collections import defaultdict
 from pathlib import Path
@@ -6,6 +6,7 @@ try:
     from ....genutils.misc import serialize_structure, is_substructure
 except ImportError:
     from genutils.misc import serialize_structure, is_substructure
+from ...cache_paths import database_cache_dir, safe_cache_component
 from ..crystal_dataset import CrystalDataset
 from ..io.yaml_csv_poscars import read, write
 from ..io.preset_loaders import (
@@ -18,9 +19,7 @@ from ..analysis.phase_diagram_tools import PhaseDiagramTools
 from ..analysis.similarity_tools import SimilarityTools, describe_similarity_tool
 from ..analysis.structural_distance.dscribe_bridge import DScribeBridge
 
-HOME = Path.home()
-CACHE_DIR = HOME / ".cache" / "vsbtools" / "DB_caches"
-CACHE_DIR.mkdir(parents=True, exist_ok=True)
+CACHE_DIR = database_cache_dir()
 MAX_EHULL = 0.5  # Maximum energy above hull in eV/atom for filtering
 TOL_FP = 0.008
 LOADERS = {
@@ -73,8 +72,11 @@ def poll_databases(elements,
         max_ehull = MAX_EHULL if max_ehull is None else max_ehull
         parameters_dict['max_ehull'] = max_ehull
 
-    cache_root_path = cache_root_path if cache_root_path is not None else CACHE_DIR
-    cache_name = f"{'-'.join(sorted(elements))}__{serialize_structure(parameters_dict)}"
+    cache_root_path = Path(cache_root_path) if cache_root_path is not None else CACHE_DIR
+    serialized_parameters = serialize_structure(parameters_dict)
+    parameters_digest = hashlib.sha256(serialized_parameters.encode("utf-8")).hexdigest()[:16]
+    system = safe_cache_component("-".join(sorted(elements)), max_length=80)
+    cache_name = f"{system}__{parameters_digest}"
     cache_base_path = cache_root_path / cache_name
 
     if cache_base_path is not None and (cache_base_path / "manifest.yaml").exists():
@@ -146,7 +148,7 @@ def poll_databases(elements,
         reference_data = reference_data.merge(loaded_ds)
 
     if do_deduplication:
-        os.makedirs(cache_base_path, exist_ok=True)
+        cache_base_path.mkdir(parents=True, exist_ok=True)
         reference_data.override_base_path(cache_base_path)
         reference_data, _, _ = similarity_tk.deduplicate(reference_data, tol_FP=tol_FP)
 

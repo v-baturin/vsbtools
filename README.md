@@ -93,6 +93,15 @@ OPTIMADE data is used as the reference source before additional local/provider
 sources are merged in. Per-scenario configuration can still override `pref_db`
 or pass provider-specific loader options.
 
+Database caches use the platform's per-user cache location and are created only
+when data is written:
+
+- Windows: `%LOCALAPPDATA%\vsbtools\Cache\DB_caches`
+- macOS: `~/Library/Caches/vsbtools/DB_caches`
+- Linux/Unix: `${XDG_CACHE_HOME:-~/.cache}/vsbtools/DB_caches`
+
+Set `VSBTOOLS_CACHE_DIR` to override the `vsbtools` cache root on any platform.
+
 The raw-generation examples used by the notebook documentation are stored under:
 
 ```text
