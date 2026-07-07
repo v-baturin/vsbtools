@@ -68,7 +68,7 @@ def separate_by_labels(clusters, labels_list):
         eq_classes = [[c[i] for i, v in enumerate(class_comps) if v == key]
                       for key in dict.fromkeys(class_comps)]
         new_clusters.extend(eq_classes)
-    print(f"Separated into {len(new_clusters)} clusters to have same labels per clusters")
+    print(f"Separated into {len(new_clusters)} clusters to have same label per cluster")
     return new_clusters
 
 def select_best_representatives(clusters, entries, fitness_list = None, max_fitness_delta = np.inf, **kwargs):
