@@ -20,7 +20,7 @@ classifiers = [
   "Topic :: Scientific/Engineering :: Physics",
 ]
 dependencies = [
-  "ase",
+  "ase<3.26",
   "numpy",
 ]
 
