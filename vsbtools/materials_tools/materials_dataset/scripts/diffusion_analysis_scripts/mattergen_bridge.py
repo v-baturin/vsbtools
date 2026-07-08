@@ -1,9 +1,11 @@
 import copy
+import sys
+import types
 from pathlib import Path
 
 import numpy as np
 import torch
-from ....external_paths import add_sys_path, import_from_path_validator, resolve_external_path
+from ....external_paths import add_sys_path, resolve_external_path
 
 _MATTERGEN_IMPORT_ERROR = None
 mgen_path = None
@@ -18,6 +20,32 @@ volume = None
 volume_pa = None
 mattergen_chemgraph_fn_collection = {}
 mattergen_cell_frac_types_fn_collection = {}
+
+
+class _ChemGraphCompat:
+    """Minimal ChemGraph-compatible container for MatterGen descriptor/loss functions."""
+
+    def __init__(self, atomic_numbers=None, pos=None, cell=None, **kwargs):
+        self.atomic_numbers = atomic_numbers
+        self.pos = pos
+        self.cell = cell
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+
+def _mattergen_source_tree_validator(path: Path) -> tuple[bool, str]:
+    if not path.is_dir():
+        return False, f"{path} is not a directory"
+    missing = [
+        rel_path for rel_path in (
+            Path("mattergen/common/data/chemgraph.py"),
+            Path("mattergen/diffusion/diffusion_loss.py"),
+        )
+        if not (path / rel_path).is_file()
+    ]
+    if missing:
+        return False, f"missing MatterGen source file(s): {', '.join(p.as_posix() for p in missing)}"
+    return True, ""
 
 
 def _refresh_function_collections() -> None:
@@ -39,17 +67,68 @@ def _configure_mattergen_path(*, prompt: bool) -> Path | None:
         name="MatterGen source tree",
         config_key="mattergen_python_path",
         env_var="MATTERGEN_PYTHON_PATH",
-        validator=import_from_path_validator(
-            ("mattergen.common.data.chemgraph", "mattergen.diffusion.diffusion_loss")
-        ),
+        validator=_mattergen_source_tree_validator,
         prompt=prompt,
         required=prompt,
-        prompt_text="Enter path to MatterGen source tree: ",
+        prompt_text="Enter path to MatterGen source tree (ex.: /home/user/scout-matter): ",
     )
     if resolved_path is not None:
         add_sys_path(resolved_path, prepend=False)
         mgen_path = resolved_path
     return resolved_path
+
+
+def _import_diffusion_loss_with_chemgraph_compat(*, restore_modules: bool = False):
+    chemgraph_module_name = "mattergen.common.data.chemgraph"
+    diffusion_loss_module_name = "mattergen.diffusion.diffusion_loss"
+    previous_chemgraph_module = sys.modules.get(chemgraph_module_name)
+    previous_diffusion_loss_module = sys.modules.pop(diffusion_loss_module_name, None)
+
+    compat_module = types.ModuleType(chemgraph_module_name)
+    compat_module.ChemGraph = _ChemGraphCompat
+    compat_module.ChemGraphBatch = _ChemGraphCompat
+    sys.modules[chemgraph_module_name] = compat_module
+    try:
+        from mattergen.diffusion.diffusion_loss import (
+            LOSS_REGISTRY as _LOSS_REGISTRY,
+            _soft_neighbor_counts_per_A_single as _soft_neighbor_counts_per_A_single_impl,
+            clear_globals as _clear_globals_impl_imported,
+            compute_mean_coordination as _compute_mean_coordination,
+            compute_target_share as _compute_target_share,
+            volume as _volume,
+            volume_pa as _volume_pa,
+        )
+    except ImportError:
+        if previous_chemgraph_module is None:
+            sys.modules.pop(chemgraph_module_name, None)
+        else:
+            sys.modules[chemgraph_module_name] = previous_chemgraph_module
+        if previous_diffusion_loss_module is None:
+            sys.modules.pop(diffusion_loss_module_name, None)
+        else:
+            sys.modules[diffusion_loss_module_name] = previous_diffusion_loss_module
+        raise
+
+    if restore_modules:
+        if previous_chemgraph_module is None:
+            sys.modules.pop(chemgraph_module_name, None)
+        else:
+            sys.modules[chemgraph_module_name] = previous_chemgraph_module
+        if previous_diffusion_loss_module is None:
+            sys.modules.pop(diffusion_loss_module_name, None)
+        else:
+            sys.modules[diffusion_loss_module_name] = previous_diffusion_loss_module
+
+    return (
+        _ChemGraphCompat,
+        _LOSS_REGISTRY,
+        _soft_neighbor_counts_per_A_single_impl,
+        _clear_globals_impl_imported,
+        _compute_mean_coordination,
+        _compute_target_share,
+        _volume,
+        _volume_pa,
+    )
 
 
 def _import_mattergen() -> None:
@@ -68,9 +147,24 @@ def _import_mattergen() -> None:
             volume as _volume,
             volume_pa as _volume_pa,
         )
-    except ModuleNotFoundError as exc:
-        _MATTERGEN_IMPORT_ERROR = exc
-        return
+    except ImportError as exc:
+        if getattr(exc, "name", None) != "torch_geometric":
+            _MATTERGEN_IMPORT_ERROR = exc
+            return
+        try:
+            (
+                _ChemGraph,
+                _LOSS_REGISTRY,
+                _soft_neighbor_counts_per_A_single_impl,
+                _clear_globals_impl_imported,
+                _compute_mean_coordination,
+                _compute_target_share,
+                _volume,
+                _volume_pa,
+            ) = _import_diffusion_loss_with_chemgraph_compat()
+        except ImportError as compat_exc:
+            _MATTERGEN_IMPORT_ERROR = compat_exc
+            return
 
     ChemGraph = _ChemGraph
     LOSS_REGISTRY = _LOSS_REGISTRY
@@ -99,7 +193,9 @@ def _require_mattergen():
                 "or enter the path when prompted."
             ) from _MATTERGEN_IMPORT_ERROR
         raise ModuleNotFoundError(
-            f"mattergen import failed from path '{mgen_path}'."
+            f"MatterGen source tree is configured at '{mgen_path}', but importing MatterGen failed. "
+            "This usually means the active Python environment is missing a MatterGen dependency. "
+            f"Original error: {_MATTERGEN_IMPORT_ERROR}"
         ) from _MATTERGEN_IMPORT_ERROR
 
 

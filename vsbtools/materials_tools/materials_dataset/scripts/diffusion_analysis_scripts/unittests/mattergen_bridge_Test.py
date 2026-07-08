@@ -1,11 +1,15 @@
+import copy
+import importlib
 import unittest
 from pathlib import Path
 
 import numpy as np
+import torch
 from pymatgen.core import Structure
 
 from ....crystal_entry import CrystalEntry
 from ....io.zip_handling import exploded_zip_tree
+from .. import mattergen_bridge
 from ..mattergen_bridge import get_loss_fn, get_target_value_fn, clear_globals
 
 FIXTURES_ROOT = Path(__file__).resolve().parents[3] / "unittests_datasets"
@@ -53,3 +57,68 @@ class MattergenBridge_Test(unittest.TestCase):
         #     )
         #
         # self.assertAlmostEqual(value_target3_second, value_target3_first, places=10)
+
+    def test_chemgraph_compat_matches_real_chemgraph_for_descriptors(self):
+        try:
+            importlib.import_module("torch_geometric")
+            real_chemgraph_module = importlib.import_module("mattergen.common.data.chemgraph")
+            real_diffusion_loss = importlib.import_module("mattergen.diffusion.diffusion_loss")
+        except ImportError as exc:
+            self.skipTest(f"Real MatterGen ChemGraph is unavailable: {exc}")
+
+        compat_import = mattergen_bridge._import_diffusion_loss_with_chemgraph_compat(restore_modules=True)
+        (
+            CompatChemGraph,
+            compat_loss_registry,
+            _compat_soft_counts,
+            compat_clear_globals,
+            compat_compute_mean_coordination,
+            _compat_compute_target_share,
+            _compat_volume,
+            compat_volume_pa,
+        ) = compat_import
+
+        struct = Structure.from_file(self.poscars_path / "agm003592845POSCAR")
+        cell = torch.tensor(np.array(struct.lattice.matrix), dtype=torch.float32)
+        frac = torch.tensor(np.array(struct.frac_coords), dtype=torch.float32, requires_grad=True)
+        atomic_numbers = torch.tensor([site.specie.number for site in struct], dtype=torch.int64)
+        num_atoms = torch.tensor([len(atomic_numbers)])
+
+        real_x = real_chemgraph_module.ChemGraph(
+            cell=cell, atomic_numbers=atomic_numbers, pos=frac, num_atoms=num_atoms
+        )
+        compat_x = CompatChemGraph(
+            cell=cell, atomic_numbers=atomic_numbers, pos=frac, num_atoms=num_atoms
+        )
+
+        np.testing.assert_allclose(
+            real_diffusion_loss.volume_pa(real_x, t=None).detach().numpy(),
+            compat_volume_pa(compat_x, t=None).detach().numpy(),
+            rtol=1e-6,
+            atol=1e-7,
+        )
+
+        np.testing.assert_allclose(
+            real_diffusion_loss.compute_mean_coordination(
+                cell, frac, atomic_numbers, num_atoms, type_A=5, type_B=26
+            ).detach().numpy(),
+            compat_compute_mean_coordination(
+                cell, frac, atomic_numbers, num_atoms, type_A=5, type_B=26
+            ).detach().numpy(),
+            rtol=1e-6,
+            atol=1e-7,
+        )
+
+        target = {"B-Fe": 3, "mode": "l1"}
+        real_diffusion_loss.clear_globals()
+        compat_clear_globals()
+        np.testing.assert_allclose(
+            real_diffusion_loss.LOSS_REGISTRY["environment"](
+                real_x, t=None, target=copy.deepcopy(target)
+            ).detach().numpy(),
+            compat_loss_registry["environment"](
+                compat_x, t=None, target=copy.deepcopy(target)
+            ).detach().numpy(),
+            rtol=1e-6,
+            atol=1e-7,
+        )
