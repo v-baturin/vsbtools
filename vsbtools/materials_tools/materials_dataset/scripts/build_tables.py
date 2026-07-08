@@ -2,7 +2,7 @@ import logging
 import os
 import shutil
 from pathlib import Path
-from typing import Dict, Callable
+from typing import Any, Dict, Callable
 from pymatgen.core import Composition
 
 try:
@@ -22,6 +22,89 @@ from ..analysis import (
 LOG = logging.getLogger(__name__)
 
 
+def _as_list(value):
+    return [value] if isinstance(value, str) else value
+
+
+class GuidanceSummaryBuildReport(dict):
+    """Dict-like callable registry with a readable artifact summary."""
+
+    def __init__(
+        self,
+        callables: Dict[str, Callable],
+        *,
+        processed_system_repo: Path,
+        generation_reports: list[dict[str, Any]],
+    ):
+        super().__init__(callables)
+        self.callables = self
+        self.processed_system_repo = processed_system_repo
+        self.generation_reports = generation_reports
+
+    def __repr__(self) -> str:
+        lines = [
+            "Guidance summary artifacts",
+            "",
+            f"Processed system: {self.processed_system_repo}",
+            "",
+            "Generation repositories:",
+        ]
+        for idx, report in enumerate(self.generation_reports):
+            if idx:
+                lines.append("")
+            lines.append(f" - {report['repo'].name}")
+            for stage in report["stages"]:
+                lines.append(f"   stage {stage['stage']}: {stage['stage_dir']}")
+                for key in ("summary_csv", "table_txt"):
+                    path = stage.get(key)
+                    if path is not None:
+                        lines.append(f"     {key}: {path}")
+                for key, label in (
+                    ("pareto_csv", "pareto_csv"),
+                    ("pareto_tables", "pareto_table"),
+                    ("pareto_dirs", "pareto_poscars"),
+                ):
+                    paths = stage.get(key, [])
+                    if paths:
+                        lines.append(f"     {label}:")
+                        lines.extend(f"       {path}" for path in paths)
+        if self:
+            lines.append("")
+            lines.append("Summary columns/callables:")
+            lines.extend(f" - {name}" for name in self.keys())
+        return "\n".join(lines)
+
+    def _repr_pretty_(self, printer, _cycle):
+        printer.text(repr(self))
+
+
+def collect_guidance_summary_artifacts(
+    repo_path: str | Path,
+    target_stages: list | str | None = "deduplicate_all",
+) -> dict[str, Any]:
+    """Collect paths produced by build_guidance_summary_for_repo."""
+    repo_path = Path(repo_path)
+    stage_names = _as_list(target_stages) or []
+    datasets = stage_datasets_from_repo(repo_path)
+    stages = []
+    for stage_name in stage_names:
+        dataset = datasets.get(stage_name)
+        if dataset is None or dataset.base_path is None:
+            continue
+        stage_dir = Path(dataset.base_path)
+        stage_report = {
+            "stage": stage_name,
+            "stage_dir": stage_dir,
+            "summary_csv": stage_dir / "summary.csv",
+            "table_txt": stage_dir / "table.txt",
+            "pareto_csv": sorted(stage_dir.glob("*pf_*.csv")),
+            "pareto_tables": sorted(stage_dir.glob("*pf_*_table.txt")),
+            "pareto_dirs": sorted(path for path in stage_dir.glob("*pf_*") if path.is_dir()),
+        }
+        stages.append(stage_report)
+    return {"repo": repo_path, "stages": stages}
+
+
 def build_guidance_summary_table(name_ds_dict: Dict[str, CrystalDataset],
                                  raw_stage: str = 'parse_raw',
                                  target_stages: list | str | None = 'deduplicate_all',
@@ -34,7 +117,7 @@ def build_guidance_summary_table(name_ds_dict: Dict[str, CrystalDataset],
     """
     # gl_name = 'placeholder'
 
-    target_stages = [target_stages] if isinstance(target_stages, str) else target_stages
+    target_stages = _as_list(target_stages)
 
     if callables is None:
         callables, _targets, _ = callables_from_ds(name_ds_dict[raw_stage])
@@ -125,6 +208,7 @@ def build_guidance_summary_for_processed_system(
     callables: Dict[str, Callable] | None = None,
     max_pareto_front: int | None = None,
     non_guided_marker: str = "guidance_None",
+    return_report: bool = False,
 ) -> Dict[str, Callable]:
     """Build comparable summary artifacts for all generation repos in one system.
 
@@ -138,6 +222,7 @@ def build_guidance_summary_for_processed_system(
 
     system_callables: Dict[str, Callable] = dict(callables or {})
     non_guided_repo: Path | None = None
+    generation_reports: list[dict[str, Any]] = []
 
     for generation_repo in sorted(processed_system_repo.iterdir()):
         if not generation_repo.is_dir():
@@ -156,15 +241,24 @@ def build_guidance_summary_for_processed_system(
             max_pareto_front=max_pareto_front,
         )
         system_callables.update(repo_callables)
+        generation_reports.append(
+            collect_guidance_summary_artifacts(generation_repo, target_stages=target_stages)
+        )
 
     if non_guided_repo is None:
         LOG.warning(
             "Non-guided generation repo not found for processed system %s",
             processed_system_repo,
         )
+        if return_report:
+            return GuidanceSummaryBuildReport(
+                system_callables,
+                processed_system_repo=processed_system_repo,
+                generation_reports=generation_reports,
+            )
         return system_callables
 
-    return build_guidance_summary_for_repo(
+    final_callables = build_guidance_summary_for_repo(
         non_guided_repo,
         raw_stage=raw_stage,
         target_stages=target_stages,
@@ -173,6 +267,16 @@ def build_guidance_summary_for_processed_system(
         callables=system_callables,
         max_pareto_front=max_pareto_front,
     )
+    generation_reports.append(
+        collect_guidance_summary_artifacts(non_guided_repo, target_stages=target_stages)
+    )
+    if return_report:
+        return GuidanceSummaryBuildReport(
+            final_callables,
+            processed_system_repo=processed_system_repo,
+            generation_reports=generation_reports,
+        )
+    return final_callables
 
 
 if __name__ == "__main__":
