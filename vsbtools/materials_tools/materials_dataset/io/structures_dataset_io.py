@@ -18,7 +18,6 @@ Zip handling (copy‑then‑explode with directory‑hierarchy preservation, aki
 import logging
 import re
 from dataclasses import dataclass, field
-from difflib import ndiff
 from pathlib import Path
 from typing import Iterable, Iterator, Collection, Callable, Sequence
 
@@ -28,10 +27,12 @@ from pymatgen.io.vasp import Poscar
 from ..crystal_dataset import CrystalDataset, CrystalEntry
 from .zip_handling import exploded_zip_tree         # archive helper
 from ...ext_software_io.ext_software_io import read_poscars               # existing helper
+from ...ext_software_io.mattergen_tools.parsers import input_parameters_to_dict
 
 LOG = logging.getLogger(__name__)
 
 SINGLE_STRUCTURE_PATTERNS = ('*.cif', '*POSCAR', '*POSCAR*')
+ALLOWED_BATCH_METADATA_DIFF_KEYS = {"output_path", "batch_size", "gpu_memory_gb", "print_loss"}
 
 BATCH_READER_REGISTRY: dict[str, Callable[["StructureDatasetIO", Path], CrystalDataset]] = {
     '*POSCARS': lambda io, file: io.load_from_multiimage_poscar(file),
@@ -134,16 +135,22 @@ def get_batch_metadata(root: Path, prov_file: str | Path) -> str | None:
         for found_prov_file in found_prov_files
     ]
     reference_file, reference_metadata = metadata_by_file[0]
+    reference_params = input_parameters_to_dict(raw=reference_metadata)
+    comparable_reference = {
+        k: v for k, v in reference_params.items()
+        if k not in ALLOWED_BATCH_METADATA_DIFF_KEYS
+    }
     for found_prov_file, prov_metadata in metadata_by_file[1:]:
-        changed_lines = [
-            line[2:]
-            for line in ndiff(reference_metadata.splitlines(), prov_metadata.splitlines())
-            if line.startswith(("- ", "+ "))
-        ]
-        if len(changed_lines) > 2 or any(not line.lstrip().startswith("output_path") for line in changed_lines):
+        prov_params = input_parameters_to_dict(raw=prov_metadata)
+        comparable_params = {
+            k: v for k, v in prov_params.items()
+            if k not in ALLOWED_BATCH_METADATA_DIFF_KEYS
+        }
+        if comparable_params != comparable_reference:
             raise ValueError(
                 f"Found '{reference_file.as_posix()}' and '{found_prov_file.as_posix()}', "
-                "but they differ outside the output_path line."
+                "but they differ outside allowed batch metadata keys: "
+                f"{sorted(ALLOWED_BATCH_METADATA_DIFF_KEYS)}."
             )
 
     return reference_metadata

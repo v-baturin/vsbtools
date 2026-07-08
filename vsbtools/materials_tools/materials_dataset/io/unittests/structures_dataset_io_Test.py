@@ -1,6 +1,7 @@
 import tempfile
 import unittest
 from pathlib import Path
+from .. import structures_dataset_io
 from ..structures_dataset_io import StructureDatasetIO, exploded_zip_tree, get_batch_metadata
 
 PATH_WITH_TESTS = Path(__file__).parent
@@ -55,7 +56,7 @@ class extxyz_Test(unittest.TestCase):
     def test_warn_on_mixed_types(self):
         mixed_root = (PATH_WITH_TESTS / "../../unittests_datasets/cifs").resolve()
         utils = StructureDatasetIO(mixed_root, patterns_priority=("*.cif", "*.extxyz"))
-        with self.assertLogs("vsbtools.materials_tools.materials_dataset.io.structures_dataset_io", level="WARNING") as logs:
+        with self.assertLogs(structures_dataset_io.LOG, level="WARNING") as logs:
             _ = utils.load_from_directory()
         joined_logs = "\n".join(logs.output)
         self.assertIn("Mixed structure sources detected", joined_logs)
@@ -67,17 +68,35 @@ class extxyz_Test(unittest.TestCase):
 
 class batch_metadata_Test(unittest.TestCase):
 
-    def test_allows_only_output_path_differences(self):
+    def test_allows_known_runtime_parameter_differences(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             (root / "run_1").mkdir()
             (root / "run_2").mkdir()
             (root / "run_1" / "input_parameters.txt").write_text(
-                "output_path: results/run_1\nbatch_size: 12\nalgo: False\n",
+                "\n".join((
+                    "output_path: results/run_1",
+                    "batch_size: 12",
+                    "gpu_memory_gb: 11.25",
+                    "print_loss: False",
+                    "properties_to_condition_on: {'chemical_system': 'Cu-Si-P'}",
+                    "guidance: {'environment': {'mode': 'huber', 'Cu-P': [3, 2.9]}}",
+                    "algo: False",
+                    "",
+                )),
                 encoding="utf-8",
             )
             (root / "run_2" / "input_parameters.txt").write_text(
-                "output_path: results/run_2\nbatch_size: 12\nalgo: False\n",
+                "\n".join((
+                    "output_path: results/run_2",
+                    "batch_size: 24",
+                    "gpu_memory_gb: 80",
+                    "print_loss: True",
+                    "properties_to_condition_on: {'chemical_system': 'Cu-Si-P'}",
+                    "guidance: {'environment': {'mode': 'huber', 'Cu-P': [3, 2.9]}}",
+                    "algo: False",
+                    "",
+                )),
                 encoding="utf-8",
             )
 
@@ -85,7 +104,7 @@ class batch_metadata_Test(unittest.TestCase):
 
             self.assertIn("output_path: results/run_1", batch_metadata)
 
-    def test_raises_for_non_output_path_differences(self):
+    def test_raises_for_non_allowed_metadata_differences(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             (root / "run_1").mkdir()
@@ -95,9 +114,9 @@ class batch_metadata_Test(unittest.TestCase):
                 encoding="utf-8",
             )
             (root / "run_2" / "input_parameters.txt").write_text(
-                "output_path: results/run_2\nbatch_size: 24\nalgo: False\n",
+                "output_path: results/run_2\nbatch_size: 24\nalgo: True\n",
                 encoding="utf-8",
             )
 
-            with self.assertRaisesRegex(ValueError, "differ outside the output_path line"):
+            with self.assertRaisesRegex(ValueError, "differ outside allowed batch metadata keys"):
                 get_batch_metadata(root, "input_parameters.txt")
