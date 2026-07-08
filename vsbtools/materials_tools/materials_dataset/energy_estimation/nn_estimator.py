@@ -20,6 +20,7 @@ class NNEstimator:
         if model_name not in self.known_models:
             raise ValueError(f"Unknown model: '{model_name}', available: {list(self.known_models.keys())}")
         estimator = self.known_models[model_name]
+        kwargs.setdefault("estimator_name", model_name)
         new_energies = estimator.estimate_batch(dataset, **kwargs)
         new_entries = []
         for entry, estimation in zip(dataset, new_energies):
