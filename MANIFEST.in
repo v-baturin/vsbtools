@@ -1,5 +1,6 @@
 include README.md
 recursive-include vsbtools *.txt *.csv *.json *.cjson *.yaml *.yml *.sh *.gjf *POSCAR* POSCARS*
+recursive-include vsbtools/materials_tools/materials_dataset/Examples *.zip *.yaml *.yml
 prune vsbtools/gaussian_calc_manager/tmp_proj
 prune vsbtools/materials_tools/NN_energy_estimators/unittests
 prune vsbtools/materials_tools/ext_software_io/unittests
