@@ -76,51 +76,51 @@ stages:
       merge: false
 
 # =======GRACE-relaxed================================
-
-  poll_db_grace_relax:
-    op: poll_db
-    needs: [ parse_raw ]
-    params:
-      max_ehull: 0.5
-      estimate_energies: true
-      pref_db: op
-      do_ehull_filtering: true
-      do_deduplication: true
-      tol_FP: 0.008
-      do_relaxation: true
-      model_name: grace
-
-  relax_grace:
-    op: relax
-    needs: [ check_min_dist ]
-    params:
-      model_name: grace
-
-  estimate_relaxed_grace:
-    op: estimate
-    needs: [relax_grace]
-    params:
-      model_name: grace
-
-  dedup_relaxed_grace:
-    op: deduplicate
-    needs: [estimate_allce]
-
-  add_ref_dedup_relax_grace:
-    op: merge_base_into_ref
-    needs: [ dedup_relaxed_grace, poll_db_grace_relax ]
-    params:
-      base_parent: dedup_relaxed_grace
-      ref_parent: poll_db_grace
-      merge: false
-
-  add_ref_all_relaxed_grace:
-    op: merge_base_into_ref
-    needs: [ estimate_allce, poll_db_grace ]
-    params:
-      base_parent: estimate_allce
-      ref_parent: poll_db_grace
-      merge: false
+#
+#  poll_db_grace_relax:
+#    op: poll_db
+#    needs: [ parse_raw ]
+#    params:
+#      max_ehull: 0.5
+#      estimate_energies: true
+#      pref_db: op
+#      do_ehull_filtering: true
+#      do_deduplication: true
+#      tol_FP: 0.008
+#      do_relaxation: true
+#      model_name: grace
+#
+#  relax_grace:
+#    op: relax
+#    needs: [ check_min_dist ]
+#    params:
+#      model_name: grace
+#
+#  estimate_relaxed_grace:
+#    op: estimate
+#    needs: [relax_grace]
+#    params:
+#      model_name: grace
+#
+#  dedup_relaxed_grace:
+#    op: deduplicate
+#    needs: [estimate_allce]
+#
+#  add_ref_dedup_relax_grace:
+#    op: merge_base_into_ref
+#    needs: [ dedup_relaxed_grace, poll_db_grace_relax ]
+#    params:
+#      base_parent: dedup_relaxed_grace
+#      ref_parent: poll_db_grace
+#      merge: false
+#
+#  add_ref_all_relaxed_grace:
+#    op: merge_base_into_ref
+#    needs: [ estimate_allce, poll_db_grace ]
+#    params:
+#      base_parent: estimate_allce
+#      ref_parent: poll_db_grace
+#      merge: false
 # =======END GRACE-relaxed================================
 
 
