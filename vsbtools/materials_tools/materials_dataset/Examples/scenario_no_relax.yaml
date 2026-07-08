@@ -14,7 +14,7 @@ globals:
     uspex: {}
     estimator:
       default_model: grace
-      force_gpu: 1
+      force_gpu: 0
     phase_diag: {}
 
 stages:
@@ -46,6 +46,10 @@ stages:
       max_ehull: 0.5
       estimate_energies: true
       pref_db: op
+      loader_kwargs:
+        op:
+          providers: [ materials_project ]  # or [mp], [oqmd], [alexandria]
+          timeout: 1500
       do_ehull_filtering: true
       do_deduplication: true
       tol_FP: 0.008
