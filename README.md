@@ -1,31 +1,25 @@
 # vsbtools
 
-`vsbtools` is a Python research toolbox for atomistic materials workflows. It
-contains several largely independent pieces of functionality:
+`vsbtools` is a Python research toolbox for atomistic materials workflows. It is
+organized as several mostly independent subsystems rather than as one monolithic
+application.
 
-- scenario-based workflows for processing and analyzing crystal-structure datasets
-- automated management of large Gaussian calculation batches
-- visualization utilities for spectra, heatmaps, phase diagrams, and publication
-  figures
-- stability-analysis helpers for binding, exchange, and fragmentation energies
-- geometry, structure-checking, external-format, and USPEX utilities
-- general-purpose helpers for clustering, duplicate analysis, Pareto fronts, and
-  filesystem operations
+## Overview
 
-## What This Package Does
+The main workflow areas are:
 
-The package is organized around practical research workflows:
-
-- process and analyze crystal-structure datasets through staged pipelines
-- compare generated or simulated structures with reference databases
-- estimate and relax structures with ML interatomic-potential models
-- filter structures by stability and remove structural duplicates
-- analyze diffusion-guided generation results
-- manage large batches of Gaussian calculations with automated monitoring,
-  restart, and error recovery
-- build materials-analysis plots and formatted report figures
-- compute stability-related quantities from energy tables
-- transform structures between common atomistic simulation formats
+- Crystal-structure datasets: staged pipelines for parsing generated or
+  simulated structures, cleaning and symmetrizing them, comparing against
+  reference databases, estimating or relaxing energies with ML models, filtering
+  by stability, deduplicating structures, and analyzing generation quality. The
+  MatterGen guidance-analysis tools and reproducibility notebook live inside
+  this subsystem and build on the same staged-dataset representation.
+- Gaussian calculation management: input generation, batch submission,
+  monitoring, restart/error handling, and postprocessing of completed
+  calculations from the Gaussian quantum-chemistry software package.
+- Materials utilities: geometry checks, format conversion, USPEX-related helpers,
+  stability-analysis routines, plotting helpers, and general filesystem,
+  clustering, duplicate-analysis, and Pareto-front utilities.
 
 ## Package Map
 
@@ -33,44 +27,50 @@ The package is organized around practical research workflows:
 | --- | --- |
 | `vsbtools/materials_tools/materials_dataset` | Workflow layer for crystal-structure datasets: staged processing, database comparison, ML energy estimation/relaxation, stability filtering, deduplication, and generation-quality analysis. |
 | `vsbtools/gaussian_calc_manager` | Independent Gaussian automation layer: input generation, submission, monitoring, restart/error recovery, and result postprocessing. |
-| `vsbtools/materials_tools/visualisation_utils` | Plotting helpers for spectra, heatmaps, density-of-states/IPR views, ternary phase diagrams, and figure formatting. |
+| `vsbtools/materials_tools/visualisation_utils` | Plotting helpers for spectra, heatmaps, density-of-states and inverse-participation-ratio views, ternary phase diagrams, and figure formatting. |
 | `vsbtools/materials_tools/tools_stability` | Stability-analysis utilities for binding, exchange, and fragmentation energy data. |
 | `vsbtools/materials_tools/geom_utils` | Geometry checks, coordination metrics, primitive-cell extraction, structure sanity checks, and POSCAR modification helpers. |
 | `vsbtools/materials_tools/ext_software_io` | Format conversion and parsers for POSCAR, XYZ, CIF, and Gaussian outputs. |
 | `vsbtools/materials_tools/uspex_toolkit` | USPEX I/O, duplicate removal, template preparation, and fingerprint-distance integration. |
 | `vsbtools/materials_tools/NN_energy_estimators` | Process/stream helpers for MatterSim and GRACE energy/relaxation calls. |
 | `vsbtools/genutils` | General helpers for filesystem work, formatting, clustering, duplicate analysis, Pareto tools, and nested-object utilities. |
-| `vsbtools/uspex_gather_stat` | Early/WIP code for launching and tracking repeated USPEX calculations. |
+| `vsbtools/uspex_gather_stat` | Early/work-in-progress code for launching and tracking repeated USPEX calculations. |
+
+Common external names used below:
+
+- MatterGen is a crystal generative model; `scout-matter` is the MatterGen fork used by the guidance workflow (<https://github.com/link-lab3629/scout-matter>).
+- MatterSim and GRACE are ML interatomic-potential/energy-estimation backends; GRACE is accessed through `tensorpotential`.
+- USPEX is an evolutionary crystal-structure-prediction code used here only by optional legacy helpers (<https://uspex-team.org/>).
 
 ## Crystal-Structure Dataset Workflows
 
 `vsbtools/materials_tools/materials_dataset` is the main materials-workflow
 subsystem. It is designed to process arbitrary crystal-structure datasets from
-generation runs, simulations, database exports, or user-supplied POSCAR/CIF/extxyz
-collections.
+generation runs, simulations, database exports, or user-supplied POSCAR, CIF,
+or extended XYZ (`extxyz`) collections.
 
-The core value is not file persistence itself, but reproducible staged analysis:
-clean structures, symmetrize them, compare against reference databases, estimate
-or relax energies with ML models, filter by stability, remove structural
-duplicates, and evaluate generation quality.
+The subsystem separates the data model, disk I/O, and analysis pipelines. The
+pipeline layer can clean structures, symmetrize them, compare against reference
+databases, estimate or relax energies with ML models, filter by stability,
+remove structural duplicates, and evaluate generation quality.
 
 ### Main Concepts
 
-| File | Role |
-| --- | --- |
-| `crystal_entry.py` | `CrystalEntry`: one crystal structure plus id, optional energy, formula, and metadata. |
-| `crystal_dataset.py` | `CrystalDataset`: read-oriented collection of entries with metadata, provenance, `merge()`, and `filter()`. |
-| `analysis/scenario_pipeline.py` | DAG executor for named dataset stages such as cleanup, database polling, energy estimation, hull filtering, and deduplication. |
-| `analysis/similarity_tools.py` | Reference comparison and structural deduplication workflows. |
-| `analysis/phase_diagram_tools.py` | Phase diagram and energy-above-hull calculations. |
-| `energy_estimation/` | Bridges to MatterSim and GRACE through `NNEstimator`. |
-| `scripts/poll_databases.py` | Integrates OPTIMADE, Alexandria, OQMD, and Materials Project reference structures with optional hull filtering and deduplication. OPTIMADE is the preferred default source. |
+| File                              | Role                                                                                                                                                                                         |
+|-----------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `crystal_entry.py`                | `CrystalEntry`: one crystal structure plus id, optional energy, formula, and metadata.                                                                                                       |
+| `crystal_dataset.py`              | `CrystalDataset`: read-oriented collection of entries with metadata, provenance, `merge()`, and `filter()`.                                                                                  |
+| `analysis/scenario_pipeline.py`   | Directed-acyclic-graph (DAG) executor for named dataset stages such as cleanup, database polling, energy estimation, hull filtering, and deduplication.                                      |
+| `analysis/similarity_tools.py`    | Reference comparison and structural deduplication workflows.                                                                                                                                 |
+| `analysis/phase_diagram_tools.py` | Phase diagram and energy-above-hull calculations.                                                                                                                                            |
+| `energy_estimation/`              | Bridges to MatterSim and GRACE through `NNEstimator`.                                                                                                                                        |
+| `scripts/poll_databases.py`       | Integrates reference structures from Alexandria, OQMD, Materials Project and OPTIMADE providers with optional hull filtering and deduplication. OPTIMADE is the preferred default interface. |
 
 ### Scenario Pipeline
 
-`analysis/scenario_pipeline.py` runs YAML/JSON-defined workflows as a DAG of
-stages. Each stage consumes one or more `CrystalDataset` outputs and produces a
-new dataset with stage metadata and parent provenance.
+`analysis/scenario_pipeline.py` runs YAML/JSON-defined workflows as a directed
+acyclic graph (DAG) of stages. Each stage consumes one or more `CrystalDataset`
+outputs and produces a new dataset with stage metadata and parent provenance.
 
 Registered operations include:
 
@@ -87,11 +87,16 @@ Registered operations include:
 | `filter_hull` | Keep entries below a configured energy above hull. |
 | `deduplicate` | Remove structural duplicates using the configured structural-distance backend. |
 
-Reference database polling prefers OPTIMADE by default. `poll_databases()`
+Reference database polling prefers OPTIMADE by default. OPTIMADE (Open
+Databases Integration for Materials Design, <https://www.optimade.org/>) is a
+common API specification for querying materials databases. `poll_databases()`
 uses `pref_db="op"` and includes `optimade` in the default database list, so
 OPTIMADE data is used as the reference source before additional local/provider
 sources are merged in. Per-scenario configuration can still override `pref_db`
-or pass provider-specific loader options.
+or pass provider-specific loader options. Other supported sources include the
+Alexandria database (<https://alexandria.icams.rub.de/>) requiring local copies of json files, OQMD (Open Quantum
+Materials Database, <https://oqmd.org/>) polling locally deployed database, and Materials Project
+(<https://materialsproject.org/>) that leverages a web API.
 
 Database caches use the platform's per-user cache location and are created only
 when data is written:
@@ -143,7 +148,11 @@ bash vsbtools/materials_tools/materials_dataset/Examples/setup_reproducibility_e
 See `Examples/README_reproducibility.md` for manual configuration, pinned
 commit/tag setup, and launch instructions.
 
-Example:
+### Programmatic Scenario Pipelines
+
+The reproducibility notebook uses the same lower-level `ScenarioPipeline`
+interface that can also be called directly from Python. A minimal pipeline run
+looks like this:
 
 ```python
 from pathlib import Path
@@ -158,16 +167,29 @@ for stage_name, dataset in pipeline.run():
     write(dataset, enforce_base_path=Path("processed") / stage_name)
 ```
 
-By default, dataset deduplication computes distance matrices and clusters in
-memory without writing `*_dist_matrix.pkl` or `*_clusters.pkl` files. To persist
-those artifacts, pass `save_dist_matrix_file=True` and/or
-`save_clusters_file=True` to `SimilarityTools.deduplicate()` or the corresponding
-scenario-stage parameters. The `check_dist_matrix_file` and
-`check_clusters_file` flags only request reuse of existing files.
+### Structural Similarity and Deduplication
 
-Several structural-distance backends are available. The current default workflow
-uses DScribe-based fingerprints. The older `USPEXBridge` backend is optional and
-requires a separate Python `USPEX` installation only when that backend is chosen.
+Structural comparison starts from a representation of each crystal and a metric
+for comparing those representations. The default structural-distance backend uses
+the radial-distribution-function fingerprint introduced in the USPEX
+structural-comparison workflow, implemented through DScribe descriptors
+(<https://singroup.github.io/dscribe/>). Deduplication is the downstream use of
+this similarity metric: structures that are close under the chosen criterion are
+grouped, and a representative is kept from each group. If energies are available,
+the lowest-energy structure in the group is used as the representative.
+
+When a distance-based backend is used, `SimilarityTools.deduplicate()` can also
+expose the pairwise distance matrix and the resulting clusters. By default,
+these objects are kept in memory; pass `save_dist_matrix_file=True` and/or
+`save_clusters_file=True` to persist `*_dist_matrix.pkl` or `*_clusters.pkl`
+files. The `check_dist_matrix_file` and `check_clusters_file` flags only request
+reuse of existing files.
+
+The similarity layer is backend-based: the default DScribe implementation can be
+replaced by another structural-comparison backend, including the optional
+`USPEXBridge`. The same pattern is used elsewhere in `materials_dataset`; for
+example, `NNEstimator` delegates energy estimation and relaxation to registered
+model bridges such as MatterSim or GRACE.
 
 ### Diffusion Guidance Analysis
 
@@ -179,19 +201,10 @@ vsbtools/materials_tools/materials_dataset/scripts/diffusion_analysis_scripts/
 
 | File | Purpose |
 | --- | --- |
-| `guidance_stats.py` | Locate guided/non-guided processed repositories, derive guidance callables from metadata, collect stage datasets, compute target-property values, build histogram/KDE data, plot distributions, and run p-value helpers. |
+| `guidance_stats.py` | Locate guided/non-guided processed repositories, derive guidance callables from metadata, collect stage datasets, compute target-property values, build histogram/kernel-density-estimate data, plot distributions, and run p-value helpers. |
 | `guided_generation_metrics.py` | Higher-level reports for stable/new/constraint-satisfying intersections, scout ratios, p-value summaries, and artifact export. |
 | `mattergen_bridge.py` | Adapter from `CrystalEntry`/pymatgen structures to MatterGen target and loss functions. |
 | `pvalue_utils.py` | Exact binomial and pooled two-proportion z-test utilities for comparing good-structure fractions. |
-
-`guidance_stats.py` normalizes legacy and current guidance names:
-
-| Current name | Legacy name | Target property |
-| --- | --- | --- |
-| `mean_coordination` | `environment` | `compute_mean_coordination` |
-| `target_coordination` | `dominant_environment` | `compute_target_share` |
-| `volume_pa` | none | `volume_pa` |
-| `energy` | none | `energy` |
 
 Example: compare mean-coordination distributions across processed runs.
 
@@ -247,8 +260,9 @@ written_paths = write_guidance_metric_artifacts(report)
 
 ### Input, Output, and Persistence Utilities
 
-Dataset persistence is implemented as a practical support layer, not the main
-scientific workflow. The standard serialized dataset folder contains:
+The read/write utilities are general `CrystalDataset` serialization helpers. They
+can be used inside scenario pipelines, but they are not tied to any particular
+analysis workflow. `CrystalDataset` objects can be saved as folders containing:
 
 ```text
 manifest.yaml
@@ -260,12 +274,16 @@ Relevant files:
 
 | File | Role |
 | --- | --- |
-| `io/structures_dataset_io.py` | Load CIF, POSCAR, multi-image POSCARS, or extxyz files from directories. |
+| `io/structures_dataset_io.py` | Load CIF, POSCAR, multi-image POSCARS, or extended XYZ (`extxyz`) files from directories. |
 | `io/yaml_csv_poscars.py` | Read/write `manifest.yaml`, `data.csv`, and `POSCARS/` dataset folders. |
 | `io/preset_loaders.py` | Cached loaders for external databases and USPEX/CSV/POSCARS sources. |
 | `io/sources/` | Source-specific parsers and clients. |
 
-Minimal usage:
+
+When writing a dataset, pass the target dataset folder with `enforce_base_path`.
+When reading it back, pass the path to the folder's `manifest.yaml` file.
+
+Minimal standalone usage:
 
 ```python
 from vsbtools.materials_tools.materials_dataset.io import read, write
@@ -278,8 +296,9 @@ write(filtered, enforce_base_path="processed/with_energy")
 ## Gaussian Calculation Manager
 
 `vsbtools/gaussian_calc_manager` is independent from the crystal-dataset
-pipeline. It manages many Gaussian calculations as a task database with polling,
-submission, restart, and correction logic.
+pipeline. Here, Gaussian refers to the external Gaussian quantum-chemistry
+software package. The manager handles many Gaussian calculations as a task
+database with polling, submission, restart, and correction logic.
 
 Main files:
 
@@ -353,14 +372,14 @@ Key options:
 | `materials_tools/uspex_001_postproc` | Utilities for older USPEX 001 result folders. |
 | `materials_tools/el_spectra_tools` | Density/orbital/k-point/localization helpers. |
 | `materials_tools/tools_stability` | Binding, exchange, and fragmentation energy table helpers. |
-| `materials_tools/visualisation_utils` | Plot formatting, heatmaps, DOS/IPR plots, ternary phase diagrams, and rasterization helpers. |
+| `materials_tools/visualisation_utils` | Plot formatting, heatmaps, density-of-states and inverse-participation-ratio plots, ternary phase diagrams, and rasterization helpers. |
 
-## General Utilities and WIP Modules
+## General Utilities and Work-In-Progress Modules
 
 | Path | Purpose |
 | --- | --- |
 | `vsbtools/genutils` | Filesystem helpers, formatting helpers, clustering, duplicate analysis, Pareto tools, and nested-object utilities. |
-| `vsbtools/uspex_gather_stat` | Early/WIP code for launching and tracking repeated USPEX calculations. |
+| `vsbtools/uspex_gather_stat` | Early/work-in-progress code for launching and tracking repeated USPEX calculations. |
 
 ## Installation
 
@@ -384,7 +403,7 @@ Additional external requirements depend on the workflow:
 | Workflow | External dependency |
 | --- | --- |
 | Gaussian manager | Gaussian executable, local/cluster scheduler, `cclib`. |
-| Optional legacy `USPEXBridge` similarity backend | Python `USPEX` package/installation importable as `USPEX`. |
+| Optional legacy `USPEXBridge` similarity backend | Python USPEX package/installation importable as `USPEX`. |
 | Database polling | Materials Project credentials and/or Alexandria/OQMD access. |
 | ML energy estimation | MatterSim and/or GRACE environment. |
 | Diffusion guidance analysis | MatterGen importability via `MATTERGEN_PYTHON_PATH` or host-specific configuration. |
