@@ -1,5 +1,6 @@
 import unittest
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from pymatgen.core import Structure
 from ...crystal_entry import CrystalEntry
 from ...crystal_dataset import CrystalDataset
@@ -15,8 +16,12 @@ class storage_Test(unittest.TestCase):
         self.ds = CrystalDataset(entries)
 
     def test_saveload(self):
-        save(self.ds, 'tmp.pkl')
-        ds = load('tmp.pkl')
-        print(len(ds))
+        with TemporaryDirectory() as tmpdir:
+            pickle_path = Path(tmpdir) / "dataset.pkl.gz"
+            save(self.ds, pickle_path)
+            ds = load(pickle_path)
 
+        self.assertEqual(len(ds), len(self.ds))
+        self.assertEqual([entry.id for entry in ds], [entry.id for entry in self.ds])
+        self.assertEqual([entry.energy for entry in ds], [entry.energy for entry in self.ds])
 

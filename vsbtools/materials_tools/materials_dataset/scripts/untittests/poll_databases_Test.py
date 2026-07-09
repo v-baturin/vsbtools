@@ -1,9 +1,11 @@
 import unittest
+import os
 import shutil
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import Mock, patch
 from ...io.yaml_csv_poscars import write, read
+from .. import poll_databases as poll_databases_module
 from ..poll_databases import poll_databases
 from ...analysis.summary import collect_summary_df, print_pretty_df
 
@@ -65,6 +67,8 @@ class yaml_csv_poscars_Test(unittest.TestCase):
             path.unlink()
 
     def test_scrape(self):
+        if os.getenv("VSBTOOLS_RUN_EXTERNAL_DB_TESTS") != "1":
+            self.skipTest("Set VSBTOOLS_RUN_EXTERNAL_DB_TESTS=1 to run live database scrape test")
         ds = poll_databases(self.elements, do_ehull_filtering=True,
                             loader_kwargs={"alexandria": {'pattern': 'alexandria_00*.json'}})
         write(ds, enforce_base_path=PATH_WITH_TESTS / "ds3")
@@ -85,9 +89,8 @@ class yaml_csv_poscars_Test(unittest.TestCase):
         optimade_loader = Mock(return_value=_FakeDataset([_FakeEntry("op1")]))
 
         with TemporaryDirectory() as tmpdir, \
-                patch("vsbtools.materials_tools.materials_dataset.scripts.poll_databases.LOADERS",
-                      {"op": optimade_loader}), \
-                patch("vsbtools.materials_tools.materials_dataset.scripts.poll_databases.write") as write_mock:
+                patch.object(poll_databases_module, "LOADERS", {"op": optimade_loader}), \
+                patch.object(poll_databases_module, "write") as write_mock:
             ds = poll_databases(
                 {"Si"},
                 database_names=["optimade"],
@@ -108,11 +111,9 @@ class yaml_csv_poscars_Test(unittest.TestCase):
         optimade_loader = Mock(return_value=_FakeDataset([_FakeEntry("op1")]))
 
         with TemporaryDirectory() as tmpdir, \
-                patch("vsbtools.materials_tools.materials_dataset.scripts.poll_databases.LOADERS",
-                      {"al": local_loader, "op": optimade_loader}), \
-                patch("vsbtools.materials_tools.materials_dataset.scripts.poll_databases.load_from_optimade",
-                      optimade_loader), \
-                patch("vsbtools.materials_tools.materials_dataset.scripts.poll_databases.write"):
+                patch.object(poll_databases_module, "LOADERS", {"al": local_loader, "op": optimade_loader}), \
+                patch.object(poll_databases_module, "load_from_optimade", optimade_loader), \
+                patch.object(poll_databases_module, "write"):
             ds = poll_databases(
                 {"Si"},
                 database_names=["alexandria"],
@@ -133,11 +134,9 @@ class yaml_csv_poscars_Test(unittest.TestCase):
         optimade_loader = Mock(side_effect=RuntimeError("optimade unavailable"))
 
         with TemporaryDirectory() as tmpdir, \
-                patch("vsbtools.materials_tools.materials_dataset.scripts.poll_databases.LOADERS",
-                      {"al": local_loader, "op": optimade_loader}), \
-                patch("vsbtools.materials_tools.materials_dataset.scripts.poll_databases.load_from_optimade",
-                      optimade_loader), \
-                patch("vsbtools.materials_tools.materials_dataset.scripts.poll_databases.write"):
+                patch.object(poll_databases_module, "LOADERS", {"al": local_loader, "op": optimade_loader}), \
+                patch.object(poll_databases_module, "load_from_optimade", optimade_loader), \
+                patch.object(poll_databases_module, "write"):
             ds = poll_databases(
                 {"Si"},
                 database_names=["alexandria"],

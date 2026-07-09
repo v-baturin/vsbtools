@@ -33,30 +33,21 @@ class MattergenBridge_Test(unittest.TestCase):
 
     def test_environment_loss_target_stability(self):
         entry1 = CrystalEntry(id="agm003592845", structure=Structure.from_file(self.poscars_path / "agm003592845POSCAR"))
-        entry2 = CrystalEntry(id='mp-650968', structure=Structure.from_file(self.poscars_path / "mp-650968POSCAR"))
         mean_cn_fn = get_target_value_fn(
             "compute_mean_coordination", force_gpu=0, type_A=5, type_B=26
         )
-        print(f"CN{entry1.id}(Co-O): {float(mean_cn_fn(entry1))}")
-        # print(f"CN{entry2.id}(Co-O): {float(mean_cn_fn(entry2))}")
+        mean_cn = float(mean_cn_fn(entry1))
+        self.assertAlmostEqual(mean_cn, 4.876739978790283, places=6)
         clear_globals()
 
         loss_fn_target6 = get_loss_fn('environment', force_gpu=0, target={'B-Fe': 6, 'mode': 'l1'})
-        print(f"loss6({entry1.id}) = {loss_fn_target6(entry1)}")
-        # print(f"loss6({entry2.id}) = {loss_fn_target6(entry2)}")
+        loss_target6 = float(loss_fn_target6(entry1))
+        self.assertAlmostEqual(loss_target6, 1.1232600212097168, places=6)
 
         loss_fn_target3 = get_loss_fn('environment', force_gpu=0, target={'B-Fe': 3, 'mode': 'l1'})
-        print(f"loss3({entry1.id}) = {loss_fn_target3(entry1)}")
-        print(f"loss6({entry1.id}) = {loss_fn_target6(entry1)}")
-        #
-        # value_target3_second = float(loss_fn_target3(entry))
-        #
-        # if np.isclose(value_target3_first, value_target6):
-        #     self.skipTest(
-        #         f"Target=3 and target=4 produced identical losses = {value_target3_first}"
-        #     )
-        #
-        # self.assertAlmostEqual(value_target3_second, value_target3_first, places=10)
+        loss_target3 = float(loss_fn_target3(entry1))
+        self.assertAlmostEqual(loss_target3, 1.8767399787902832, places=6)
+        self.assertNotAlmostEqual(loss_target3, loss_target6, places=6)
 
     def test_chemgraph_compat_matches_real_chemgraph_for_descriptors(self):
         try:
@@ -73,7 +64,7 @@ class MattergenBridge_Test(unittest.TestCase):
             _compat_soft_counts,
             compat_clear_globals,
             compat_compute_mean_coordination,
-            _compat_compute_target_share,
+            _compat_compute_target_coordination_share,
             _compat_volume,
             compat_volume_pa,
         ) = compat_import

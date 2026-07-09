@@ -1,5 +1,6 @@
 import unittest
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from ...io.preset_loaders import load_from_materials_project
 from ..phase_diagram_tools import PhaseDiagramTools
 from ..summary import collect_summary_df, print_pretty_df
@@ -15,4 +16,10 @@ class symmetry_tools_Test(unittest.TestCase):
     def test_pretty_phasediag(self):
         callables = {"e_hull": self.e_hull_fn}
         summary_df = collect_summary_df(self.ds, callables=callables)
-        print_pretty_df(summary_df, 'table.txt', sort_by='e_hull')
+        self.assertIn("e_hull", summary_df.columns)
+        self.assertEqual(len(summary_df), len(self.ds))
+        with TemporaryDirectory() as tmpdir:
+            table_path = Path(tmpdir) / "table.txt"
+            print_pretty_df(summary_df, table_path, sort_by='e_hull')
+            self.assertTrue(table_path.exists())
+            self.assertIn("e_hull", table_path.read_text())

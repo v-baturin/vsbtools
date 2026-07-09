@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from tempfile import TemporaryDirectory
 import types
 import unittest
 
@@ -14,6 +15,7 @@ from ...io import write
 PATH_WITH_TESTS = Path(__file__).parent
 PATH_WITH_DATASETS = PATH_WITH_TESTS / "../../unittests_datasets"
 AVAILABLE_ESTIMATORS = {"mattersim": mattersim_bridge, "grace": grace_bridge}
+RUN_INTEGRATION_TESTS = os.getenv("VSBTOOLS_RUN_INTEGRATION_TESTS") == "1"
 
 class NNEstimator_Test(unittest.TestCase):
 
@@ -23,7 +25,7 @@ class NNEstimator_Test(unittest.TestCase):
         self.chosen_fname = 'systemRDU2_POSCAR'
         self.test_entry = CrystalEntry(id = '0',
                                        structure=_safe_structure_from_file(self.poscars / self.chosen_fname))
-        self.entry_energies = {"mattersim": -44.0794, "grace": -44.1207}
+        self.entry_energies = {"mattersim": -186.4956, "grace": -186.4556}
         self.dataset = StructureDatasetIO(self.poscars).load_from_directory()
         for name, bridge in AVAILABLE_ESTIMATORS.items():
             NNEstimator.register_model(name, bridge)
@@ -41,12 +43,18 @@ class NNEstimator_Test(unittest.TestCase):
 
     # def test_single_relaxation(self):
 
-
+    @unittest.skipUnless(
+        RUN_INTEGRATION_TESTS,
+        "Set VSBTOOLS_RUN_INTEGRATION_TESTS=1 to run GRACE relaxation integration test",
+    )
     def test_batch_relaxation(self):
         ds2 = self.estimator.relax_dataset(self.dataset, model_name='grace', force_gpu=0)
-        relaxed_path = PATH_WITH_TESTS / 'relaxed_grace'
-        os.makedirs(relaxed_path, exist_ok=True)
-        write(ds2,relaxed_path)
+        self.assertEqual(len(ds2), len(self.dataset))
+        with TemporaryDirectory() as tmpdir:
+            relaxed_path = Path(tmpdir) / 'relaxed_grace'
+            os.makedirs(relaxed_path, exist_ok=True)
+            write(ds2, relaxed_path)
+            self.assertTrue((relaxed_path / "manifest.yaml").is_file())
 
     def test_kwargs_forwarded_to_model_bridge(self):
         calls = {}

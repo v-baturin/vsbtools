@@ -39,5 +39,17 @@ class yaml_csv_poscars_Test(unittest.TestCase):
         for manifest_yaml in self.environment_repo_multi.rglob("manifest.yaml"):
             ds = read(manifest_yaml)
             ds_dict[ds.metadata["pipeline_stage"]] = ds
-        print(ds_dict.keys())
-        build_guidance_summary_table(ds_dict, max_pareto_front=2)
+        self.assertIn("parse_raw", ds_dict)
+        self.assertIn("poll_db", ds_dict)
+        self.assertIn("deduplicate_all", ds_dict)
+
+        callables = build_guidance_summary_table(ds_dict, max_pareto_front=2)
+        self.assertIn("symmetry", callables)
+        self.assertIn("e_hull/at", callables)
+        self.assertTrue(any(name.startswith("loss_") for name in callables))
+
+        output_path = ds_dict["deduplicate_all"].base_path
+        self.assertTrue((output_path / "summary.csv").is_file())
+        self.assertTrue((output_path / "table.txt").is_file())
+        self.assertTrue(list(output_path.glob("*pf_1.csv")))
+        self.assertTrue(list(output_path.glob("*pf_1_table.txt")))

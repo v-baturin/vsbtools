@@ -42,13 +42,15 @@ class SimilarityTools_Test(unittest.TestCase):
         ds_sio2 = StructureDatasetIO(PATH_WITH_DATASETS / "SiO2_two_loose_structures", pattern='*POSCAR').load_from_directory()
         ubSiO = USPEXBridge(elements={'Si', 'O'}, legacy=True, tol_FP=0.07)
         simtoolsSiO = SimilarityTools(ubSiO.fp_dist, ubSiO.tol_FP)
-        print(simtoolsSiO.dist(ds_sio2[0], ds_sio2[1]))
+        self.assertEqual(len(ds_sio2), 2)
+        self.assertAlmostEqual(simtoolsSiO.dist(ds_sio2[0], ds_sio2[1]), 0.0476966846, places=8)
 
     def test_suspiciousDistance2(self):
         fe3ndb2_1 = StructureDatasetIO(PATH_WITH_DATASETS / "fe3ndb2_close_sruc", pattern='*POSCAR').load_from_directory()
         ubSiO = USPEXBridge(elements={'Fe', 'Nd', 'B'}, legacy=True, tol_FP=0.07)
         simtoolsSiO = SimilarityTools(ubSiO.fp_dist, ubSiO.tol_FP)
-        print(simtoolsSiO.dist(fe3ndb2_1[0], fe3ndb2_1[1]))
+        self.assertEqual(len(fe3ndb2_1), 2)
+        self.assertAlmostEqual(simtoolsSiO.dist(fe3ndb2_1[0], fe3ndb2_1[1]), 0.0249231012, places=8)
 
     @staticmethod
     def _species_by_atomic_number(entry):
