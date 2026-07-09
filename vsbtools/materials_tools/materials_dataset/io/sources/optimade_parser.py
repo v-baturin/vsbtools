@@ -34,7 +34,7 @@ class OptimadeClient:
     energy_mode: str = "formation"
     mp_thermo_type: str = "gga_gga+u"
     page_limit: int = 500
-    timeout: float = 60.0
+    timeout: float = 1000.0
     skip_missing_energy: bool = True
     strict_structures: bool = True
     do_deduplication: bool = True
@@ -303,6 +303,8 @@ class OptimadeClient:
             raise RuntimeError(f"OPTIMADE request failed with HTTP {err.code}: {url}") from err
         except URLError as err:
             raise RuntimeError(f"OPTIMADE request failed: {url}") from err
+        except TimeoutError as err:
+            raise RuntimeError(f"OPTIMADE request timed out: {url}") from err
 
     @staticmethod
     def _next_url(current_url: str, payload: dict) -> str | None:

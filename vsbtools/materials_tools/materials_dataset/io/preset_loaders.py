@@ -1,6 +1,7 @@
 from pathlib import Path
 import json
 import hashlib
+import sys
 from typing import Callable, Any, Dict
 import pandas as pd
 from ...cache_paths import database_cache_dir, safe_cache_component
@@ -15,6 +16,8 @@ from .sources.structure_and_energy_files_reader import CSV_and_POSCARS_client
 mp_client = MPClient()
 oqmd_client = OQMDClient()
 CACHE_DIR = database_cache_dir()
+_RED = "\033[1;31m"
+_RESET = "\033[0m"
 
 
 # --------------------------------------------------------------------------------------
@@ -136,13 +139,25 @@ def load_from_optimade(elements, message=None, **kwargs):
     per_provider_cache = kwargs.pop("per_provider_cache", True)
     force_provider_refresh = kwargs.pop("force_provider_refresh", False)
     if not per_provider_cache:
-        optimade_client = OptimadeClient(**kwargs)
-        df = optimade_client.query(elements)
+        try:
+            optimade_client = OptimadeClient(**kwargs)
+            df = optimade_client.query(elements)
+        except RuntimeError as err:
+            provider_names = _optimade_provider_names(kwargs)
+            if len(provider_names) != 1:
+                raise
+            return _load_from_optimade_fallback_provider(
+                elements,
+                provider_names[0],
+                err,
+                message=message,
+            )
         message = message or f"Full {elements} system from OPTIMADE"
         return df2ds(df, message=message)
 
     provider_names = _optimade_provider_names(kwargs)
     provider_datasets = []
+    fallback_provider_names = []
     for provider_no, provider_name in enumerate(provider_names, start=1):
         provider_kwargs = dict(kwargs)
         provider_kwargs["providers"] = [provider_name]
@@ -152,7 +167,18 @@ def load_from_optimade(elements, message=None, **kwargs):
         provider_kwargs["progress_provider_no"] = provider_no
         provider_kwargs["progress_total_providers"] = len(provider_names)
         provider_message = f"Full {elements} system from OPTIMADE provider {provider_name}"
-        provider_datasets.append(_load_from_optimade_provider(elements, message=provider_message, **provider_kwargs))
+        try:
+            provider_datasets.append(_load_from_optimade_provider(elements, message=provider_message, **provider_kwargs))
+        except RuntimeError as err:
+            fallback_provider_names.append(provider_name)
+            provider_datasets.append(
+                _load_from_optimade_fallback_provider(
+                    elements,
+                    provider_name,
+                    err,
+                    message=provider_message,
+                )
+            )
 
     show_progress = kwargs.get("show_progress", True)
     status_len = 0
@@ -167,6 +193,9 @@ def load_from_optimade(elements, message=None, **kwargs):
     df = _optimade_provider_datasets_to_df(elements, provider_names, provider_datasets, kwargs, progress=progress)
     if show_progress and status_len:
         print()
+    if message is None and fallback_provider_names:
+        fallbacks = ", ".join(fallback_provider_names)
+        message = f"Full {elements} system from OPTIMADE with local fallback for {fallbacks}"
     message = message or f"Full {elements} system from OPTIMADE"
     return df2ds(df, message=message)
 
@@ -185,6 +214,55 @@ def _optimade_provider_names(kwargs: Dict[str, Any]) -> list[str]:
         if provider.name not in names:
             names.append(provider.name)
     return names
+
+
+def _load_from_optimade_fallback_provider(elements, provider_name: str, err: RuntimeError, message=None):
+    loader, label, loader_kwargs = _optimade_fallback_loader(provider_name)
+    _warn_optimade_fallback(provider_name, label, err)
+    if message:
+        fallback_message = (
+            f"{message}; local {label} fallback used because OPTIMADE provider "
+            f"{provider_name} failed"
+        )
+    else:
+        fallback_message = f"Full {elements} system from local {label} fallback"
+    dataset = loader(elements, message=fallback_message, **loader_kwargs)
+    _mark_optimade_fallback(dataset, provider_name, label, err)
+    return dataset
+
+
+def _optimade_fallback_loader(provider_name: str):
+    if provider_name == "materials_project":
+        return load_from_materials_project, "Materials Project", {}
+    if provider_name == "oqmd":
+        return load_from_oqmd, "OQMD", {}
+    if provider_name == "alexandria":
+        return load_from_alexandria, "Alexandria", {"prompt": False}
+    raise RuntimeError(f"No local fallback loader is designated for OPTIMADE provider '{provider_name}'")
+
+
+def _warn_optimade_fallback(provider_name: str, fallback_label: str, err: Exception):
+    banner = "!" * 88
+    print(
+        f"{_RED}{banner}\n"
+        f"WARNING: OPTIMADE provider '{provider_name}' is unavailable; "
+        f"falling back to local {fallback_label} loader.\n"
+        f"Reason: {err}\n"
+        f"{banner}{_RESET}",
+        file=sys.stderr,
+    )
+
+
+def _mark_optimade_fallback(dataset, provider_name: str, fallback_label: str, err: Exception):
+    for entry in dataset:
+        metadata = entry.metadata if entry.metadata is not None else {}
+        metadata["optimade_fallback"] = {
+            "provider": provider_name,
+            "loader": fallback_label,
+            "reason": str(err),
+        }
+        if entry.metadata is None:
+            object.__setattr__(entry, "metadata", metadata)
 
 
 def _optimade_provider_datasets_to_df(

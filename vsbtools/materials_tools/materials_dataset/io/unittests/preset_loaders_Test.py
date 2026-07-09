@@ -1,6 +1,9 @@
 import unittest
+import io
+from contextlib import redirect_stderr
 from pathlib import Path
 from unittest.mock import Mock, patch
+from ...io import preset_loaders as preset_loaders_module
 from ...io.preset_loaders import (load_from_materials_project,
                                                                                 load_from_oqmd,
                                                                                 load_from_alexandria,
@@ -11,6 +14,11 @@ from ...io.preset_loaders import (load_from_materials_project,
 
 PATH_WITH_TESTS = Path(__file__).parent
 PATH_WITH_DATASETS = PATH_WITH_TESTS / "../../unittests_datasets"
+
+
+class _FakeEntry:
+    def __init__(self):
+        self.metadata = {}
 
 
 class DSLoaders_Test(unittest.TestCase):
@@ -31,9 +39,8 @@ class DSLoaders_Test(unittest.TestCase):
         client = Mock()
         client.query.return_value = query_df
 
-        with patch("vsbtools.materials_tools.materials_dataset.io.preset_loaders.mp_client", client), \
-                patch("vsbtools.materials_tools.materials_dataset.io.preset_loaders.df2ds",
-                      return_value=dataset) as df2ds:
+        with patch.object(preset_loaders_module, "mp_client", client), \
+                patch.object(preset_loaders_module, "df2ds", return_value=dataset) as df2ds:
             result = load_from_materials_project.__wrapped__({'Mo', 'Si'})
 
         client.query.assert_called_once_with({'Mo', 'Si'})
@@ -50,9 +57,8 @@ class DSLoaders_Test(unittest.TestCase):
         client = Mock()
         client.query.return_value = query_df
 
-        with patch("vsbtools.materials_tools.materials_dataset.io.preset_loaders.oqmd_client", client), \
-                patch("vsbtools.materials_tools.materials_dataset.io.preset_loaders.df2ds",
-                      return_value=dataset) as df2ds:
+        with patch.object(preset_loaders_module, "oqmd_client", client), \
+                patch.object(preset_loaders_module, "df2ds", return_value=dataset) as df2ds:
             result = load_from_oqmd.__wrapped__({'Mo', 'Si'})
 
         client.query.assert_called_once_with({'Mo', 'Si'})
@@ -69,10 +75,8 @@ class DSLoaders_Test(unittest.TestCase):
         client = Mock()
         client.query.return_value = query_df
 
-        with patch("vsbtools.materials_tools.materials_dataset.io.preset_loaders.AlexandriaClient",
-                   return_value=client) as client_cls, \
-                patch("vsbtools.materials_tools.materials_dataset.io.preset_loaders.df2ds",
-                      return_value=dataset) as df2ds:
+        with patch.object(preset_loaders_module, "AlexandriaClient", return_value=client) as client_cls, \
+                patch.object(preset_loaders_module, "df2ds", return_value=dataset) as df2ds:
             result = load_from_alexandria.__wrapped__({'Mo', 'Si'}, pattern="alexandria_00*.json")
 
         client_cls.assert_called_once_with(pattern="alexandria_00*.json")
@@ -86,10 +90,8 @@ class DSLoaders_Test(unittest.TestCase):
         client = Mock()
         client.query.return_value = query_df
 
-        with patch("vsbtools.materials_tools.materials_dataset.io.preset_loaders.OptimadeClient",
-                   return_value=client) as client_cls, \
-                patch("vsbtools.materials_tools.materials_dataset.io.preset_loaders.df2ds",
-                      return_value=dataset) as df2ds:
+        with patch.object(preset_loaders_module, "OptimadeClient", return_value=client) as client_cls, \
+                patch.object(preset_loaders_module, "df2ds", return_value=dataset) as df2ds:
             result = load_from_optimade.__wrapped__(
                 {'Mo', 'Si'},
                 providers=["oqmd"],
@@ -108,12 +110,11 @@ class DSLoaders_Test(unittest.TestCase):
         dataset = Mock(name="dataset")
         provider_datasets = [Mock(name="oqmd_dataset"), Mock(name="alexandria_dataset")]
 
-        with patch("vsbtools.materials_tools.materials_dataset.io.preset_loaders._load_from_optimade_provider",
-                   side_effect=provider_datasets) as provider_loader, \
-                patch("vsbtools.materials_tools.materials_dataset.io.preset_loaders._optimade_provider_datasets_to_df",
-                      return_value=query_df) as datasets_to_df, \
-                patch("vsbtools.materials_tools.materials_dataset.io.preset_loaders.df2ds",
-                      return_value=dataset) as df2ds:
+        with patch.object(preset_loaders_module, "_load_from_optimade_provider",
+                          side_effect=provider_datasets) as provider_loader, \
+                patch.object(preset_loaders_module, "_optimade_provider_datasets_to_df",
+                             return_value=query_df) as datasets_to_df, \
+                patch.object(preset_loaders_module, "df2ds", return_value=dataset) as df2ds:
             result = load_from_optimade.__wrapped__(
                 {'Mo', 'Si'},
                 providers=["oqmd", "alexandria"],
@@ -132,9 +133,47 @@ class DSLoaders_Test(unittest.TestCase):
         self.assertFalse(provider_loader.call_args_list[0].kwargs["do_deduplication"])
         datasets_to_df.assert_called_once()
         self.assertEqual(datasets_to_df.call_args.args[1], ["oqmd", "alexandria"])
-        self.assertIs(datasets_to_df.call_args.args[2], provider_datasets)
+        self.assertEqual(datasets_to_df.call_args.args[2], provider_datasets)
         self.assertIs(df2ds.call_args.args[0], query_df)
         self.assertIs(result, dataset)
+
+    def test_load_from_optimade_falls_back_to_local_loader_when_provider_fails(self):
+        query_df = Mock(name="query_df")
+        dataset = Mock(name="dataset")
+        fallback_dataset = [_FakeEntry()]
+        provider_error = RuntimeError("OPTIMADE request failed with HTTP 502: https://oqmd.org/optimade")
+
+        err = io.StringIO()
+        with patch.object(preset_loaders_module, "_load_from_optimade_provider",
+                          side_effect=provider_error) as provider_loader, \
+                patch.object(preset_loaders_module, "load_from_oqmd",
+                             return_value=fallback_dataset) as oqmd_loader, \
+                patch.object(preset_loaders_module, "_optimade_provider_datasets_to_df",
+                             return_value=query_df) as datasets_to_df, \
+                patch.object(preset_loaders_module, "df2ds", return_value=dataset), \
+                redirect_stderr(err):
+            result = load_from_optimade.__wrapped__(
+                {'Mo', 'Si'},
+                providers=["oqmd"],
+                page_limit=10,
+            )
+
+        provider_loader.assert_called_once()
+        oqmd_loader.assert_called_once()
+        self.assertEqual(oqmd_loader.call_args.args[0], {'Mo', 'Si'})
+        self.assertIn("local OQMD fallback", oqmd_loader.call_args.kwargs["message"])
+        self.assertEqual(datasets_to_df.call_args.args[2], [fallback_dataset])
+        self.assertEqual(
+            fallback_dataset[0].metadata["optimade_fallback"]["provider"],
+            "oqmd",
+        )
+        self.assertIn("\033[1;31m", err.getvalue())
+        self.assertIn("WARNING", err.getvalue())
+        self.assertIn("falling back to local OQMD loader", err.getvalue())
+        self.assertIs(result, dataset)
+
+    def test_optimade_default_timeout_is_long(self):
+        self.assertEqual(preset_loaders_module.OptimadeClient(show_progress=False).timeout, 1000.0)
 
     def test_load_from_uspex_goodstructures(self):
         ds = load_from_uspex_goodstructures(self.uspex_goodStructures)
