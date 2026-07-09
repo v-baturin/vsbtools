@@ -58,6 +58,16 @@ Launch later with:
 ./vsbtools_reproducibility_env/run_reproducibility_notebook.sh
 ```
 
+Run the notebook headlessly as a reproducibility test with:
+
+```bash
+./vsbtools_reproducibility_env/test_reproducibility_notebook.sh
+```
+
+On success, the test runner removes `work/reproducibility_run/`, the executed
+notebook copy, and any extracted raw-generation folders next to the packaged
+zip fixtures. On failure, it leaves those artifacts in place for debugging.
+
 For a fixed reproducibility run, pin repository refs:
 
 ```bash

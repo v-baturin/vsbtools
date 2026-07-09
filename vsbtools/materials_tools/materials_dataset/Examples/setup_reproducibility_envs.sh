@@ -194,6 +194,7 @@ log "Installing vsbtools notebook/kernel environment"
     ijson \
     jupyterlab \
     ipykernel \
+    nbconvert \
     matplotlib \
     mp-api \
     networkx \
@@ -302,6 +303,42 @@ exec "$VSBTOOLS_VENV/bin/python" -m jupyter lab \\
 EOF
 chmod +x "$LAUNCHER"
 
+TEST_RUNNER="$ROOT/test_reproducibility_notebook.sh"
+cat > "$TEST_RUNNER" <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+source "$ENV_FILE"
+cd "$WORK_DIR"
+
+executed_notebook="$WORK_DIR/mg_generation_postprocessing_pipeline.executed.ipynb"
+run_output_dir="$WORK_DIR/reproducibility_run"
+raw_generation_root="$VSBTOOLS_SRC/vsbtools/materials_tools/materials_dataset/Examples/raw_generations/Cu-Si-P"
+
+set +e
+"$VSBTOOLS_VENV/bin/python" -m jupyter nbconvert \\
+    --to notebook \\
+    --execute "$NOTEBOOK_DST" \\
+    --output "\$(basename "\$executed_notebook")" \\
+    --output-dir "$WORK_DIR" \\
+    --ExecutePreprocessor.timeout=-1
+status=\$?
+set -e
+
+if [[ "\$status" -eq 0 ]]; then
+    rm -rf "\$run_output_dir"
+    rm -f "\$executed_notebook"
+    for archive in "\$raw_generation_root"/*.zip; do
+        [[ -e "\$archive" ]] || continue
+        rm -rf "\${archive%.zip}"
+    done
+else
+    echo "Reproducibility notebook test failed; preserving artifacts under $WORK_DIR" >&2
+fi
+
+exit "\$status"
+EOF
+chmod +x "$TEST_RUNNER"
+
 log "Contained reproducibility environment is ready"
 cat <<EOF
 
@@ -324,6 +361,9 @@ Setup manifest:
 
 Launcher:
   $LAUNCHER
+
+Headless test runner:
+  $TEST_RUNNER
 
 EOF
 
