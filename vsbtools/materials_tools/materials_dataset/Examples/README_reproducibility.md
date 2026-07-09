@@ -58,7 +58,7 @@ Launch later with:
 ./vsbtools_reproducibility_env/run_reproducibility_notebook.sh
 ```
 
-For a fixed review run, pin repository refs:
+For a fixed reproducibility run, pin repository refs:
 
 ```bash
 bash setup_reproducibility_envs.sh \
@@ -122,4 +122,3 @@ vsbtools_reproducibility_env/work/
 ```
 
 so generated outputs stay inside the contained workspace.
-

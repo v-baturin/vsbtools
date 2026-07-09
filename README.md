@@ -129,11 +129,11 @@ vsbtools/materials_tools/materials_dataset/Examples/
 └── mg_generation_postprocessing_pipeline.ipynb
 ```
 
-For reviewers, the setup script creates a contained workspace with three
-virtual environments: `vsbtools`, `scout-matter`/MatterGen, and
-GRACE/`tensorpotential`. Jupyter, IPython, matplotlib, pip cache, and
-`vsbtools` external-path state are kept under the chosen workspace root rather
-than under the user's global configuration.
+The setup script creates a contained workspace with three virtual environments:
+`vsbtools`, `scout-matter`/MatterGen, and GRACE/`tensorpotential`. Jupyter,
+IPython, matplotlib, pip cache, and `vsbtools` external-path state are kept
+under the chosen workspace root rather than under the user's global
+configuration.
 
 ```bash
 bash vsbtools/materials_tools/materials_dataset/Examples/setup_reproducibility_envs.sh \
