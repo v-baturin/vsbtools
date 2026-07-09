@@ -6,7 +6,7 @@ from ..crystal_dataset import CrystalDataset, CrystalEntry
 from ..converters import cell_pos_atomtypes_from_pmg_structure, pmg_structure_to_torch_cell_frac_atomnumbers
 # from my_packages.materials_tools.materials_dataset.db_clients
 from ...geom_utils.coordination_tools import (compute_average_coordination_atoms,
-                                              compute_average_coordination, compute_target_share)
+                                              compute_average_coordination, compute_target_coordination_share)
 import pickle as pkl
 
 matplotlib.use('TkAgg')
@@ -54,4 +54,4 @@ def analyze_average_environment_in_entry(entry: CrystalEntry, type_A, type_B, **
 
 def analyze_target_coordination_share_in_entry(entry: CrystalEntry, type_A, type_B, target, **kwargs):
     cell, frac, at_numbers = pmg_structure_to_torch_cell_frac_atomnumbers(entry.structure)
-    return compute_target_share(cell, frac, types=at_numbers, type_A=type_A, type_B=type_B, target=target, **kwargs)
+    return compute_target_coordination_share(cell, frac, types=at_numbers, type_A=type_A, type_B=type_B, target=target, **kwargs)

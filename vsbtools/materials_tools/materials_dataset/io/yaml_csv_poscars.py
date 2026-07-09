@@ -40,7 +40,8 @@ def _get_str_value_for_csv(e: CrystalEntry, attr_name):
     if attr_name == 'structure':
         val = e.poscarname
     elif 'metadata.' in attr_name:
-        val = e.metadata.get(attr_name.split('.')[-1], 'NA')
+        metadata = e.metadata if isinstance(e.metadata, dict) else {}
+        val = metadata.get(attr_name.split('.')[-1], 'NA')
     else:
         val = getattr(e, attr_name)
     if isinstance(val, float):
@@ -158,5 +159,6 @@ def write_csv_poscars(ds: CrystalDataset,
 def gather_metadata_fields(dataset):
     fields = set()
     for e in dataset:
-        fields |= set(e.metadata.keys())
+        if isinstance(e.metadata, dict):
+            fields |= set(e.metadata.keys())
     return list(fields)

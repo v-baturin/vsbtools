@@ -18,7 +18,7 @@ from ...analysis.guidance_statistics import LEGACY_TO_CANONICAL_GUIDANCE, callab
 MAX_ECH = 0.2
 CANONICAL_MAX_DEVIATION = {
     "mean_coordination": 0.2,
-    "target_coordination": 0.1,
+    "target_coordination_share": 0.1,
     "volume_pa": 0.2,
 }
 DEFAULT_MAX_DEVIATION = {

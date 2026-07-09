@@ -128,7 +128,7 @@ def compute_average_coordination(
         return cell.sum() * 0.0
     return C.mean()
 
-def compute_target_share(
+def compute_target_coordination_share(
     cell: torch.Tensor,
     frac: torch.Tensor,
     types: torch.Tensor,
@@ -160,7 +160,12 @@ def compute_target_share(
     H = torch.exp(-((C - float(target)) / float(tau)).pow(2))
     return H.mean()
 
-def compute_multiple_target_share(
+def compute_target_share(*args, **kwargs) -> torch.Tensor:
+    """Backward-compatible alias for compute_target_coordination_share."""
+    return compute_target_coordination_share(*args, **kwargs)
+
+
+def compute_multiple_target_coordination_share(
     cell: torch.Tensor,
     frac: torch.Tensor,
     types: torch.Tensor,
@@ -189,6 +194,12 @@ def compute_multiple_target_share(
     H = torch.exp(-((C.view(-1, 1) - T) / float(tau)).pow(2))                        # (n_A,K)
     return H.mean(dim=0)                                                             # (K,)
 
+
+def compute_multiple_target_share(*args, **kwargs) -> torch.Tensor:
+    """Backward-compatible alias for compute_multiple_target_coordination_share."""
+    return compute_multiple_target_coordination_share(*args, **kwargs)
+
+
 # ------------------------- ASE convenience wrappers -------------------------
 
 def _to_torch_from_atoms(atoms):
@@ -202,15 +213,26 @@ def compute_average_coordination_atoms(atoms, type_A, type_B, kernel="sigmoid", 
     return compute_average_coordination(cell, frac, types, type_A, type_B,
                                         kernel=kernel, sigma=sigma, r_cut=r_cut, alpha=alpha)
 
-def compute_target_share_atoms(atoms, type_A, type_B, *, target, tau=0.5,
-                               kernel="sigmoid", sigma=1.0, r_cut=None, alpha=8.0):
+def compute_target_coordination_share_atoms(atoms, type_A, type_B, *, target, tau=0.5,
+                                            kernel="sigmoid", sigma=1.0, r_cut=None, alpha=8.0):
     cell, frac, types = _to_torch_from_atoms(atoms)
-    return compute_target_share(cell, frac, types, type_A, type_B,
-                                target=target, tau=tau, kernel=kernel,
-                                sigma=sigma, r_cut=r_cut, alpha=alpha)
+    return compute_target_coordination_share(cell, frac, types, type_A, type_B,
+                                             target=target, tau=tau, kernel=kernel,
+                                             sigma=sigma, r_cut=r_cut, alpha=alpha)
 
-def compute_multi_target_share_atoms(atoms, type_A, type_B, targets, *, tau=0.5,
-                                           kernel="sigmoid", sigma=1.0, r_cut=None, alpha=8.0):
+
+def compute_target_share_atoms(*args, **kwargs) -> torch.Tensor:
+    """Backward-compatible alias for compute_target_coordination_share_atoms."""
+    return compute_target_coordination_share_atoms(*args, **kwargs)
+
+
+def compute_multi_target_coordination_share_atoms(atoms, type_A, type_B, targets, *, tau=0.5,
+                                                  kernel="sigmoid", sigma=1.0, r_cut=None, alpha=8.0):
     cell, frac, types = _to_torch_from_atoms(atoms)
-    return compute_multiple_target_share(cell, frac, types, type_A, type_B, targets,
-                                         tau=tau, kernel=kernel, sigma=sigma, r_cut=r_cut, alpha=alpha)
+    return compute_multiple_target_coordination_share(cell, frac, types, type_A, type_B, targets,
+                                                      tau=tau, kernel=kernel, sigma=sigma, r_cut=r_cut, alpha=alpha)
+
+
+def compute_multi_target_share_atoms(*args, **kwargs) -> torch.Tensor:
+    """Backward-compatible alias for compute_multi_target_coordination_share_atoms."""
+    return compute_multi_target_coordination_share_atoms(*args, **kwargs)

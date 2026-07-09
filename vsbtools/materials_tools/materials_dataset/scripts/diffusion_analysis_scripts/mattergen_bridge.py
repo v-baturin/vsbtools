@@ -15,6 +15,7 @@ LOSS_REGISTRY = {}
 _soft_neighbor_counts_per_A_single = None
 _clear_globals_impl = None
 compute_mean_coordination = None
+compute_target_coordination_share = None
 compute_target_share = None
 volume = None
 volume_pa = None
@@ -53,6 +54,7 @@ def _refresh_function_collections() -> None:
     mattergen_chemgraph_fn_collection = {"volume": volume, "volume_pa": volume_pa}
     mattergen_cell_frac_types_fn_collection = {
         "compute_mean_coordination": compute_mean_coordination,
+        "compute_target_coordination_share": compute_target_coordination_share,
         "compute_target_share": compute_target_share,
         "_soft_neighbor_counts_per_A_single": _soft_neighbor_counts_per_A_single,
     }
@@ -94,10 +96,17 @@ def _import_diffusion_loss_with_chemgraph_compat(*, restore_modules: bool = Fals
             _soft_neighbor_counts_per_A_single as _soft_neighbor_counts_per_A_single_impl,
             clear_globals as _clear_globals_impl_imported,
             compute_mean_coordination as _compute_mean_coordination,
-            compute_target_share as _compute_target_share,
             volume as _volume,
             volume_pa as _volume_pa,
         )
+        try:
+            from mattergen.diffusion.diffusion_loss import (
+                compute_target_coordination_share as _compute_target_coordination_share,
+            )
+        except ImportError:
+            from mattergen.diffusion.diffusion_loss import (
+                compute_target_share as _compute_target_coordination_share,
+            )
     except ImportError:
         if previous_chemgraph_module is None:
             sys.modules.pop(chemgraph_module_name, None)
@@ -125,7 +134,7 @@ def _import_diffusion_loss_with_chemgraph_compat(*, restore_modules: bool = Fals
         _soft_neighbor_counts_per_A_single_impl,
         _clear_globals_impl_imported,
         _compute_mean_coordination,
-        _compute_target_share,
+        _compute_target_coordination_share,
         _volume,
         _volume_pa,
     )
@@ -133,7 +142,7 @@ def _import_diffusion_loss_with_chemgraph_compat(*, restore_modules: bool = Fals
 
 def _import_mattergen() -> None:
     global ChemGraph, LOSS_REGISTRY, _soft_neighbor_counts_per_A_single, _clear_globals_impl
-    global compute_mean_coordination, compute_target_share, volume, volume_pa
+    global compute_mean_coordination, compute_target_coordination_share, compute_target_share, volume, volume_pa
     global _MATTERGEN_IMPORT_ERROR
 
     try:
@@ -143,10 +152,17 @@ def _import_mattergen() -> None:
             _soft_neighbor_counts_per_A_single as _soft_neighbor_counts_per_A_single_impl,
             clear_globals as _clear_globals_impl_imported,
             compute_mean_coordination as _compute_mean_coordination,
-            compute_target_share as _compute_target_share,
             volume as _volume,
             volume_pa as _volume_pa,
         )
+        try:
+            from mattergen.diffusion.diffusion_loss import (
+                compute_target_coordination_share as _compute_target_coordination_share,
+            )
+        except ImportError:
+            from mattergen.diffusion.diffusion_loss import (
+                compute_target_share as _compute_target_coordination_share,
+            )
     except ImportError as exc:
         if getattr(exc, "name", None) != "torch_geometric":
             _MATTERGEN_IMPORT_ERROR = exc
@@ -158,7 +174,7 @@ def _import_mattergen() -> None:
                 _soft_neighbor_counts_per_A_single_impl,
                 _clear_globals_impl_imported,
                 _compute_mean_coordination,
-                _compute_target_share,
+                _compute_target_coordination_share,
                 _volume,
                 _volume_pa,
             ) = _import_diffusion_loss_with_chemgraph_compat()
@@ -171,7 +187,8 @@ def _import_mattergen() -> None:
     _soft_neighbor_counts_per_A_single = _soft_neighbor_counts_per_A_single_impl
     _clear_globals_impl = _clear_globals_impl_imported
     compute_mean_coordination = _compute_mean_coordination
-    compute_target_share = _compute_target_share
+    compute_target_coordination_share = _compute_target_coordination_share
+    compute_target_share = _compute_target_coordination_share
     volume = _volume
     volume_pa = _volume_pa
     _MATTERGEN_IMPORT_ERROR = None
@@ -265,6 +282,10 @@ def clear_globals():
 def get_target_value_fn(fn_name, force_gpu: int = 0, **params):
     _require_mattergen()
     fn = lambda x: None
+    def as_scalar_or_array(value):
+        arr = value.cpu().detach().numpy()
+        return arr.item() if arr.size == 1 else arr
+
     if fn_name in mattergen_chemgraph_fn_collection:
         def fn(entry):
             x = entry2chemgraph(entry, force_gpu=force_gpu)
@@ -272,13 +293,13 @@ def get_target_value_fn(fn_name, force_gpu: int = 0, **params):
     elif fn_name in mattergen_cell_frac_types_fn_collection:
         def fn(entry):
             cell, frac, types = structure_to_tensors(entry.structure, force_gpu=force_gpu)
-            return mattergen_cell_frac_types_fn_collection[fn_name](
+            return as_scalar_or_array(mattergen_cell_frac_types_fn_collection[fn_name](
                 cell,
                 frac,
                 types,
                 num_atoms=torch.tensor([len(types)], device=cell.device),
                 **params,
-            ).cpu().detach().numpy().item()
+            ))
     return fn
 
 

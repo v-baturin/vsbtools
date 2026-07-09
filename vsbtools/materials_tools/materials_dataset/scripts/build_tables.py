@@ -127,7 +127,7 @@ def build_guidance_summary_table(name_ds_dict: Dict[str, CrystalDataset],
 
     for stage in target_stages:
 
-        assert (ref_stages is not None and not auto_ref_stages) or (auto_ref_stages and ref_stages is None),\
+        assert ref_stages is None or not auto_ref_stages, \
             "Either ref_stages or auto_ref_stages should be specified (not both)"
         if ref_stages is None:
             ref_stage = 'poll_db_grace' if 'grace' in stage else 'poll_db'

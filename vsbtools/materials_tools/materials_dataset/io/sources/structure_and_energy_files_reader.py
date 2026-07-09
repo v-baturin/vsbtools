@@ -23,7 +23,7 @@ class CSV_and_POSCARS_client:
         df_temp["formula"] = df_temp["structure"].apply(lambda x: x.composition.formula)
         df_temp["natoms"] = df_temp["structure"].apply(lambda x: len(x))
         df_temp["energy"] = df_temp["Energy"] * (df_temp["natoms"] if self.source in self.per_atom_energy else 1)
-        df_temp["metadata"] = {"source": self.source}
+        df_temp["metadata"] = [{"source": self.source} for _ in range(len(df_temp))]
         df = pd.concat([df, df_temp], ignore_index=True)
         return df
 

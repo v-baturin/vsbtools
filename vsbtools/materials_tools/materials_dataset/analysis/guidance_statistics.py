@@ -59,6 +59,7 @@ __all__ = [
     "get_mean_coordination_gen_dirs",
     "get_p_value",
     "get_target_coordination_gen_dirs",
+    "get_target_coordination_share_gen_dirs",
     "get_target_value_fn",
     "get_two_proportion_z_test",
     "get_volume_pa_gen_dirs",
@@ -78,15 +79,16 @@ __all__ = [
 ]
 LEGACY_TO_CANONICAL_GUIDANCE = {
     "environment": "mean_coordination",
-    "dominant_environment": "target_coordination",
+    "dominant_environment": "target_coordination_share",
+    "target_coordination": "target_coordination_share",
 }
 CANONICAL_TO_LEGACY_GUIDANCE = {
     "mean_coordination": "environment",
-    "target_coordination": "dominant_environment",
+    "target_coordination_share": "dominant_environment",
 }
 CANONICAL_GUIDANCE_NAMES = {
     "mean_coordination",
-    "target_coordination",
+    "target_coordination_share",
     "volume_pa",
     "energy",
 }
@@ -98,7 +100,7 @@ def canonical_guidance_name(guidance_name: str) -> str:
 
 CANONICAL_GUIDANCE_TO_TARGET_PROPERTY = {
     "mean_coordination": "compute_mean_coordination",
-    "target_coordination": "compute_target_share",
+    "target_coordination_share": "compute_target_coordination_share",
     "volume_pa": "volume_pa",
     "energy": "energy",
 }
@@ -106,6 +108,7 @@ guidance_vs_target_properties = {
     name: CANONICAL_GUIDANCE_TO_TARGET_PROPERTY[canonical_guidance_name(name)]
     for name in (
         "mean_coordination",
+        "target_coordination_share",
         "target_coordination",
         "environment",
         "dominant_environment",
@@ -193,7 +196,7 @@ def callables_from_ds(ds,
     guidance_name = guidance_names[0]
     canonical_name = canonical_guidance_name(guidance_name)
     fn_name = CANONICAL_GUIDANCE_TO_TARGET_PROPERTY[canonical_name]
-    if canonical_name in ('mean_coordination', 'target_coordination'):
+    if canonical_name in ('mean_coordination', 'target_coordination_share'):
         for bond, target in ds.metadata['batch_metadata']['guidance'][guidance_name].items():
             if '-' not in bond:
                 continue
@@ -202,7 +205,7 @@ def callables_from_ds(ds,
             if isinstance(target, list) and len(target) == 2:
                 params['r_cut'] = target[1]
                 callable_name += f"_{target[1]}"
-            if canonical_name == "target_coordination":
+            if canonical_name == "target_coordination_share":
                 params['target'] = target[0] if isinstance(target, list) else target
                 targets[callable_name] = 1
             else:
@@ -225,7 +228,11 @@ def _guidance_name_variants(guidance_name: str) -> list[str]:
     canonical = canonical_guidance_name(guidance_name)
     variants = [canonical]
     legacy = CANONICAL_TO_LEGACY_GUIDANCE.get(canonical)
-    for candidate in (legacy, guidance_name):
+    legacy_aliases = [
+        old_name for old_name, canonical_name in LEGACY_TO_CANONICAL_GUIDANCE.items()
+        if canonical_name == canonical
+    ]
+    for candidate in (legacy, *legacy_aliases, guidance_name):
         if candidate and candidate not in variants:
             variants.append(candidate)
     return variants
@@ -307,10 +314,15 @@ def get_mean_coordination_gen_dirs(processed_repos_root: Path, system: str,
 
 def get_target_coordination_gen_dirs(processed_repos_root: Path, system: str,
                                      bond: str = None, target: float | int | None = None):
+    return get_target_coordination_share_gen_dirs(processed_repos_root, system, bond=bond, target=target)
+
+
+def get_target_coordination_share_gen_dirs(processed_repos_root: Path, system: str,
+                                           bond: str = None, target: float | int | None = None):
     return get_coordination_gen_dirs(
         processed_repos_root,
         system,
-        guidance_name="target_coordination",
+        guidance_name="target_coordination_share",
         bond=bond,
         target=target,
     )
