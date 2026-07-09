@@ -114,6 +114,35 @@ The rendered tutorial is kept in:
 vsbtools/materials_tools/materials_dataset/Doc/Crystal Dataset Use Cases.md
 ```
 
+### Reproducibility Notebook
+
+A packaged reproducibility pipeline is provided for the MatterGen guidance
+analysis workflow. It starts from the raw-generation archives in
+`Examples/raw_generations`, postprocesses them into staged datasets, builds
+summary/Pareto artifacts, plots descriptor distributions, and writes a run
+manifest.
+
+```text
+vsbtools/materials_tools/materials_dataset/Examples/
+├── README_reproducibility.md
+├── setup_reproducibility_envs.sh
+└── mg_generation_postprocessing_pipeline.ipynb
+```
+
+For reviewers, the setup script creates a contained workspace with three
+virtual environments: `vsbtools`, `scout-matter`/MatterGen, and
+GRACE/`tensorpotential`. Jupyter, IPython, matplotlib, pip cache, and
+`vsbtools` external-path state are kept under the chosen workspace root rather
+than under the user's global configuration.
+
+```bash
+bash vsbtools/materials_tools/materials_dataset/Examples/setup_reproducibility_envs.sh \
+  --root ./vsbtools_reproducibility_env
+```
+
+See `Examples/README_reproducibility.md` for manual configuration, pinned
+commit/tag setup, and launch instructions.
+
 Example:
 
 ```python
@@ -359,6 +388,7 @@ Additional external requirements depend on the workflow:
 | Database polling | Materials Project credentials and/or Alexandria/OQMD access. |
 | ML energy estimation | MatterSim and/or GRACE environment. |
 | Diffusion guidance analysis | MatterGen importability via `MATTERGEN_PYTHON_PATH` or host-specific configuration. |
+| Packaged reproducibility notebook | Use `Examples/setup_reproducibility_envs.sh` to create contained `vsbtools`, `scout-matter`, and GRACE environments. |
 | Plotting/reporting | Common scientific stack such as `matplotlib`, `pandas`, and `PyYAML`. |
 
 ## Running Tests

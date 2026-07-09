@@ -1,7 +1,8 @@
 include README.md
 recursive-include vsbtools *.txt *.csv *.json *.cjson *.yaml *.yml *.sh *.gjf *POSCAR* POSCARS*
-recursive-include vsbtools/materials_tools/materials_dataset/Examples *.yaml *.yml *.ipynb
+recursive-include vsbtools/materials_tools/materials_dataset/Examples *.yaml *.yml *.ipynb *.md
 include vsbtools/materials_tools/materials_dataset/Examples/raw_generations/*/*.zip
+prune vsbtools/materials_tools/materials_dataset/Examples/reproducibility_run
 prune vsbtools/materials_tools/materials_dataset/Examples/raw_generations/*/*/run_*
 prune vsbtools/gaussian_calc_manager/tmp_proj
 prune vsbtools/materials_tools/NN_energy_estimators/unittests
