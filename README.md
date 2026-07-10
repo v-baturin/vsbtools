@@ -1,8 +1,8 @@
 # vsbtools
 
 `vsbtools` is a Python research toolbox for atomistic materials workflows. It is
-organized as several mostly independent subsystems rather than as one monolithic
-application.
+organized into mostly independent subsystems for crystal-structure datasets,
+Gaussian calculation management, and materials utilities.
 
 ## Overview
 
@@ -137,8 +137,8 @@ vsbtools/materials_tools/materials_dataset/Examples/
 The setup script creates a contained workspace with three virtual environments:
 `vsbtools`, `scout-matter`/MatterGen, and GRACE/`tensorpotential`. Jupyter,
 IPython, matplotlib, pip cache, and `vsbtools` external-path state are kept
-under the chosen workspace root rather than under the user's global
-configuration.
+under the chosen workspace root. The script does not install a global Jupyter
+kernel or write to the user's global `vsbtools` configuration.
 
 ```bash
 bash vsbtools/materials_tools/materials_dataset/Examples/setup_reproducibility_envs.sh \
