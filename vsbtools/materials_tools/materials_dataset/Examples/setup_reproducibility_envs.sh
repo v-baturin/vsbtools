@@ -3,9 +3,15 @@ set -euo pipefail
 
 VSBTOOLS_REPO_URL="${VSBTOOLS_REPO_URL:-https://github.com/v-baturin/vsbtools.git}"
 SCOUT_MATTER_REPO_URL="${SCOUT_MATTER_REPO_URL:-https://github.com/link-lab3629/scout-matter.git}"
-VSBTOOLS_REF="${VSBTOOLS_REF:-main}"
-SCOUT_MATTER_REF="${SCOUT_MATTER_REF:-main}"
-PYTHON_BIN="${PYTHON_BIN:-python3}"
+VSBTOOLS_REF="${VSBTOOLS_REF:-}"
+SCOUT_MATTER_REF="${SCOUT_MATTER_REF:-}"
+PYTHON_BIN="${PYTHON_BIN:-}"
+MANAGED_PYTHON_VERSION="${MANAGED_PYTHON_VERSION:-3.11}"
+PYTORCH_VERSION="${PYTORCH_VERSION:-2.2.1+cu118}"
+TORCHVISION_VERSION="${TORCHVISION_VERSION:-0.17.1+cu118}"
+TORCHAUDIO_VERSION="${TORCHAUDIO_VERSION:-2.2.1+cu118}"
+PYTORCH_CUDA_INDEX_URL="${PYTORCH_CUDA_INDEX_URL:-https://download.pytorch.org/whl/cu118}"
+PYG_WHEEL_URL="${PYG_WHEEL_URL:-https://data.pyg.org/whl/torch-2.2.1+cu118.html}"
 ROOT="${VSBTOOLS_REPRO_ROOT:-$PWD/vsbtools_reproducibility_env}"
 LAUNCH=1
 FORCE=0
@@ -22,9 +28,9 @@ Creates a contained reproducibility workspace with three virtual environments:
 
 Options:
   --root PATH               Workspace root. Default: ./vsbtools_reproducibility_env
-  --python PATH             Python used to create venvs. Default: python3
-  --vsbtools-ref REF        Git ref for vsbtools. Default: main
-  --scout-matter-ref REF    Git ref for scout-matter. Default: main
+  --python PATH             Python used to create venvs. Default: compatible local Python, otherwise managed Python 3.11
+  --vsbtools-ref REF        Git ref for vsbtools. Default: repository default branch
+  --scout-matter-ref REF    Git ref for scout-matter. Default: repository default branch
   --no-launch               Install/configure only; do not launch JupyterLab
   --force                   Recreate src/, venvs/, state/, and work/ under --root
   -h, --help                Show this help
@@ -32,9 +38,15 @@ Options:
 Environment overrides:
   VSBTOOLS_REPO_URL         Default: https://github.com/v-baturin/vsbtools.git
   SCOUT_MATTER_REPO_URL     Default: https://github.com/link-lab3629/scout-matter.git
-  VSBTOOLS_REF              Default: main
-  SCOUT_MATTER_REF          Default: main
-  PYTHON_BIN                Default: python3
+  VSBTOOLS_REF              Default: repository default branch
+  SCOUT_MATTER_REF          Default: repository default branch
+  PYTHON_BIN                Python used to create venvs
+  MANAGED_PYTHON_VERSION    Default: 3.11
+  PYTORCH_VERSION           Default: 2.2.1+cu118
+  TORCHVISION_VERSION       Default: 0.17.1+cu118
+  TORCHAUDIO_VERSION        Default: 2.2.1+cu118
+  PYTORCH_CUDA_INDEX_URL    Default: https://download.pytorch.org/whl/cu118
+  PYG_WHEEL_URL             Default: https://data.pyg.org/whl/torch-2.2.1+cu118.html
   VSBTOOLS_REPRO_ROOT       Default: ./vsbtools_reproducibility_env
 
 All Jupyter, IPython, matplotlib, pip, and vsbtools external-path state is kept
@@ -92,6 +104,97 @@ require_cmd() {
     fi
 }
 
+python_version_label() {
+    "$1" - <<'PY'
+import sys
+print(f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}")
+PY
+}
+
+is_compatible_python() {
+    "$1" - <<'PY' >/dev/null 2>&1
+import sys
+
+raise SystemExit(0 if (3, 9) <= sys.version_info[:2] <= (3, 11) else 1)
+PY
+}
+
+install_uv() {
+    local bootstrap_python="$1"
+    UV_BOOTSTRAP_VENV="$STATE_DIR/uv_bootstrap"
+    if [[ ! -x "$UV_BOOTSTRAP_VENV/bin/python" ]]; then
+        log "Creating uv bootstrap venv with $bootstrap_python"
+        "$bootstrap_python" -m venv "$UV_BOOTSTRAP_VENV"
+    fi
+    "$UV_BOOTSTRAP_VENV/bin/python" -m pip install --upgrade pip uv
+    UV_BIN="$UV_BOOTSTRAP_VENV/bin/uv"
+}
+
+install_managed_python() {
+    local bootstrap_python="$1"
+    local managed_install_dir="$STATE_DIR/uv_python_installations"
+
+    if command -v uv >/dev/null 2>&1; then
+        UV_BIN="$(command -v uv)"
+    else
+        install_uv "$bootstrap_python"
+    fi
+
+    log "Installing managed Python $MANAGED_PYTHON_VERSION under $managed_install_dir"
+    UV_PYTHON_INSTALL_DIR="$managed_install_dir" "$UV_BIN" python install "$MANAGED_PYTHON_VERSION"
+    PYTHON_BIN="$(UV_PYTHON_INSTALL_DIR="$managed_install_dir" "$UV_BIN" python find "$MANAGED_PYTHON_VERSION")"
+
+    if ! is_compatible_python "$PYTHON_BIN"; then
+        echo "Managed Python is not compatible: $PYTHON_BIN ($(python_version_label "$PYTHON_BIN"))" >&2
+        exit 1
+    fi
+    log "Using managed Python $PYTHON_BIN ($(python_version_label "$PYTHON_BIN"))"
+}
+
+select_python_bin() {
+    if [[ -n "$PYTHON_BIN" ]]; then
+        require_cmd "$PYTHON_BIN"
+        if is_compatible_python "$PYTHON_BIN"; then
+            log "Using selected Python $PYTHON_BIN ($(python_version_label "$PYTHON_BIN"))"
+            return
+        fi
+        log "Selected Python $PYTHON_BIN ($(python_version_label "$PYTHON_BIN")) is outside the supported 3.9-3.11 range"
+        install_managed_python "$PYTHON_BIN"
+        return
+    fi
+    for candidate in python3.11 python3.10 python3.9 python3; do
+        if command -v "$candidate" >/dev/null 2>&1 && is_compatible_python "$candidate"; then
+            PYTHON_BIN="$candidate"
+            log "Using local Python $PYTHON_BIN ($(python_version_label "$PYTHON_BIN"))"
+            return
+        fi
+    done
+
+    local bootstrap_python=""
+    for candidate in python3 python python3.12 python3.13; do
+        if command -v "$candidate" >/dev/null 2>&1; then
+            bootstrap_python="$candidate"
+            break
+        fi
+    done
+
+    if [[ -z "$bootstrap_python" ]]; then
+        echo "Required command not found: python3 or python" >&2
+        exit 1
+    fi
+
+    log "No local Python 3.9-3.11 found; bootstrapping from $bootstrap_python ($(python_version_label "$bootstrap_python"))"
+    install_managed_python "$bootstrap_python"
+}
+
+check_python_version() {
+    if ! is_compatible_python "$PYTHON_BIN"; then
+        echo "Selected Python is not compatible: $PYTHON_BIN ($(python_version_label "$PYTHON_BIN"))" >&2
+        echo "The reproducibility venvs need Python 3.9-3.11 because scout-matter pins torch==2.2.1+cu118." >&2
+        exit 1
+    fi
+}
+
 clone_or_checkout() {
     local url="$1"
     local ref="$2"
@@ -106,7 +209,17 @@ clone_or_checkout() {
         log "Cloning $url into $dest"
         git clone "$url" "$dest"
     fi
-    git -C "$dest" checkout "$ref"
+    if [[ -n "$ref" ]]; then
+        git -C "$dest" checkout "$ref"
+    else
+        local default_ref
+        default_ref="$(git -C "$dest" symbolic-ref --quiet --short refs/remotes/origin/HEAD || true)"
+        if [[ -n "$default_ref" ]]; then
+            git -C "$dest" checkout "${default_ref#origin/}"
+        else
+            log "Using current checkout in $dest"
+        fi
+    fi
 }
 
 make_venv() {
@@ -133,7 +246,6 @@ if [[ "$FORCE" -eq 1 ]]; then
 fi
 
 require_cmd git
-require_cmd "$PYTHON_BIN"
 
 SRC_DIR="$ROOT/src"
 VENVS_DIR="$ROOT/venvs"
@@ -153,6 +265,9 @@ export VSBTOOLS_EXTERNAL_PATHS_CONFIG="$STATE_DIR/vsbtools_external_paths.json"
 mkdir -p "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME" "$JUPYTER_CONFIG_DIR" \
     "$JUPYTER_DATA_DIR" "$JUPYTER_RUNTIME_DIR" "$IPYTHONDIR" "$MPLCONFIGDIR" "$PIP_CACHE_DIR"
 
+select_python_bin
+check_python_version
+
 VSBTOOLS_SRC="$SRC_DIR/vsbtools"
 SCOUT_SRC="$SRC_DIR/scout-matter"
 VSBTOOLS_VENV="$VENVS_DIR/vsbtools"
@@ -168,10 +283,22 @@ make_venv "$VSBTOOLS_VENV"
 make_venv "$SCOUT_VENV"
 make_venv "$GRACE_VENV"
 
+log "Installing scout-matter PyTorch/PyG binary dependencies"
+"$SCOUT_VENV/bin/python" -m pip install --extra-index-url "$PYTORCH_CUDA_INDEX_URL" \
+    "torch==$PYTORCH_VERSION" \
+    "torchvision==$TORCHVISION_VERSION" \
+    "torchaudio==$TORCHAUDIO_VERSION"
+"$SCOUT_VENV/bin/python" -m pip install --find-links "$PYG_WHEEL_URL" --only-binary :all: \
+    pyg_lib \
+    torch_scatter \
+    torch_sparse \
+    torch_cluster \
+    torch_spline_conv
+
 log "Installing scout-matter into its contained venv"
-if ! "$SCOUT_VENV/bin/python" -m pip install "$SCOUT_SRC"; then
+if ! "$SCOUT_VENV/bin/python" -m pip install --extra-index-url "$PYTORCH_CUDA_INDEX_URL" --find-links "$PYG_WHEEL_URL" "$SCOUT_SRC"; then
     log "Non-editable scout-matter install failed; trying editable install"
-    "$SCOUT_VENV/bin/python" -m pip install -e "$SCOUT_SRC"
+    "$SCOUT_VENV/bin/python" -m pip install --extra-index-url "$PYTORCH_CUDA_INDEX_URL" --find-links "$PYG_WHEEL_URL" -e "$SCOUT_SRC"
 fi
 "$SCOUT_VENV/bin/python" - <<'PY'
 import mattergen
@@ -255,6 +382,13 @@ export VSBTOOLS_SRC="$VSBTOOLS_SRC"
 export SCOUT_MATTER_SRC="$SCOUT_SRC"
 export VSBTOOLS_COMMIT="$VSBTOOLS_COMMIT"
 export SCOUT_MATTER_COMMIT="$SCOUT_MATTER_COMMIT"
+export REPRODUCIBILITY_PYTHON="$PYTHON_BIN"
+export MANAGED_PYTHON_VERSION="$MANAGED_PYTHON_VERSION"
+export PYTORCH_VERSION="$PYTORCH_VERSION"
+export TORCHVISION_VERSION="$TORCHVISION_VERSION"
+export TORCHAUDIO_VERSION="$TORCHAUDIO_VERSION"
+export PYTORCH_CUDA_INDEX_URL="$PYTORCH_CUDA_INDEX_URL"
+export PYG_WHEEL_URL="$PYG_WHEEL_URL"
 export VSBTOOLS_VENV="$VSBTOOLS_VENV"
 export SCOUT_MATTER_VENV="$SCOUT_VENV"
 export GRACE_VENV="$GRACE_VENV"
@@ -283,6 +417,13 @@ cat > "$SETUP_MANIFEST" <<EOF
   "scout_matter_ref": "$SCOUT_MATTER_REF",
   "scout_matter_commit": "$SCOUT_MATTER_COMMIT",
   "root": "$ROOT",
+  "reproducibility_python": "$PYTHON_BIN",
+  "managed_python_version": "$MANAGED_PYTHON_VERSION",
+  "pytorch_version": "$PYTORCH_VERSION",
+  "torchvision_version": "$TORCHVISION_VERSION",
+  "torchaudio_version": "$TORCHAUDIO_VERSION",
+  "pytorch_cuda_index_url": "$PYTORCH_CUDA_INDEX_URL",
+  "pyg_wheel_url": "$PYG_WHEEL_URL",
   "vsbtools_venv": "$VSBTOOLS_VENV",
   "scout_matter_venv": "$SCOUT_VENV",
   "grace_venv": "$GRACE_VENV",

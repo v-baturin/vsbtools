@@ -26,8 +26,26 @@ The notebook needs three Python environments:
 From a machine with `git`, Python, and internet access:
 
 ```bash
+# Debian/Ubuntu example.
+sudo apt install git build-essential python3 python3-venv python3-dev
+```
+
+```bash
 bash setup_reproducibility_envs.sh --root ./vsbtools_reproducibility_env
 ```
+
+The script clones the default branch of each repository unless refs are passed
+explicitly.
+
+`scout-matter` currently pins a CUDA PyTorch wheel (`torch==2.2.1+cu118`), so
+the setup script uses the PyTorch CUDA wheel index for that environment. It also
+preinstalls matching PyTorch Geometric binary wheels for packages such as
+`torch_cluster`, because those packages can fail if pip tries to build them from
+source before `torch` is importable. The reproducibility virtual environments use
+Python 3.9-3.11. If a compatible local Python is available, the script uses it.
+Otherwise, for example on a system where `python3` is Python 3.12, the script
+bootstraps `uv` and installs a managed Python 3.11 under `state/` inside the
+contained workspace.
 
 The script creates everything under `./vsbtools_reproducibility_env`:
 
@@ -75,6 +93,21 @@ bash setup_reproducibility_envs.sh \
   --root ./vsbtools_reproducibility_env \
   --vsbtools-ref <commit-or-tag> \
   --scout-matter-ref <commit-or-tag>
+```
+
+If an older copy of this script failed while checking out a missing branch, rerun
+with `--force` after updating the script, or pass the branch explicitly:
+
+```bash
+bash setup_reproducibility_envs.sh --root ./vsbtools_reproducibility_env --vsbtools-ref master
+```
+
+If installation failed with `No matching distribution found for
+torch==2.2.1+cu118` or failed while building `torch_cluster`, update to this
+script and rerun with `--force`:
+
+```bash
+bash setup_reproducibility_envs.sh --root ./vsbtools_reproducibility_env --force
 ```
 
 Use `--force` to recreate the contained workspace:
