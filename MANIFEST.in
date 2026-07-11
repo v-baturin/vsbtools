@@ -1,23 +1,17 @@
 include README.md
 recursive-include vsbtools *.txt *.csv *.json *.cjson *.yaml *.yml *.sh *.gjf *POSCAR* POSCARS*
-recursive-include vsbtools/materials_tools/materials_dataset/Examples *.yaml *.yml *.ipynb *.md
-include vsbtools/materials_tools/materials_dataset/Examples/raw_generations/*/*.zip
-prune vsbtools/materials_tools/materials_dataset/Examples/reproducibility_run
-prune vsbtools/materials_tools/materials_dataset/Examples/raw_generations/*/*/run_*
-prune vsbtools/gaussian_calc_manager/tmp_proj
-prune vsbtools/materials_tools/NN_energy_estimators/unittests
-prune vsbtools/materials_tools/ext_software_io/unittests
-prune vsbtools/materials_tools/geom_utils/unittests
-prune vsbtools/materials_tools/materials_dataset/analysis/unittests
-prune vsbtools/materials_tools/materials_dataset/analysis/structural_distance/unittests
-prune vsbtools/materials_tools/materials_dataset/energy_estimation/unittests
-prune vsbtools/materials_tools/materials_dataset/infrastructure/unittests
-prune vsbtools/materials_tools/materials_dataset/io/sources/unittests
-prune vsbtools/materials_tools/materials_dataset/io/unittests
-prune vsbtools/materials_tools/materials_dataset/scripts/diffusion_analysis_scripts/unittests
-prune vsbtools/materials_tools/materials_dataset/scripts/untittests
-prune vsbtools/materials_tools/materials_dataset/unittests_datasets
-prune vsbtools/materials_tools/unittests
-prune vsbtools/materials_tools/uspex_001_postproc/test_dir
+recursive-include vsbtools/materials_dataset/Examples *.yaml *.yml *.ipynb *.md
+include vsbtools/materials_dataset/Examples/raw_generations/*/*.zip
+prune vsbtools/materials_dataset/Examples/reproducibility_run
+prune vsbtools/materials_dataset/Examples/raw_generations/*/*/run_*
+prune vsbtools/materials_dataset/analysis/unittests
+prune vsbtools/materials_dataset/analysis/structural_distance/unittests
+prune vsbtools/materials_dataset/energy_estimation/unittests
+prune vsbtools/materials_dataset/infrastructure/unittests
+prune vsbtools/materials_dataset/io/sources/unittests
+prune vsbtools/materials_dataset/io/unittests
+prune vsbtools/materials_dataset/scripts/diffusion_analysis_scripts/unittests
+prune vsbtools/materials_dataset/scripts/untittests
+prune vsbtools/materials_dataset/unittests_datasets
 global-exclude *.log *.pkl *.py[cod] *.swp *.tgz
 recursive-exclude vsbtools __pycache__/* .ipynb_checkpoints/*

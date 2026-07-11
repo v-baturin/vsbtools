@@ -8,7 +8,7 @@ dynamic = ["version"]
 description = "Research toolbox for atomistic materials workflows."
 readme = "README.md"
 requires-python = ">=3.10"
-keywords = ["materials-science", "atomistic-simulation", "crystal-structures", "gaussian", "uspex"]
+keywords = ["materials-science", "atomistic-simulation", "crystal-structures"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Intended Audience :: Science/Research",
@@ -25,22 +25,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-gaussian_calc_manager = [
-  "cclib>=1.8",
-  "matplotlib",
-  "prettytable",
-]
-genutils = [
-  "matplotlib",
-]
-optimade = [
-  "dscribe",
-  "pandas",
-  "pymatgen",
-  "PyYAML",
-]
-materials_tools = [
-  "cclib>=1.8",
+materials_dataset = [
   "dscribe",
   "ijson",
   "matplotlib",
@@ -48,18 +33,13 @@ materials_tools = [
   "mysqlclient",
   "networkx",
   "pandas",
-  "phonopy",
   "prettytable",
   "pymatgen",
   "PyYAML",
   "scipy",
   "torch",
 ]
-uspex_gather_stat = [
-  "cclib>=1.8",
-]
 all = [
-  "cclib>=1.8",
   "dscribe",
   "ijson",
   "matplotlib",
@@ -67,7 +47,6 @@ all = [
   "mysqlclient",
   "networkx",
   "pandas",
-  "phonopy",
   "prettytable",
   "pymatgen",
   "PyYAML",

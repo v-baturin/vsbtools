@@ -1,2 +1,2 @@
-__all__ = ["genutils", "gaussian_calc_manager", "materials_tools", "uspex_gather_stat"]
+__all__ = ["materials_dataset"]
 __version__ = "2026.7.8"
