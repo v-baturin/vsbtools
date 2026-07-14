@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VSBTOOLS_REPO_URL="${VSBTOOLS_REPO_URL:-https://github.com/v-baturin/vsbtools.git}"
 SCOUT_MATTER_REPO_URL="${SCOUT_MATTER_REPO_URL:-https://github.com/link-lab3629/scout-matter.git}"
 VSBTOOLS_REF="${VSBTOOLS_REF:-}"
 SCOUT_MATTER_REF="${SCOUT_MATTER_REF:-}"
@@ -16,6 +15,14 @@ ROOT="${VSBTOOLS_REPRO_ROOT:-$PWD/vsbtools_reproducibility_env}"
 LAUNCH=1
 FORCE=0
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LOCAL_VSBTOOLS_REPO="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null || true)"
+if [[ -n "${VSBTOOLS_REPO_URL:-}" ]]; then
+    VSBTOOLS_REPO_URL="$VSBTOOLS_REPO_URL"
+elif [[ -n "$LOCAL_VSBTOOLS_REPO" && -f "$LOCAL_VSBTOOLS_REPO/pyproject.toml" ]]; then
+    VSBTOOLS_REPO_URL="$LOCAL_VSBTOOLS_REPO"
+else
+    VSBTOOLS_REPO_URL="https://github.com/v-baturin/vsbtools.git"
+fi
 
 usage() {
     cat <<'USAGE'
@@ -36,7 +43,7 @@ Options:
   -h, --help                Show this help
 
 Environment overrides:
-  VSBTOOLS_REPO_URL         Default: https://github.com/v-baturin/vsbtools.git
+  VSBTOOLS_REPO_URL         Default: containing vsbtools checkout, otherwise https://github.com/v-baturin/vsbtools.git
   SCOUT_MATTER_REPO_URL     Default: https://github.com/link-lab3629/scout-matter.git
   VSBTOOLS_REF              Default: repository default branch
   SCOUT_MATTER_REF          Default: repository default branch
@@ -201,6 +208,7 @@ clone_or_checkout() {
     local dest="$3"
     if [[ -d "$dest/.git" ]]; then
         log "Updating $dest"
+        git -C "$dest" remote set-url origin "$url"
         git -C "$dest" fetch --tags --prune origin
     elif [[ -e "$dest" ]]; then
         echo "Path exists but is not a git checkout: $dest" >&2
@@ -215,7 +223,9 @@ clone_or_checkout() {
         local default_ref
         default_ref="$(git -C "$dest" symbolic-ref --quiet --short refs/remotes/origin/HEAD || true)"
         if [[ -n "$default_ref" ]]; then
-            git -C "$dest" checkout "${default_ref#origin/}"
+            local default_branch="${default_ref#origin/}"
+            git -C "$dest" checkout "$default_branch"
+            git -C "$dest" merge --ff-only "$default_ref"
         else
             log "Using current checkout in $dest"
         fi
@@ -350,6 +360,7 @@ import mattergen.common.data.chemgraph
 import mattergen.diffusion.diffusion_loss
 
 import vsbtools
+import vsbtools.materials_dataset
 print("vsbtools:", Path(vsbtools.__file__).resolve())
 print("MATTERGEN_PYTHON_PATH:", os.environ["MATTERGEN_PYTHON_PATH"])
 print("GRACE_PYTHON:", os.environ["GRACE_PYTHON"])
@@ -365,6 +376,20 @@ if [[ ! -f "$NOTEBOOK_SRC" ]]; then
 fi
 NOTEBOOK_DST="$WORK_DIR/mg_generation_postprocessing_pipeline.ipynb"
 cp "$NOTEBOOK_SRC" "$NOTEBOOK_DST"
+"$VSBTOOLS_VENV/bin/python" - "$NOTEBOOK_DST" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+notebook = json.loads(path.read_text())
+notebook.setdefault("metadata", {})["kernelspec"] = {
+    "display_name": "vsbtools reproducibility",
+    "language": "python",
+    "name": "vsbtools-repro",
+}
+path.write_text(json.dumps(notebook, indent=1) + "\n")
+PY
 
 KERNEL_PREFIX="$STATE_DIR/jupyter_kernel_prefix"
 "$VSBTOOLS_VENV/bin/python" -m ipykernel install \
@@ -392,6 +417,7 @@ export SCOUT_MATTER_VENV="$SCOUT_VENV"
 export GRACE_VENV="$GRACE_VENV"
 export MATTERGEN_PYTHON_PATH="$MATTERGEN_PYTHON_PATH"
 export GRACE_PYTHON="$GRACE_PYTHON"
+export PATH="$VSBTOOLS_VENV/bin:\$PATH"
 export XDG_CONFIG_HOME="$XDG_CONFIG_HOME"
 export XDG_CACHE_HOME="$XDG_CACHE_HOME"
 export JUPYTER_CONFIG_DIR="$JUPYTER_CONFIG_DIR"
@@ -436,7 +462,7 @@ cat > "$LAUNCHER" <<EOF
 set -euo pipefail
 source "$ENV_FILE"
 cd "$WORK_DIR"
-exec "$VSBTOOLS_VENV/bin/python" -m jupyter lab \\
+exec "$VSBTOOLS_VENV/bin/jupyter-lab" \\
     --notebook-dir "$WORK_DIR" \\
     "$NOTEBOOK_DST"
 EOF
@@ -450,28 +476,22 @@ source "$ENV_FILE"
 cd "$WORK_DIR"
 
 executed_notebook="$WORK_DIR/mg_generation_postprocessing_pipeline.executed.ipynb"
-run_output_dir="$WORK_DIR/reproducibility_run"
-raw_generation_root="$VSBTOOLS_SRC/vsbtools/materials_dataset/Examples/raw_generations/Cu-Si-P"
 
 set +e
-"$VSBTOOLS_VENV/bin/python" -m jupyter nbconvert \\
+"$VSBTOOLS_VENV/bin/jupyter-nbconvert" \\
     --to notebook \\
     --execute "$NOTEBOOK_DST" \\
     --output "\$(basename "\$executed_notebook")" \\
     --output-dir "$WORK_DIR" \\
+    --ExecutePreprocessor.kernel_name=vsbtools-repro \\
     --ExecutePreprocessor.timeout=-1
 status=\$?
 set -e
 
-if [[ "\$status" -eq 0 ]]; then
-    rm -rf "\$run_output_dir"
-    rm -f "\$executed_notebook"
-    for archive in "\$raw_generation_root"/*.zip; do
-        [[ -e "\$archive" ]] || continue
-        rm -rf "\${archive%.zip}"
-    done
-else
+if [[ "\$status" -ne 0 ]]; then
     echo "Reproducibility notebook test failed; preserving artifacts under $WORK_DIR" >&2
+else
+    echo "Reproducibility notebook test passed; artifacts preserved under $WORK_DIR"
 fi
 
 exit "\$status"
