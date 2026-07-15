@@ -1,52 +1,74 @@
 # vsbtools
 
-`vsbtools` is a Python research toolbox centered on crystal-structure dataset
-workflows used by the MatterGen generation postprocessing and guidance-analysis
-pipeline.
+`vsbtools` is a Python research toolbox for building, transforming, and
+analyzing crystal-structure datasets. Its dataset tools live in
+`vsbtools/materials_dataset`.
 
-## Package Map
+## Overview
 
-| Module | Role |
-| --- | --- |
-| `vsbtools/materials_dataset` | Dataset model, staged processing, database comparison, ML energy estimation/relaxation, stability filtering, deduplication, and generation-quality analysis. |
+`CrystalEntry` represents one structure plus its id, optional energy, formula,
+and metadata. `CrystalDataset` is a read-oriented collection of entries with
+dataset metadata, element discovery, `merge()` and `filter()` helpers, and
+parent/child tracking for processed stages. Datasets also keep track of the
+directory used for their `manifest.yaml`, `data.csv`, and `POSCARS/` files.
 
-Helper code needed by this workflow is kept inside `materials_dataset`, including
-geometry checks, MatterGen parsing helpers, plotting helpers, cache/path
-configuration, GRACE/MatterSim subprocess clients, and small internal utilities.
+The package can:
 
-Common external names used by the workflow:
+- store datasets as `manifest.yaml`/`data.csv`/`POSCARS/` bundles, the
+  package's native on-disk format;
+- import structures from collections of individual POSCAR files, multi-image
+  POSCARS, CIF collections, and extended XYZ files (`.extxyz`);
+- export datasets as POSCAR collections or multi-image POSCARS;
+- filter pathological structures by density, cell geometry, and minimum
+  interatomic distance;
+- analyze and enforce crystallographic symmetry, including space-group labels,
+  symmetry-operation counts, nonequivalent-site counts, primitive standard
+  structures, and refined structures;
+- poll and cache reference structures from OPTIMADE providers, Alexandria,
+  OQMD, Materials Project, and local structure/energy files;
+- merge generated datasets with reference datasets and mark reproduced
+  reference structures;
+- estimate energies and relax structures through registered ML backends such as
+  MatterSim and GRACE;
+- build phase diagrams, compute formation energies and energy above hull, and
+  filter structures by hull distance;
+- compare structures with DScribe/USPEX-style fingerprints, detect structures
+  already present in a reference set, cluster duplicates, and keep best
+  representatives;
+- access descriptors used for guidance losses in `scout-matter`;
+- collect summary tables, generation statistics, histograms, KDE plots, Pareto
+  fronts, and reproducibility artifacts.
 
-- MatterGen is a crystal generative model; `scout-matter` is the MatterGen fork
-  used by the guidance workflow (<https://github.com/link-lab3629/scout-matter>).
-- MatterSim and GRACE are ML interatomic-potential/energy-estimation backends;
-  GRACE is accessed through `tensorpotential`.
-- USPEX is an evolutionary crystal-structure-prediction code. `materials_dataset`
-  retains a legacy-compatible structural fingerprint and optional bridge where
-  needed for dataset deduplication.
-
-## Crystal-Structure Dataset Workflows
-
-`vsbtools/materials_dataset` processes crystal-structure
-datasets from generation runs, simulations, database exports, or user-supplied
-POSCAR, CIF, or extended XYZ (`extxyz`) collections.
-
-The pipeline layer can clean structures, symmetrize them, compare against
-reference databases, estimate or relax energies with ML models, filter by
-stability, remove structural duplicates, and evaluate generation quality.
-
-### Main Concepts
+## Core Modules
 
 | File | Role |
 | --- | --- |
 | `crystal_entry.py` | `CrystalEntry`: one crystal structure plus id, optional energy, formula, and metadata. |
 | `crystal_dataset.py` | `CrystalDataset`: read-oriented collection of entries with metadata, provenance, `merge()`, and `filter()`. |
-| `analysis/scenario_pipeline.py` | Directed-acyclic-graph executor for cleanup, database polling, energy estimation, hull filtering, and deduplication stages. |
-| `analysis/similarity_tools.py` | Structural deduplication workflows. |
+| `analysis/scenario_pipeline.py` | YAML/JSON scenario executor for user-defined directed acyclic workflows. |
+| `analysis/symmetry_tools.py` | Space-group analysis, symmetry-operation counts, nonequivalent-site counts, and symmetrized structures. |
+| `analysis/similarity_tools.py` | Fingerprint-based structure matching, reference-set lookup, and deduplication. |
 | `analysis/phase_diagram_tools.py` | Phase diagram and energy-above-hull calculations. |
-| `energy_estimation/` | Bridges to MatterSim and GRACE through `NNEstimator`. |
+| `analysis/summary.py`, `analysis/guidance_statistics.py` | Per-entry summary tables and guidance-analysis reporting. |
+| `energy_estimation/` | Energy estimation and structure relaxation through MatterSim and GRACE adapters. |
+| `geom_utils/structure_checks.py` | Density, cell-shape, and minimum-distance structure sanity checks. |
+| `io/` | Dataset manifests, CSV/POSCAR bundles, POSCAR/CIF/extxyz readers, generation metadata parsing, and database-source parsers. |
 | `scripts/poll_databases.py` | Integrates reference structures from Alexandria, OQMD, Materials Project, and OPTIMADE providers. |
 
-### Scenario Pipeline
+## Tutorial
+
+The `Doc` directory contains a worked tutorial for common dataset operations:
+
+- `vsbtools/materials_dataset/Doc/Crystal_Dataset_Use_Cases.ipynb`
+- `vsbtools/materials_dataset/Doc/Crystal_Dataset_Use_Cases.md`
+
+The notebook is the source version; the Markdown file is a rendered copy for
+quick reading. It walks through loading generated structures, polling reference
+databases, cleaning, deduplication, symmetrization, energy and hull analysis,
+dataset persistence, reporting, Pareto-front examples, and multi-dataset
+descriptor plots.
+
+## Scenario Workflows
 
 `analysis/scenario_pipeline.py` runs YAML/JSON-defined workflows as a directed
 acyclic graph of stages. Registered operations include raw parsing, density and
@@ -66,7 +88,13 @@ when data is written:
 
 Set `VSBTOOLS_CACHE_DIR` to override the `vsbtools` cache root on any platform.
 
-### Reproducibility Notebook
+## MatterGen Postprocessing
+
+One important packaged use case is postprocessing MatterGen outputs, especially
+guided generations produced by the `scout-matter` fork. The provided workflow
+preserves generation metadata and uses it to analyze guidance-loss
+distributions, target-property distributions, structural descriptors, Pareto
+fronts, and reproducibility metrics.
 
 A packaged reproducibility pipeline is provided for the MatterGen guidance
 analysis workflow. It starts from the raw-generation archives in
@@ -92,7 +120,7 @@ bash vsbtools/materials_dataset/Examples/setup_reproducibility_envs.sh \
 See `Examples/README_reproducibility.md` for manual configuration, pinned
 commit/tag setup, and launch instructions.
 
-### Programmatic Use
+## Python Scenario Example
 
 ```python
 from pathlib import Path
@@ -125,6 +153,16 @@ Additional external requirements depend on the workflow:
 | ML energy estimation | MatterSim and/or GRACE environment. |
 | Diffusion guidance analysis | MatterGen importability via `MATTERGEN_PYTHON_PATH` or host-specific configuration. |
 | Packaged reproducibility notebook | Use `Examples/setup_reproducibility_envs.sh` to create contained `vsbtools`, `scout-matter`, and GRACE environments. |
+
+External tools mentioned above:
+
+- MatterGen is a crystal generative model; `scout-matter` is the MatterGen fork
+  used by the guidance workflow (<https://github.com/link-lab3629/scout-matter>).
+- MatterSim and GRACE are ML interatomic-potential/energy-estimation backends;
+  GRACE is accessed through `tensorpotential`.
+- USPEX is an evolutionary crystal-structure-prediction code. `materials_dataset`
+  retains a legacy-compatible structural fingerprint and optional bridge where
+  needed for dataset deduplication.
 
 ## Running Tests
 
