@@ -57,6 +57,7 @@ venvs/scout-matter
 venvs/grace
 state/
 work/mg_generation_postprocessing_pipeline.ipynb
+artifacts/
 ```
 
 It also keeps local runtime state inside `state/`, including Jupyter, IPython,
@@ -82,9 +83,9 @@ Run the notebook headlessly as a reproducibility test with:
 ./vsbtools_reproducibility_env/test_reproducibility_notebook.sh
 ```
 
-On success, the test runner removes `work/reproducibility_run/`, the executed
-notebook copy, and any extracted raw-generation folders next to the packaged
-zip fixtures. On failure, it leaves those artifacts in place for debugging.
+The test runner writes notebook outputs under `artifacts/` and preserves them
+after the run. On failure, inspect that directory together with the executed
+notebook copy in `work/`.
 
 For a fixed reproducibility run, pin repository refs:
 
@@ -154,14 +155,16 @@ paths only inside its launcher environment.
 The notebook writes derived files under:
 
 ```text
-reproducibility_run/
+artifacts/
 ```
 
-inside the directory where the notebook is run. The contained setup copies the
-notebook to:
+when launched through the contained setup. The contained setup copies the
+notebook itself to:
 
 ```text
 vsbtools_reproducibility_env/work/
 ```
 
-so generated outputs stay inside the contained workspace.
+so editable notebooks and generated artifacts stay separate. If the notebook is
+opened manually outside the contained setup, it falls back to writing
+`reproducibility_run/` next to the notebook.

@@ -39,7 +39,7 @@ Options:
   --vsbtools-ref REF        Git ref for vsbtools. Default: repository default branch
   --scout-matter-ref REF    Git ref for scout-matter. Default: repository default branch
   --no-launch               Install/configure only; do not launch JupyterLab
-  --force                   Recreate src/, venvs/, state/, and work/ under --root
+  --force                   Recreate src/, venvs/, state/, work/, and artifacts/ under --root
   -h, --help                Show this help
 
 Environment overrides:
@@ -252,7 +252,7 @@ ROOT="$(mkdir -p "$ROOT" && cd "$ROOT" && pwd)"
 
 if [[ "$FORCE" -eq 1 ]]; then
     log "Removing contained workspace directories under $ROOT"
-    rm -rf "$ROOT/src" "$ROOT/venvs" "$ROOT/state" "$ROOT/work"
+    rm -rf "$ROOT/src" "$ROOT/venvs" "$ROOT/state" "$ROOT/work" "$ROOT/artifacts"
 fi
 
 require_cmd git
@@ -261,7 +261,8 @@ SRC_DIR="$ROOT/src"
 VENVS_DIR="$ROOT/venvs"
 STATE_DIR="$ROOT/state"
 WORK_DIR="$ROOT/work"
-mkdir -p "$SRC_DIR" "$VENVS_DIR" "$STATE_DIR" "$WORK_DIR"
+ARTIFACTS_DIR="$ROOT/artifacts"
+mkdir -p "$SRC_DIR" "$VENVS_DIR" "$STATE_DIR" "$WORK_DIR" "$ARTIFACTS_DIR"
 
 export XDG_CONFIG_HOME="$STATE_DIR/xdg_config"
 export XDG_CACHE_HOME="$STATE_DIR/xdg_cache"
@@ -401,6 +402,7 @@ ENV_FILE="$ROOT/reproducibility_env.sh"
 cat > "$ENV_FILE" <<EOF
 #!/usr/bin/env bash
 export VSBTOOLS_REPRO_ROOT="$ROOT"
+export VSBTOOLS_REPRO_RUN_ROOT="$ARTIFACTS_DIR"
 export VSBTOOLS_SRC="$VSBTOOLS_SRC"
 export SCOUT_MATTER_SRC="$SCOUT_SRC"
 export VSBTOOLS_COMMIT="$VSBTOOLS_COMMIT"
@@ -441,6 +443,7 @@ cat > "$SETUP_MANIFEST" <<EOF
   "scout_matter_ref": "$SCOUT_MATTER_REF",
   "scout_matter_commit": "$SCOUT_MATTER_COMMIT",
   "root": "$ROOT",
+  "artifacts_root": "$ARTIFACTS_DIR",
   "reproducibility_python": "$PYTHON_BIN",
   "managed_python_version": "$MANAGED_PYTHON_VERSION",
   "pytorch_version": "$PYTORCH_VERSION",
@@ -489,9 +492,9 @@ status=\$?
 set -e
 
 if [[ "\$status" -ne 0 ]]; then
-    echo "Reproducibility notebook test failed; preserving artifacts under $WORK_DIR" >&2
+    echo "Reproducibility notebook test failed; preserving artifacts under $ARTIFACTS_DIR" >&2
 else
-    echo "Reproducibility notebook test passed; artifacts preserved under $WORK_DIR"
+    echo "Reproducibility notebook test passed; artifacts preserved under $ARTIFACTS_DIR"
 fi
 
 exit "\$status"
@@ -511,6 +514,9 @@ Virtual environments:
 
 Notebook copy:
   $NOTEBOOK_DST
+
+Artifacts:
+  $ARTIFACTS_DIR
 
 Environment file:
   $ENV_FILE
