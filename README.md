@@ -8,9 +8,10 @@ analyzing crystal-structure datasets. Its dataset tools live in
 
 `CrystalEntry` represents one structure plus its id, optional energy, formula,
 and metadata. `CrystalDataset` is a read-oriented collection of entries with
-dataset metadata, element discovery, `merge()` and `filter()` helpers, and
-parent/child tracking for processed stages. Datasets also keep track of the
-directory used for their `manifest.yaml`, `data.csv`, and `POSCARS/` files.
+dataset metadata, a cached `elements` property derived from entry compositions,
+`merge()` and `filter()` helpers, and parent/child tracking for processed
+stages. Datasets also keep track of the directory used for their
+`manifest.yaml`, `data.csv`, and `POSCARS/` files.
 
 The package can:
 
