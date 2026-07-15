@@ -12,6 +12,9 @@ TORCHAUDIO_VERSION="${TORCHAUDIO_VERSION:-2.2.1+cu118}"
 PYTORCH_CUDA_INDEX_URL="${PYTORCH_CUDA_INDEX_URL:-https://download.pytorch.org/whl/cu118}"
 PYG_WHEEL_URL="${PYG_WHEEL_URL:-https://data.pyg.org/whl/torch-2.2.1+cu118.html}"
 ROOT="${VSBTOOLS_REPRO_ROOT:-$PWD/vsbtools_reproducibility_env}"
+EXISTING_VSBTOOLS_VENV=""
+EXISTING_SCOUT_VENV=""
+EXISTING_GRACE_VENV=""
 LAUNCH=1
 FORCE=0
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -55,7 +58,6 @@ Environment overrides:
   PYTORCH_CUDA_INDEX_URL    Default: https://download.pytorch.org/whl/cu118
   PYG_WHEEL_URL             Default: https://data.pyg.org/whl/torch-2.2.1+cu118.html
   VSBTOOLS_REPRO_ROOT       Default: ./vsbtools_reproducibility_env
-
 All Jupyter, IPython, matplotlib, pip, and vsbtools external-path state is kept
 inside --root/state. The script does not write to ~/.config/vsbtools or install
 a user/global Jupyter kernel.
@@ -241,6 +243,31 @@ make_venv() {
     "$venv/bin/python" -m pip install --upgrade pip setuptools wheel
 }
 
+prompt_existing_venv() {
+    local label="$1"
+    local answer=""
+    if [[ ! -r /dev/tty || ! -w /dev/tty ]]; then
+        printf '\n'
+        return
+    fi
+
+    printf 'Existing %s venv path [Enter to create under --root]: ' "$label" >/dev/tty
+    read -r answer </dev/tty
+    if [[ -z "$answer" ]]; then
+        printf '\n'
+        return
+    fi
+
+    answer="${answer/#\~/$HOME}"
+    local venv
+    venv="$(cd "$answer" 2>/dev/null && pwd || true)"
+    if [[ -z "$venv" || ! -x "$venv/bin/python" ]]; then
+        echo "$label venv must be a virtual-environment directory with bin/python: $answer" >&2
+        exit 1
+    fi
+    printf '%s\n' "$venv"
+}
+
 python_site_packages() {
     "$1" - <<'PY'
 import sysconfig
@@ -276,6 +303,10 @@ export VSBTOOLS_EXTERNAL_PATHS_CONFIG="$STATE_DIR/vsbtools_external_paths.json"
 mkdir -p "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME" "$JUPYTER_CONFIG_DIR" \
     "$JUPYTER_DATA_DIR" "$JUPYTER_RUNTIME_DIR" "$IPYTHONDIR" "$MPLCONFIGDIR" "$PIP_CACHE_DIR"
 
+EXISTING_VSBTOOLS_VENV="$(prompt_existing_venv "vsbtools/Jupyter")"
+EXISTING_SCOUT_VENV="$(prompt_existing_venv "scout-matter/MatterGen")"
+EXISTING_GRACE_VENV="$(prompt_existing_venv "GRACE/tensorpotential")"
+
 select_python_bin
 check_python_version
 
@@ -284,67 +315,86 @@ SCOUT_SRC="$SRC_DIR/scout-matter"
 VSBTOOLS_VENV="$VENVS_DIR/vsbtools"
 SCOUT_VENV="$VENVS_DIR/scout-matter"
 GRACE_VENV="$VENVS_DIR/grace"
-
+if [[ -n "$EXISTING_VSBTOOLS_VENV" ]]; then
+    VSBTOOLS_VENV="$EXISTING_VSBTOOLS_VENV"
+fi
+if [[ -n "$EXISTING_SCOUT_VENV" ]]; then
+    SCOUT_VENV="$EXISTING_SCOUT_VENV"
+fi
+if [[ -n "$EXISTING_GRACE_VENV" ]]; then
+    GRACE_VENV="$EXISTING_GRACE_VENV"
+fi
 clone_or_checkout "$VSBTOOLS_REPO_URL" "$VSBTOOLS_REF" "$VSBTOOLS_SRC"
 clone_or_checkout "$SCOUT_MATTER_REPO_URL" "$SCOUT_MATTER_REF" "$SCOUT_SRC"
 VSBTOOLS_COMMIT="$(git -C "$VSBTOOLS_SRC" rev-parse HEAD)"
 SCOUT_MATTER_COMMIT="$(git -C "$SCOUT_SRC" rev-parse HEAD)"
 
-make_venv "$VSBTOOLS_VENV"
-make_venv "$SCOUT_VENV"
-make_venv "$GRACE_VENV"
+if [[ -n "$EXISTING_SCOUT_VENV" ]]; then
+    log "Reusing scout-matter venv $SCOUT_VENV"
+else
+    make_venv "$SCOUT_VENV"
+    log "Installing scout-matter PyTorch/PyG binary dependencies"
+    "$SCOUT_VENV/bin/python" -m pip install --extra-index-url "$PYTORCH_CUDA_INDEX_URL" \
+        "torch==$PYTORCH_VERSION" \
+        "torchvision==$TORCHVISION_VERSION" \
+        "torchaudio==$TORCHAUDIO_VERSION"
+    "$SCOUT_VENV/bin/python" -m pip install --find-links "$PYG_WHEEL_URL" --only-binary :all: \
+        pyg_lib \
+        torch_scatter \
+        torch_sparse \
+        torch_cluster \
+        torch_spline_conv
 
-log "Installing scout-matter PyTorch/PyG binary dependencies"
-"$SCOUT_VENV/bin/python" -m pip install --extra-index-url "$PYTORCH_CUDA_INDEX_URL" \
-    "torch==$PYTORCH_VERSION" \
-    "torchvision==$TORCHVISION_VERSION" \
-    "torchaudio==$TORCHAUDIO_VERSION"
-"$SCOUT_VENV/bin/python" -m pip install --find-links "$PYG_WHEEL_URL" --only-binary :all: \
-    pyg_lib \
-    torch_scatter \
-    torch_sparse \
-    torch_cluster \
-    torch_spline_conv
-
-log "Installing scout-matter into its contained venv"
-if ! "$SCOUT_VENV/bin/python" -m pip install --extra-index-url "$PYTORCH_CUDA_INDEX_URL" --find-links "$PYG_WHEEL_URL" "$SCOUT_SRC"; then
-    log "Non-editable scout-matter install failed; trying editable install"
-    "$SCOUT_VENV/bin/python" -m pip install --extra-index-url "$PYTORCH_CUDA_INDEX_URL" --find-links "$PYG_WHEEL_URL" -e "$SCOUT_SRC"
-fi
-"$SCOUT_VENV/bin/python" - <<'PY'
+    log "Installing scout-matter into its contained venv"
+    if ! "$SCOUT_VENV/bin/python" -m pip install --extra-index-url "$PYTORCH_CUDA_INDEX_URL" --find-links "$PYG_WHEEL_URL" "$SCOUT_SRC"; then
+        log "Non-editable scout-matter install failed; trying editable install"
+        "$SCOUT_VENV/bin/python" -m pip install --extra-index-url "$PYTORCH_CUDA_INDEX_URL" --find-links "$PYG_WHEEL_URL" -e "$SCOUT_SRC"
+    fi
+    "$SCOUT_VENV/bin/python" - <<'PY'
 import mattergen
 print("mattergen:", mattergen.__file__)
 PY
+fi
 SCOUT_SITE_PACKAGES="$(python_site_packages "$SCOUT_VENV/bin/python")"
 
-log "Installing GRACE/tensorpotential into its contained venv"
-"$GRACE_VENV/bin/python" -m pip install "ase<3.26" tensorpotential
-"$GRACE_VENV/bin/python" - <<'PY'
+if [[ -n "$EXISTING_GRACE_VENV" ]]; then
+    log "Reusing GRACE/tensorpotential venv $GRACE_VENV"
+else
+    make_venv "$GRACE_VENV"
+    log "Installing GRACE/tensorpotential into its contained venv"
+    "$GRACE_VENV/bin/python" -m pip install "ase<3.26" tensorpotential
+    "$GRACE_VENV/bin/python" - <<'PY'
 import tensorpotential.calculator
 print("tensorpotential.calculator import OK")
 PY
+fi
 
-log "Installing vsbtools notebook/kernel environment"
-"$VSBTOOLS_VENV/bin/python" -m pip install -e "$VSBTOOLS_SRC"
-"$VSBTOOLS_VENV/bin/python" -m pip install \
-    dscribe \
-    ijson \
-    jupyterlab \
-    ipykernel \
-    nbconvert \
-    matplotlib \
-    mp-api \
-    networkx \
-    pandas \
-    prettytable \
-    pymatgen \
-    PyYAML \
-    scipy \
-    torch
-if "$VSBTOOLS_VENV/bin/python" -m pip install mysqlclient; then
-    log "Optional mysqlclient dependency installed"
+if [[ -n "$EXISTING_VSBTOOLS_VENV" ]]; then
+    log "Reusing vsbtools notebook/kernel venv $VSBTOOLS_VENV"
 else
-    log "Optional mysqlclient dependency failed to install; continuing because this notebook does not use local OQMD/MySQL"
+    make_venv "$VSBTOOLS_VENV"
+    log "Installing vsbtools notebook/kernel environment"
+    "$VSBTOOLS_VENV/bin/python" -m pip install -e "$VSBTOOLS_SRC"
+    "$VSBTOOLS_VENV/bin/python" -m pip install \
+        dscribe \
+        ijson \
+        jupyterlab \
+        ipykernel \
+        nbconvert \
+        matplotlib \
+        mp-api \
+        networkx \
+        pandas \
+        prettytable \
+        pymatgen \
+        PyYAML \
+        scipy \
+        torch
+    if "$VSBTOOLS_VENV/bin/python" -m pip install mysqlclient; then
+        log "Optional mysqlclient dependency installed"
+    else
+        log "Optional mysqlclient dependency failed to install; continuing because this notebook does not use local OQMD/MySQL"
+    fi
 fi
 
 export MATTERGEN_PYTHON_PATH="$SCOUT_SITE_PACKAGES"

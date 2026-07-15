@@ -35,7 +35,9 @@ bash setup_reproducibility_envs.sh --root ./vsbtools_reproducibility_env
 ```
 
 The script clones the default branch of each repository unless refs are passed
-explicitly.
+explicitly. In an interactive terminal it asks whether to reuse existing virtual
+environments for `vsbtools`, `scout-matter`, and GRACE. Press Enter at a prompt
+to create that environment under `./vsbtools_reproducibility_env`.
 
 `scout-matter` currently pins a CUDA PyTorch wheel (`torch==2.2.1+cu118`), so
 the setup script uses the PyTorch CUDA wheel index for that environment. It also
@@ -47,7 +49,8 @@ Otherwise, for example on a system where `python3` is Python 3.12, the script
 bootstraps `uv` and installs a managed Python 3.11 under `state/` inside the
 contained workspace.
 
-The script creates everything under `./vsbtools_reproducibility_env`:
+With no existing venvs supplied, the script creates everything under
+`./vsbtools_reproducibility_env`:
 
 ```text
 src/vsbtools
