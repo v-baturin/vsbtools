@@ -25,7 +25,7 @@ if [[ -n "${VSBTOOLS_REPO_URL:-}" ]]; then
 elif [[ -n "$LOCAL_VSBTOOLS_REPO" && -f "$LOCAL_VSBTOOLS_REPO/pyproject.toml" ]]; then
     VSBTOOLS_REPO_URL="$LOCAL_VSBTOOLS_REPO"
 else
-    VSBTOOLS_REPO_URL="https://github.com/v-baturin/vsbtools.git"
+    VSBTOOLS_REPO_URL="https://github.com/link-lab3629/vsbtools.git"
 fi
 
 usage() {
@@ -33,7 +33,7 @@ usage() {
 Usage: setup_reproducibility_envs.sh [options]
 
 Creates a contained reproducibility workspace with three virtual environments:
-  1. vsbtools notebook/kernel environment from https://github.com/v-baturin/vsbtools
+  1. vsbtools notebook/kernel environment from https://github.com/link-lab3629/vsbtools
   2. scout-matter/MatterGen environment from https://github.com/link-lab3629/scout-matter
   3. GRACE/tensorpotential environment
 
@@ -48,7 +48,7 @@ Options:
   -h, --help                Show this help
 
 Environment overrides:
-  VSBTOOLS_REPO_URL         Default: containing vsbtools checkout, otherwise https://github.com/v-baturin/vsbtools.git
+  VSBTOOLS_REPO_URL         Default: containing vsbtools checkout, otherwise https://github.com/link-lab3629/vsbtools.git
   SCOUT_MATTER_REPO_URL     Default: https://github.com/link-lab3629/scout-matter.git
   VSBTOOLS_REF              Default: repository default branch
   SCOUT_MATTER_REF          Default: repository default branch
