@@ -12,6 +12,7 @@ TORCHAUDIO_VERSION="${TORCHAUDIO_VERSION:-2.2.1+cu118}"
 PYTORCH_CUDA_INDEX_URL="${PYTORCH_CUDA_INDEX_URL:-https://download.pytorch.org/whl/cu118}"
 PYG_WHEEL_URL="${PYG_WHEEL_URL:-https://data.pyg.org/whl/torch-2.2.1+cu118.html}"
 ROOT="${VSBTOOLS_REPRO_ROOT:-$PWD/vsbtools_reproducibility_env}"
+RUN_ROOT="${VSBTOOLS_REPRO_RUN_ROOT:-$PWD/vsbtools_reproducibility_run}"
 EXISTING_VSBTOOLS_VENV=""
 EXISTING_SCOUT_VENV=""
 EXISTING_GRACE_VENV=""
@@ -37,12 +38,13 @@ Creates a contained reproducibility workspace with three virtual environments:
   3. GRACE/tensorpotential environment
 
 Options:
-  --root PATH               Workspace root. Default: ./vsbtools_reproducibility_env
+  --root PATH               Environment workspace root. Default: ./vsbtools_reproducibility_env
+  --run-root PATH           Reproducibility output root. Default: ./vsbtools_reproducibility_run
   --python PATH             Python used to create venvs. Default: compatible local Python, otherwise managed Python 3.11
   --vsbtools-ref REF        Git ref for vsbtools. Default: repository default branch
   --scout-matter-ref REF    Git ref for scout-matter. Default: repository default branch
   --no-launch               Install/configure only; do not launch JupyterLab
-  --force                   Recreate src/, venvs/, state/, work/, and artifacts/ under --root
+  --force                   Recreate env workspace internals and output files under --run-root
   -h, --help                Show this help
 
 Environment overrides:
@@ -58,6 +60,7 @@ Environment overrides:
   PYTORCH_CUDA_INDEX_URL    Default: https://download.pytorch.org/whl/cu118
   PYG_WHEEL_URL             Default: https://data.pyg.org/whl/torch-2.2.1+cu118.html
   VSBTOOLS_REPRO_ROOT       Default: ./vsbtools_reproducibility_env
+  VSBTOOLS_REPRO_RUN_ROOT   Default: ./vsbtools_reproducibility_run
 All Jupyter, IPython, matplotlib, pip, and vsbtools external-path state is kept
 inside --root/state. The script does not write to ~/.config/vsbtools or install
 a user/global Jupyter kernel.
@@ -68,6 +71,10 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --root)
             ROOT="$2"
+            shift 2
+            ;;
+        --run-root)
+            RUN_ROOT="$2"
             shift 2
             ;;
         --python)
@@ -276,10 +283,13 @@ PY
 }
 
 ROOT="$(mkdir -p "$ROOT" && cd "$ROOT" && pwd)"
+RUN_ROOT="$(mkdir -p "$RUN_ROOT" && cd "$RUN_ROOT" && pwd)"
 
 if [[ "$FORCE" -eq 1 ]]; then
-    log "Removing contained workspace directories under $ROOT"
-    rm -rf "$ROOT/src" "$ROOT/venvs" "$ROOT/state" "$ROOT/work" "$ROOT/artifacts"
+    log "Removing contained environment directories under $ROOT"
+    rm -rf "$ROOT/src" "$ROOT/venvs" "$ROOT/state" "$ROOT/work"
+    log "Removing reproducibility outputs under $RUN_ROOT"
+    rm -rf "$RUN_ROOT"
 fi
 
 require_cmd git
@@ -288,8 +298,7 @@ SRC_DIR="$ROOT/src"
 VENVS_DIR="$ROOT/venvs"
 STATE_DIR="$ROOT/state"
 WORK_DIR="$ROOT/work"
-ARTIFACTS_DIR="$ROOT/artifacts"
-mkdir -p "$SRC_DIR" "$VENVS_DIR" "$STATE_DIR" "$WORK_DIR" "$ARTIFACTS_DIR"
+mkdir -p "$SRC_DIR" "$VENVS_DIR" "$STATE_DIR" "$WORK_DIR" "$RUN_ROOT"
 
 export XDG_CONFIG_HOME="$STATE_DIR/xdg_config"
 export XDG_CACHE_HOME="$STATE_DIR/xdg_cache"
@@ -452,7 +461,7 @@ ENV_FILE="$ROOT/reproducibility_env.sh"
 cat > "$ENV_FILE" <<EOF
 #!/usr/bin/env bash
 export VSBTOOLS_REPRO_ROOT="$ROOT"
-export VSBTOOLS_REPRO_RUN_ROOT="$ARTIFACTS_DIR"
+export VSBTOOLS_REPRO_RUN_ROOT="$RUN_ROOT"
 export VSBTOOLS_SRC="$VSBTOOLS_SRC"
 export SCOUT_MATTER_SRC="$SCOUT_SRC"
 export VSBTOOLS_COMMIT="$VSBTOOLS_COMMIT"
@@ -493,7 +502,7 @@ cat > "$SETUP_MANIFEST" <<EOF
   "scout_matter_ref": "$SCOUT_MATTER_REF",
   "scout_matter_commit": "$SCOUT_MATTER_COMMIT",
   "root": "$ROOT",
-  "artifacts_root": "$ARTIFACTS_DIR",
+  "run_root": "$RUN_ROOT",
   "reproducibility_python": "$PYTHON_BIN",
   "managed_python_version": "$MANAGED_PYTHON_VERSION",
   "pytorch_version": "$PYTORCH_VERSION",
@@ -542,9 +551,9 @@ status=\$?
 set -e
 
 if [[ "\$status" -ne 0 ]]; then
-    echo "Reproducibility notebook test failed; preserving artifacts under $ARTIFACTS_DIR" >&2
+    echo "Reproducibility notebook test failed; preserving outputs under $RUN_ROOT" >&2
 else
-    echo "Reproducibility notebook test passed; artifacts preserved under $ARTIFACTS_DIR"
+    echo "Reproducibility notebook test passed; outputs preserved under $RUN_ROOT"
 fi
 
 exit "\$status"
@@ -565,8 +574,8 @@ Virtual environments:
 Notebook copy:
   $NOTEBOOK_DST
 
-Artifacts:
-  $ARTIFACTS_DIR
+Run outputs:
+  $RUN_ROOT
 
 Environment file:
   $ENV_FILE
