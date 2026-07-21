@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VSBTOOLS_REPO_URL="${VSBTOOLS_REPO_URL:-https://github.com/v-baturin/vsbtools.git}"
 SCOUT_MATTER_REPO_URL="${SCOUT_MATTER_REPO_URL:-https://github.com/link-lab3629/scout-matter.git}"
 VSBTOOLS_REF="${VSBTOOLS_REF:-}"
 SCOUT_MATTER_REF="${SCOUT_MATTER_REF:-}"
@@ -13,30 +12,43 @@ TORCHAUDIO_VERSION="${TORCHAUDIO_VERSION:-2.2.1+cu118}"
 PYTORCH_CUDA_INDEX_URL="${PYTORCH_CUDA_INDEX_URL:-https://download.pytorch.org/whl/cu118}"
 PYG_WHEEL_URL="${PYG_WHEEL_URL:-https://data.pyg.org/whl/torch-2.2.1+cu118.html}"
 ROOT="${VSBTOOLS_REPRO_ROOT:-$PWD/vsbtools_reproducibility_env}"
+RUN_ROOT="${VSBTOOLS_REPRO_RUN_ROOT:-$PWD/vsbtools_reproducibility_run}"
+EXISTING_VSBTOOLS_VENV=""
+EXISTING_SCOUT_VENV=""
+EXISTING_GRACE_VENV=""
 LAUNCH=1
 FORCE=0
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LOCAL_VSBTOOLS_REPO="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null || true)"
+if [[ -n "${VSBTOOLS_REPO_URL:-}" ]]; then
+    VSBTOOLS_REPO_URL="$VSBTOOLS_REPO_URL"
+elif [[ -n "$LOCAL_VSBTOOLS_REPO" && -f "$LOCAL_VSBTOOLS_REPO/pyproject.toml" ]]; then
+    VSBTOOLS_REPO_URL="$LOCAL_VSBTOOLS_REPO"
+else
+    VSBTOOLS_REPO_URL="https://github.com/link-lab3629/vsbtools.git"
+fi
 
 usage() {
     cat <<'USAGE'
 Usage: setup_reproducibility_envs.sh [options]
 
 Creates a contained reproducibility workspace with three virtual environments:
-  1. vsbtools notebook/kernel environment from https://github.com/v-baturin/vsbtools
+  1. vsbtools notebook/kernel environment from https://github.com/link-lab3629/vsbtools
   2. scout-matter/MatterGen environment from https://github.com/link-lab3629/scout-matter
   3. GRACE/tensorpotential environment
 
 Options:
-  --root PATH               Workspace root. Default: ./vsbtools_reproducibility_env
+  --root PATH               Environment workspace root. Default: ./vsbtools_reproducibility_env
+  --run-root PATH           Reproducibility output root. Default: ./vsbtools_reproducibility_run
   --python PATH             Python used to create venvs. Default: compatible local Python, otherwise managed Python 3.11
   --vsbtools-ref REF        Git ref for vsbtools. Default: repository default branch
   --scout-matter-ref REF    Git ref for scout-matter. Default: repository default branch
   --no-launch               Install/configure only; do not launch JupyterLab
-  --force                   Recreate src/, venvs/, state/, and work/ under --root
+  --force                   Recreate env workspace internals and output files under --run-root
   -h, --help                Show this help
 
 Environment overrides:
-  VSBTOOLS_REPO_URL         Default: https://github.com/v-baturin/vsbtools.git
+  VSBTOOLS_REPO_URL         Default: containing vsbtools checkout, otherwise https://github.com/link-lab3629/vsbtools.git
   SCOUT_MATTER_REPO_URL     Default: https://github.com/link-lab3629/scout-matter.git
   VSBTOOLS_REF              Default: repository default branch
   SCOUT_MATTER_REF          Default: repository default branch
@@ -48,7 +60,7 @@ Environment overrides:
   PYTORCH_CUDA_INDEX_URL    Default: https://download.pytorch.org/whl/cu118
   PYG_WHEEL_URL             Default: https://data.pyg.org/whl/torch-2.2.1+cu118.html
   VSBTOOLS_REPRO_ROOT       Default: ./vsbtools_reproducibility_env
-
+  VSBTOOLS_REPRO_RUN_ROOT   Default: ./vsbtools_reproducibility_run
 All Jupyter, IPython, matplotlib, pip, and vsbtools external-path state is kept
 inside --root/state. The script does not write to ~/.config/vsbtools or install
 a user/global Jupyter kernel.
@@ -59,6 +71,10 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --root)
             ROOT="$2"
+            shift 2
+            ;;
+        --run-root)
+            RUN_ROOT="$2"
             shift 2
             ;;
         --python)
@@ -201,6 +217,7 @@ clone_or_checkout() {
     local dest="$3"
     if [[ -d "$dest/.git" ]]; then
         log "Updating $dest"
+        git -C "$dest" remote set-url origin "$url"
         git -C "$dest" fetch --tags --prune origin
     elif [[ -e "$dest" ]]; then
         echo "Path exists but is not a git checkout: $dest" >&2
@@ -215,7 +232,9 @@ clone_or_checkout() {
         local default_ref
         default_ref="$(git -C "$dest" symbolic-ref --quiet --short refs/remotes/origin/HEAD || true)"
         if [[ -n "$default_ref" ]]; then
-            git -C "$dest" checkout "${default_ref#origin/}"
+            local default_branch="${default_ref#origin/}"
+            git -C "$dest" checkout "$default_branch"
+            git -C "$dest" merge --ff-only "$default_ref"
         else
             log "Using current checkout in $dest"
         fi
@@ -231,6 +250,31 @@ make_venv() {
     "$venv/bin/python" -m pip install --upgrade pip setuptools wheel
 }
 
+prompt_existing_venv() {
+    local label="$1"
+    local answer=""
+    if [[ ! -r /dev/tty || ! -w /dev/tty ]]; then
+        printf '\n'
+        return
+    fi
+
+    printf 'Existing %s venv path [Enter to create under --root]: ' "$label" >/dev/tty
+    read -r answer </dev/tty
+    if [[ -z "$answer" ]]; then
+        printf '\n'
+        return
+    fi
+
+    answer="${answer/#\~/$HOME}"
+    local venv
+    venv="$(cd "$answer" 2>/dev/null && pwd || true)"
+    if [[ -z "$venv" || ! -x "$venv/bin/python" ]]; then
+        echo "$label venv must be a virtual-environment directory with bin/python: $answer" >&2
+        exit 1
+    fi
+    printf '%s\n' "$venv"
+}
+
 python_site_packages() {
     "$1" - <<'PY'
 import sysconfig
@@ -239,10 +283,13 @@ PY
 }
 
 ROOT="$(mkdir -p "$ROOT" && cd "$ROOT" && pwd)"
+RUN_ROOT="$(mkdir -p "$RUN_ROOT" && cd "$RUN_ROOT" && pwd)"
 
 if [[ "$FORCE" -eq 1 ]]; then
-    log "Removing contained workspace directories under $ROOT"
+    log "Removing contained environment directories under $ROOT"
     rm -rf "$ROOT/src" "$ROOT/venvs" "$ROOT/state" "$ROOT/work"
+    log "Removing reproducibility outputs under $RUN_ROOT"
+    rm -rf "$RUN_ROOT"
 fi
 
 require_cmd git
@@ -251,7 +298,7 @@ SRC_DIR="$ROOT/src"
 VENVS_DIR="$ROOT/venvs"
 STATE_DIR="$ROOT/state"
 WORK_DIR="$ROOT/work"
-mkdir -p "$SRC_DIR" "$VENVS_DIR" "$STATE_DIR" "$WORK_DIR"
+mkdir -p "$SRC_DIR" "$VENVS_DIR" "$STATE_DIR" "$WORK_DIR" "$RUN_ROOT"
 
 export XDG_CONFIG_HOME="$STATE_DIR/xdg_config"
 export XDG_CACHE_HOME="$STATE_DIR/xdg_cache"
@@ -265,6 +312,10 @@ export VSBTOOLS_EXTERNAL_PATHS_CONFIG="$STATE_DIR/vsbtools_external_paths.json"
 mkdir -p "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME" "$JUPYTER_CONFIG_DIR" \
     "$JUPYTER_DATA_DIR" "$JUPYTER_RUNTIME_DIR" "$IPYTHONDIR" "$MPLCONFIGDIR" "$PIP_CACHE_DIR"
 
+EXISTING_VSBTOOLS_VENV="$(prompt_existing_venv "vsbtools/Jupyter")"
+EXISTING_SCOUT_VENV="$(prompt_existing_venv "scout-matter/MatterGen")"
+EXISTING_GRACE_VENV="$(prompt_existing_venv "GRACE/tensorpotential")"
+
 select_python_bin
 check_python_version
 
@@ -273,69 +324,86 @@ SCOUT_SRC="$SRC_DIR/scout-matter"
 VSBTOOLS_VENV="$VENVS_DIR/vsbtools"
 SCOUT_VENV="$VENVS_DIR/scout-matter"
 GRACE_VENV="$VENVS_DIR/grace"
-
+if [[ -n "$EXISTING_VSBTOOLS_VENV" ]]; then
+    VSBTOOLS_VENV="$EXISTING_VSBTOOLS_VENV"
+fi
+if [[ -n "$EXISTING_SCOUT_VENV" ]]; then
+    SCOUT_VENV="$EXISTING_SCOUT_VENV"
+fi
+if [[ -n "$EXISTING_GRACE_VENV" ]]; then
+    GRACE_VENV="$EXISTING_GRACE_VENV"
+fi
 clone_or_checkout "$VSBTOOLS_REPO_URL" "$VSBTOOLS_REF" "$VSBTOOLS_SRC"
 clone_or_checkout "$SCOUT_MATTER_REPO_URL" "$SCOUT_MATTER_REF" "$SCOUT_SRC"
 VSBTOOLS_COMMIT="$(git -C "$VSBTOOLS_SRC" rev-parse HEAD)"
 SCOUT_MATTER_COMMIT="$(git -C "$SCOUT_SRC" rev-parse HEAD)"
 
-make_venv "$VSBTOOLS_VENV"
-make_venv "$SCOUT_VENV"
-make_venv "$GRACE_VENV"
+if [[ -n "$EXISTING_SCOUT_VENV" ]]; then
+    log "Reusing scout-matter venv $SCOUT_VENV"
+else
+    make_venv "$SCOUT_VENV"
+    log "Installing scout-matter PyTorch/PyG binary dependencies"
+    "$SCOUT_VENV/bin/python" -m pip install --extra-index-url "$PYTORCH_CUDA_INDEX_URL" \
+        "torch==$PYTORCH_VERSION" \
+        "torchvision==$TORCHVISION_VERSION" \
+        "torchaudio==$TORCHAUDIO_VERSION"
+    "$SCOUT_VENV/bin/python" -m pip install --find-links "$PYG_WHEEL_URL" --only-binary :all: \
+        pyg_lib \
+        torch_scatter \
+        torch_sparse \
+        torch_cluster \
+        torch_spline_conv
 
-log "Installing scout-matter PyTorch/PyG binary dependencies"
-"$SCOUT_VENV/bin/python" -m pip install --extra-index-url "$PYTORCH_CUDA_INDEX_URL" \
-    "torch==$PYTORCH_VERSION" \
-    "torchvision==$TORCHVISION_VERSION" \
-    "torchaudio==$TORCHAUDIO_VERSION"
-"$SCOUT_VENV/bin/python" -m pip install --find-links "$PYG_WHEEL_URL" --only-binary :all: \
-    pyg_lib \
-    torch_scatter \
-    torch_sparse \
-    torch_cluster \
-    torch_spline_conv
-
-log "Installing scout-matter into its contained venv"
-if ! "$SCOUT_VENV/bin/python" -m pip install --extra-index-url "$PYTORCH_CUDA_INDEX_URL" --find-links "$PYG_WHEEL_URL" "$SCOUT_SRC"; then
-    log "Non-editable scout-matter install failed; trying editable install"
-    "$SCOUT_VENV/bin/python" -m pip install --extra-index-url "$PYTORCH_CUDA_INDEX_URL" --find-links "$PYG_WHEEL_URL" -e "$SCOUT_SRC"
-fi
-"$SCOUT_VENV/bin/python" - <<'PY'
+    log "Installing scout-matter into its contained venv"
+    if ! "$SCOUT_VENV/bin/python" -m pip install --extra-index-url "$PYTORCH_CUDA_INDEX_URL" --find-links "$PYG_WHEEL_URL" "$SCOUT_SRC"; then
+        log "Non-editable scout-matter install failed; trying editable install"
+        "$SCOUT_VENV/bin/python" -m pip install --extra-index-url "$PYTORCH_CUDA_INDEX_URL" --find-links "$PYG_WHEEL_URL" -e "$SCOUT_SRC"
+    fi
+    "$SCOUT_VENV/bin/python" - <<'PY'
 import mattergen
 print("mattergen:", mattergen.__file__)
 PY
+fi
 SCOUT_SITE_PACKAGES="$(python_site_packages "$SCOUT_VENV/bin/python")"
 
-log "Installing GRACE/tensorpotential into its contained venv"
-"$GRACE_VENV/bin/python" -m pip install "ase<3.26" tensorpotential
-"$GRACE_VENV/bin/python" - <<'PY'
+if [[ -n "$EXISTING_GRACE_VENV" ]]; then
+    log "Reusing GRACE/tensorpotential venv $GRACE_VENV"
+else
+    make_venv "$GRACE_VENV"
+    log "Installing GRACE/tensorpotential into its contained venv"
+    "$GRACE_VENV/bin/python" -m pip install "ase<3.26" tensorpotential
+    "$GRACE_VENV/bin/python" - <<'PY'
 import tensorpotential.calculator
 print("tensorpotential.calculator import OK")
 PY
+fi
 
-log "Installing vsbtools notebook/kernel environment"
-"$VSBTOOLS_VENV/bin/python" -m pip install -e "$VSBTOOLS_SRC"
-"$VSBTOOLS_VENV/bin/python" -m pip install \
-    "cclib>=1.8" \
-    dscribe \
-    ijson \
-    jupyterlab \
-    ipykernel \
-    nbconvert \
-    matplotlib \
-    mp-api \
-    networkx \
-    pandas \
-    phonopy \
-    prettytable \
-    pymatgen \
-    PyYAML \
-    scipy \
-    torch
-if "$VSBTOOLS_VENV/bin/python" -m pip install mysqlclient; then
-    log "Optional mysqlclient dependency installed"
+if [[ -n "$EXISTING_VSBTOOLS_VENV" ]]; then
+    log "Reusing vsbtools notebook/kernel venv $VSBTOOLS_VENV"
 else
-    log "Optional mysqlclient dependency failed to install; continuing because this notebook does not use local OQMD/MySQL"
+    make_venv "$VSBTOOLS_VENV"
+    log "Installing vsbtools notebook/kernel environment"
+    "$VSBTOOLS_VENV/bin/python" -m pip install -e "$VSBTOOLS_SRC"
+    "$VSBTOOLS_VENV/bin/python" -m pip install \
+        dscribe \
+        ijson \
+        jupyterlab \
+        ipykernel \
+        nbconvert \
+        matplotlib \
+        mp-api \
+        networkx \
+        pandas \
+        prettytable \
+        pymatgen \
+        PyYAML \
+        scipy \
+        torch
+    if "$VSBTOOLS_VENV/bin/python" -m pip install mysqlclient; then
+        log "Optional mysqlclient dependency installed"
+    else
+        log "Optional mysqlclient dependency failed to install; continuing because this notebook does not use local OQMD/MySQL"
+    fi
 fi
 
 export MATTERGEN_PYTHON_PATH="$SCOUT_SITE_PACKAGES"
@@ -352,6 +420,7 @@ import mattergen.common.data.chemgraph
 import mattergen.diffusion.diffusion_loss
 
 import vsbtools
+import vsbtools.materials_tools.materials_dataset
 print("vsbtools:", Path(vsbtools.__file__).resolve())
 print("MATTERGEN_PYTHON_PATH:", os.environ["MATTERGEN_PYTHON_PATH"])
 print("GRACE_PYTHON:", os.environ["GRACE_PYTHON"])
@@ -367,6 +436,20 @@ if [[ ! -f "$NOTEBOOK_SRC" ]]; then
 fi
 NOTEBOOK_DST="$WORK_DIR/mg_generation_postprocessing_pipeline.ipynb"
 cp "$NOTEBOOK_SRC" "$NOTEBOOK_DST"
+"$VSBTOOLS_VENV/bin/python" - "$NOTEBOOK_DST" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+notebook = json.loads(path.read_text())
+notebook.setdefault("metadata", {})["kernelspec"] = {
+    "display_name": "vsbtools reproducibility",
+    "language": "python",
+    "name": "vsbtools-repro",
+}
+path.write_text(json.dumps(notebook, indent=1) + "\n")
+PY
 
 KERNEL_PREFIX="$STATE_DIR/jupyter_kernel_prefix"
 "$VSBTOOLS_VENV/bin/python" -m ipykernel install \
@@ -378,6 +461,7 @@ ENV_FILE="$ROOT/reproducibility_env.sh"
 cat > "$ENV_FILE" <<EOF
 #!/usr/bin/env bash
 export VSBTOOLS_REPRO_ROOT="$ROOT"
+export VSBTOOLS_REPRO_RUN_ROOT="$RUN_ROOT"
 export VSBTOOLS_SRC="$VSBTOOLS_SRC"
 export SCOUT_MATTER_SRC="$SCOUT_SRC"
 export VSBTOOLS_COMMIT="$VSBTOOLS_COMMIT"
@@ -394,6 +478,7 @@ export SCOUT_MATTER_VENV="$SCOUT_VENV"
 export GRACE_VENV="$GRACE_VENV"
 export MATTERGEN_PYTHON_PATH="$MATTERGEN_PYTHON_PATH"
 export GRACE_PYTHON="$GRACE_PYTHON"
+export PATH="$VSBTOOLS_VENV/bin:\$PATH"
 export XDG_CONFIG_HOME="$XDG_CONFIG_HOME"
 export XDG_CACHE_HOME="$XDG_CACHE_HOME"
 export JUPYTER_CONFIG_DIR="$JUPYTER_CONFIG_DIR"
@@ -417,6 +502,7 @@ cat > "$SETUP_MANIFEST" <<EOF
   "scout_matter_ref": "$SCOUT_MATTER_REF",
   "scout_matter_commit": "$SCOUT_MATTER_COMMIT",
   "root": "$ROOT",
+  "run_root": "$RUN_ROOT",
   "reproducibility_python": "$PYTHON_BIN",
   "managed_python_version": "$MANAGED_PYTHON_VERSION",
   "pytorch_version": "$PYTORCH_VERSION",
@@ -438,7 +524,7 @@ cat > "$LAUNCHER" <<EOF
 set -euo pipefail
 source "$ENV_FILE"
 cd "$WORK_DIR"
-exec "$VSBTOOLS_VENV/bin/python" -m jupyter lab \\
+exec "$VSBTOOLS_VENV/bin/jupyter-lab" \\
     --notebook-dir "$WORK_DIR" \\
     "$NOTEBOOK_DST"
 EOF
@@ -452,28 +538,22 @@ source "$ENV_FILE"
 cd "$WORK_DIR"
 
 executed_notebook="$WORK_DIR/mg_generation_postprocessing_pipeline.executed.ipynb"
-run_output_dir="$WORK_DIR/reproducibility_run"
-raw_generation_root="$VSBTOOLS_SRC/vsbtools/materials_tools/materials_dataset/Examples/raw_generations/Cu-Si-P"
 
 set +e
-"$VSBTOOLS_VENV/bin/python" -m jupyter nbconvert \\
+"$VSBTOOLS_VENV/bin/jupyter-nbconvert" \\
     --to notebook \\
     --execute "$NOTEBOOK_DST" \\
     --output "\$(basename "\$executed_notebook")" \\
     --output-dir "$WORK_DIR" \\
+    --ExecutePreprocessor.kernel_name=vsbtools-repro \\
     --ExecutePreprocessor.timeout=-1
 status=\$?
 set -e
 
-if [[ "\$status" -eq 0 ]]; then
-    rm -rf "\$run_output_dir"
-    rm -f "\$executed_notebook"
-    for archive in "\$raw_generation_root"/*.zip; do
-        [[ -e "\$archive" ]] || continue
-        rm -rf "\${archive%.zip}"
-    done
+if [[ "\$status" -ne 0 ]]; then
+    echo "Reproducibility notebook test failed; preserving outputs under $RUN_ROOT" >&2
 else
-    echo "Reproducibility notebook test failed; preserving artifacts under $WORK_DIR" >&2
+    echo "Reproducibility notebook test passed; outputs preserved under $RUN_ROOT"
 fi
 
 exit "\$status"
@@ -493,6 +573,9 @@ Virtual environments:
 
 Notebook copy:
   $NOTEBOOK_DST
+
+Run outputs:
+  $RUN_ROOT
 
 Environment file:
   $ENV_FILE

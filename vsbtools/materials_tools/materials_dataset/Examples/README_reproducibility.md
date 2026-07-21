@@ -31,11 +31,15 @@ sudo apt install git build-essential python3 python3-venv python3-dev
 ```
 
 ```bash
-bash setup_reproducibility_envs.sh --root ./vsbtools_reproducibility_env
+bash setup_reproducibility_envs.sh \
+  --root ./vsbtools_reproducibility_env \
+  --run-root ./vsbtools_reproducibility_run
 ```
 
 The script clones the default branch of each repository unless refs are passed
-explicitly.
+explicitly. In an interactive terminal it asks whether to reuse existing virtual
+environments for `vsbtools`, `scout-matter`, and GRACE. Press Enter at a prompt
+to create that environment under `./vsbtools_reproducibility_env`.
 
 `scout-matter` currently pins a CUDA PyTorch wheel (`torch==2.2.1+cu118`), so
 the setup script uses the PyTorch CUDA wheel index for that environment. It also
@@ -47,7 +51,8 @@ Otherwise, for example on a system where `python3` is Python 3.12, the script
 bootstraps `uv` and installs a managed Python 3.11 under `state/` inside the
 contained workspace.
 
-The script creates everything under `./vsbtools_reproducibility_env`:
+With no existing venvs supplied, the script creates the environment workspace
+under `./vsbtools_reproducibility_env`:
 
 ```text
 src/vsbtools
@@ -59,15 +64,20 @@ state/
 work/mg_generation_postprocessing_pipeline.ipynb
 ```
 
-It also keeps local runtime state inside `state/`, including Jupyter, IPython,
-matplotlib, pip cache, and `vsbtools` external-path configuration. It does not
-install a user/global Jupyter kernel and does not write to `~/.config/vsbtools`.
+Notebook outputs are written separately under `./vsbtools_reproducibility_run`
+by default. It also keeps local runtime state inside `state/`, including
+Jupyter, IPython, matplotlib, pip cache, and `vsbtools` external-path
+configuration. It does not install a user/global Jupyter kernel and does not
+write to `~/.config/vsbtools`.
 
 After installation, the script launches JupyterLab automatically. To install
 without launching:
 
 ```bash
-bash setup_reproducibility_envs.sh --root ./vsbtools_reproducibility_env --no-launch
+bash setup_reproducibility_envs.sh \
+  --root ./vsbtools_reproducibility_env \
+  --run-root ./vsbtools_reproducibility_run \
+  --no-launch
 ```
 
 Launch later with:
@@ -82,15 +92,16 @@ Run the notebook headlessly as a reproducibility test with:
 ./vsbtools_reproducibility_env/test_reproducibility_notebook.sh
 ```
 
-On success, the test runner removes `work/reproducibility_run/`, the executed
-notebook copy, and any extracted raw-generation folders next to the packaged
-zip fixtures. On failure, it leaves those artifacts in place for debugging.
+The test runner writes notebook outputs under `./vsbtools_reproducibility_run`
+and preserves them after the run. On failure, inspect that directory together
+with the executed notebook copy in `work/`.
 
 For a fixed reproducibility run, pin repository refs:
 
 ```bash
 bash setup_reproducibility_envs.sh \
   --root ./vsbtools_reproducibility_env \
+  --run-root ./vsbtools_reproducibility_run \
   --vsbtools-ref <commit-or-tag> \
   --scout-matter-ref <commit-or-tag>
 ```
@@ -99,7 +110,10 @@ If an older copy of this script failed while checking out a missing branch, reru
 with `--force` after updating the script, or pass the branch explicitly:
 
 ```bash
-bash setup_reproducibility_envs.sh --root ./vsbtools_reproducibility_env --vsbtools-ref master
+bash setup_reproducibility_envs.sh \
+  --root ./vsbtools_reproducibility_env \
+  --run-root ./vsbtools_reproducibility_run \
+  --vsbtools-ref master
 ```
 
 If installation failed with `No matching distribution found for
@@ -107,13 +121,19 @@ torch==2.2.1+cu118` or failed while building `torch_cluster`, update to this
 script and rerun with `--force`:
 
 ```bash
-bash setup_reproducibility_envs.sh --root ./vsbtools_reproducibility_env --force
+bash setup_reproducibility_envs.sh \
+  --root ./vsbtools_reproducibility_env \
+  --run-root ./vsbtools_reproducibility_run \
+  --force
 ```
 
 Use `--force` to recreate the contained workspace:
 
 ```bash
-bash setup_reproducibility_envs.sh --root ./vsbtools_reproducibility_env --force
+bash setup_reproducibility_envs.sh \
+  --root ./vsbtools_reproducibility_env \
+  --run-root ./vsbtools_reproducibility_run \
+  --force
 ```
 
 ## Manual Configuration
@@ -154,14 +174,16 @@ paths only inside its launcher environment.
 The notebook writes derived files under:
 
 ```text
-reproducibility_run/
+vsbtools_reproducibility_run/
 ```
 
-inside the directory where the notebook is run. The contained setup copies the
-notebook to:
+when launched through the contained setup. The contained setup copies the
+notebook itself to:
 
 ```text
 vsbtools_reproducibility_env/work/
 ```
 
-so generated outputs stay inside the contained workspace.
+so editable notebooks and generated artifacts stay separate. If the notebook is
+opened manually outside the contained setup, it falls back to writing
+`reproducibility_run/` next to the notebook.
