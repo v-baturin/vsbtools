@@ -48,6 +48,10 @@ jobs:
       - name: Check installed dependencies
         run: python -m pip check
       - name: Run Windows compatibility tests
+        env:
+          # The test packages are excluded from the installed distribution, so
+          # resolve their dotted module names from the checkout.
+          PYTHONPATH: ${{ github.workspace }}
         run: >-
           python -m unittest
           vsbtools.materials_tools.unittests.cache_paths_Test
