@@ -25,6 +25,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+optimade = [
+  "dscribe",
+  "pandas",
+  "pymatgen",
+  "PyYAML",
+]
 materials_dataset = [
   "dscribe",
   "ijson",
