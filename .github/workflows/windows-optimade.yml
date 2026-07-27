@@ -5,28 +5,26 @@ on:
     paths:
       - ".github/workflows/windows-optimade.yml"
       - "pyproject.toml"
-      - "vsbtools/materials_tools/cache_paths.py"
-      - "vsbtools/materials_tools/materials_dataset/converters.py"
-      - "vsbtools/materials_tools/materials_dataset/io/preset_loaders.py"
-      - "vsbtools/materials_tools/materials_dataset/io/sources/matproj_parser.py"
-      - "vsbtools/materials_tools/materials_dataset/io/sources/optimade_parser.py"
-      - "vsbtools/materials_tools/materials_dataset/io/sources/unittests/optimade_parser_Test.py"
-      - "vsbtools/materials_tools/materials_dataset/io/unittests/optimade_cache_Test.py"
-      - "vsbtools/materials_tools/materials_dataset/scripts/poll_databases.py"
-      - "vsbtools/materials_tools/unittests/cache_paths_Test.py"
+      - "vsbtools/materials_dataset/cache_paths.py"
+      - "vsbtools/materials_dataset/converters.py"
+      - "vsbtools/materials_dataset/io/preset_loaders.py"
+      - "vsbtools/materials_dataset/io/sources/matproj_parser.py"
+      - "vsbtools/materials_dataset/io/sources/optimade_parser.py"
+      - "vsbtools/materials_dataset/io/sources/unittests/optimade_parser_Test.py"
+      - "vsbtools/materials_dataset/io/unittests/optimade_cache_Test.py"
+      - "vsbtools/materials_dataset/scripts/poll_databases.py"
   pull_request:
     paths:
       - ".github/workflows/windows-optimade.yml"
       - "pyproject.toml"
-      - "vsbtools/materials_tools/cache_paths.py"
-      - "vsbtools/materials_tools/materials_dataset/converters.py"
-      - "vsbtools/materials_tools/materials_dataset/io/preset_loaders.py"
-      - "vsbtools/materials_tools/materials_dataset/io/sources/matproj_parser.py"
-      - "vsbtools/materials_tools/materials_dataset/io/sources/optimade_parser.py"
-      - "vsbtools/materials_tools/materials_dataset/io/sources/unittests/optimade_parser_Test.py"
-      - "vsbtools/materials_tools/materials_dataset/io/unittests/optimade_cache_Test.py"
-      - "vsbtools/materials_tools/materials_dataset/scripts/poll_databases.py"
-      - "vsbtools/materials_tools/unittests/cache_paths_Test.py"
+      - "vsbtools/materials_dataset/cache_paths.py"
+      - "vsbtools/materials_dataset/converters.py"
+      - "vsbtools/materials_dataset/io/preset_loaders.py"
+      - "vsbtools/materials_dataset/io/sources/matproj_parser.py"
+      - "vsbtools/materials_dataset/io/sources/optimade_parser.py"
+      - "vsbtools/materials_dataset/io/sources/unittests/optimade_parser_Test.py"
+      - "vsbtools/materials_dataset/io/unittests/optimade_cache_Test.py"
+      - "vsbtools/materials_dataset/scripts/poll_databases.py"
   workflow_dispatch:
 
 jobs:
@@ -54,6 +52,5 @@ jobs:
           PYTHONPATH: ${{ github.workspace }}
         run: >-
           python -m unittest
-          vsbtools.materials_tools.unittests.cache_paths_Test
-          vsbtools.materials_tools.materials_dataset.io.unittests.optimade_cache_Test
-          vsbtools.materials_tools.materials_dataset.io.sources.unittests.optimade_parser_Test
+          vsbtools.materials_dataset.io.unittests.optimade_cache_Test
+          vsbtools.materials_dataset.io.sources.unittests.optimade_parser_Test
