@@ -117,7 +117,9 @@ def cache_loader(read_fn, write_fn, *, cache_root: Path = CACHE_DIR, manifest_na
 
 @cache_loader(read, write)
 def load_from_materials_project(elements, message=None, **kwargs):
-    df = mp_client.query(elements)
+    api_key = kwargs.pop("api_key", None)
+    client = mp_client if api_key is None else MPClient(api_key=api_key)
+    df = client.query(elements)
     message = message or f"Full {elements} system from Materials Project"
     return df2ds(df, message=message)
 
