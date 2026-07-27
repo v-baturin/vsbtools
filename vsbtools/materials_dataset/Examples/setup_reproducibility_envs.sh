@@ -120,6 +120,24 @@ require_cmd() {
     fi
 }
 
+venv_executable() {
+    local venv="$1"
+    local executable="$2"
+    if [[ -x "$venv/bin/$executable" ]]; then
+        printf '%s\n' "$venv/bin/$executable"
+    elif [[ -x "$venv/Scripts/$executable.exe" ]]; then
+        printf '%s\n' "$venv/Scripts/$executable.exe"
+    elif [[ -x "$venv/Scripts/$executable" ]]; then
+        printf '%s\n' "$venv/Scripts/$executable"
+    else
+        printf '%s\n' "$venv/bin/$executable"
+    fi
+}
+
+venv_python() {
+    venv_executable "$1" python
+}
+
 python_version_label() {
     "$1" - <<'PY'
 import sys
@@ -138,12 +156,12 @@ PY
 install_uv() {
     local bootstrap_python="$1"
     UV_BOOTSTRAP_VENV="$STATE_DIR/uv_bootstrap"
-    if [[ ! -x "$UV_BOOTSTRAP_VENV/bin/python" ]]; then
+    if [[ ! -x "$(venv_python "$UV_BOOTSTRAP_VENV")" ]]; then
         log "Creating uv bootstrap venv with $bootstrap_python"
         "$bootstrap_python" -m venv "$UV_BOOTSTRAP_VENV"
     fi
-    "$UV_BOOTSTRAP_VENV/bin/python" -m pip install --upgrade pip uv
-    UV_BIN="$UV_BOOTSTRAP_VENV/bin/uv"
+    "$(venv_python "$UV_BOOTSTRAP_VENV")" -m pip install --upgrade pip uv
+    UV_BIN="$(venv_executable "$UV_BOOTSTRAP_VENV" uv)"
 }
 
 install_managed_python() {
@@ -243,11 +261,11 @@ clone_or_checkout() {
 
 make_venv() {
     local venv="$1"
-    if [[ ! -x "$venv/bin/python" ]]; then
+    if [[ ! -x "$(venv_python "$venv")" ]]; then
         log "Creating venv $venv"
         "$PYTHON_BIN" -m venv "$venv"
     fi
-    "$venv/bin/python" -m pip install --upgrade pip setuptools wheel
+    "$(venv_python "$venv")" -m pip install --upgrade pip setuptools wheel
 }
 
 prompt_existing_venv() {
@@ -268,8 +286,8 @@ prompt_existing_venv() {
     answer="${answer/#\~/$HOME}"
     local venv
     venv="$(cd "$answer" 2>/dev/null && pwd || true)"
-    if [[ -z "$venv" || ! -x "$venv/bin/python" ]]; then
-        echo "$label venv must be a virtual-environment directory with bin/python: $answer" >&2
+    if [[ -z "$venv" || ! -x "$(venv_python "$venv")" ]]; then
+        echo "$label venv must be a virtual-environment directory containing Python: $answer" >&2
         exit 1
     fi
     printf '%s\n' "$venv"
@@ -338,41 +356,55 @@ clone_or_checkout "$SCOUT_MATTER_REPO_URL" "$SCOUT_MATTER_REF" "$SCOUT_SRC"
 VSBTOOLS_COMMIT="$(git -C "$VSBTOOLS_SRC" rev-parse HEAD)"
 SCOUT_MATTER_COMMIT="$(git -C "$SCOUT_SRC" rev-parse HEAD)"
 
+VSBTOOLS_PYTHON="$(venv_python "$VSBTOOLS_VENV")"
+SCOUT_PYTHON="$(venv_python "$SCOUT_VENV")"
+GRACE_PYTHON_BIN="$(venv_python "$GRACE_VENV")"
+
 if [[ -n "$EXISTING_SCOUT_VENV" ]]; then
     log "Reusing scout-matter venv $SCOUT_VENV"
 else
     make_venv "$SCOUT_VENV"
+    SCOUT_PYTHON="$(venv_python "$SCOUT_VENV")"
     log "Installing scout-matter PyTorch/PyG binary dependencies"
-    "$SCOUT_VENV/bin/python" -m pip install --extra-index-url "$PYTORCH_CUDA_INDEX_URL" \
+    "$SCOUT_PYTHON" -m pip install --extra-index-url "$PYTORCH_CUDA_INDEX_URL" \
         "torch==$PYTORCH_VERSION" \
         "torchvision==$TORCHVISION_VERSION" \
         "torchaudio==$TORCHAUDIO_VERSION"
-    "$SCOUT_VENV/bin/python" -m pip install --find-links "$PYG_WHEEL_URL" --only-binary :all: \
-        pyg_lib \
-        torch_scatter \
+    PYG_PACKAGES=(torch_scatter \
         torch_sparse \
         torch_cluster \
-        torch_spline_conv
+        torch_spline_conv)
+    case "$(uname -s)" in
+        MINGW*|MSYS*|CYGWIN*)
+            log "Windows detected; skipping pyg_lib because no compatible wheel is available"
+            ;;
+        *)
+            PYG_PACKAGES=(pyg_lib "${PYG_PACKAGES[@]}")
+            ;;
+    esac
+    "$SCOUT_PYTHON" -m pip install --find-links "$PYG_WHEEL_URL" --only-binary :all: \
+        "${PYG_PACKAGES[@]}"
 
     log "Installing scout-matter into its contained venv"
-    if ! "$SCOUT_VENV/bin/python" -m pip install --extra-index-url "$PYTORCH_CUDA_INDEX_URL" --find-links "$PYG_WHEEL_URL" "$SCOUT_SRC"; then
+    if ! "$SCOUT_PYTHON" -m pip install --extra-index-url "$PYTORCH_CUDA_INDEX_URL" --find-links "$PYG_WHEEL_URL" "$SCOUT_SRC"; then
         log "Non-editable scout-matter install failed; trying editable install"
-        "$SCOUT_VENV/bin/python" -m pip install --extra-index-url "$PYTORCH_CUDA_INDEX_URL" --find-links "$PYG_WHEEL_URL" -e "$SCOUT_SRC"
+        "$SCOUT_PYTHON" -m pip install --extra-index-url "$PYTORCH_CUDA_INDEX_URL" --find-links "$PYG_WHEEL_URL" -e "$SCOUT_SRC"
     fi
-    "$SCOUT_VENV/bin/python" - <<'PY'
+    "$SCOUT_PYTHON" - <<'PY'
 import mattergen
 print("mattergen:", mattergen.__file__)
 PY
 fi
-SCOUT_SITE_PACKAGES="$(python_site_packages "$SCOUT_VENV/bin/python")"
+SCOUT_SITE_PACKAGES="$(python_site_packages "$SCOUT_PYTHON")"
 
 if [[ -n "$EXISTING_GRACE_VENV" ]]; then
     log "Reusing GRACE/tensorpotential venv $GRACE_VENV"
 else
     make_venv "$GRACE_VENV"
+    GRACE_PYTHON_BIN="$(venv_python "$GRACE_VENV")"
     log "Installing GRACE/tensorpotential into its contained venv"
-    "$GRACE_VENV/bin/python" -m pip install "ase<3.26" tensorpotential
-    "$GRACE_VENV/bin/python" - <<'PY'
+    "$GRACE_PYTHON_BIN" -m pip install "ase<3.26" tensorpotential
+    "$GRACE_PYTHON_BIN" - <<'PY'
 import tensorpotential.calculator
 print("tensorpotential.calculator import OK")
 PY
@@ -382,9 +414,10 @@ if [[ -n "$EXISTING_VSBTOOLS_VENV" ]]; then
     log "Reusing vsbtools notebook/kernel venv $VSBTOOLS_VENV"
 else
     make_venv "$VSBTOOLS_VENV"
+    VSBTOOLS_PYTHON="$(venv_python "$VSBTOOLS_VENV")"
     log "Installing vsbtools notebook/kernel environment"
-    "$VSBTOOLS_VENV/bin/python" -m pip install -e "$VSBTOOLS_SRC"
-    "$VSBTOOLS_VENV/bin/python" -m pip install \
+    "$VSBTOOLS_PYTHON" -m pip install -e "$VSBTOOLS_SRC"
+    "$VSBTOOLS_PYTHON" -m pip install \
         dscribe \
         ijson \
         jupyterlab \
@@ -399,7 +432,7 @@ else
         PyYAML \
         scipy \
         torch
-    if "$VSBTOOLS_VENV/bin/python" -m pip install mysqlclient; then
+    if "$VSBTOOLS_PYTHON" -m pip install mysqlclient; then
         log "Optional mysqlclient dependency installed"
     else
         log "Optional mysqlclient dependency failed to install; continuing because this notebook does not use local OQMD/MySQL"
@@ -407,10 +440,10 @@ else
 fi
 
 export MATTERGEN_PYTHON_PATH="$SCOUT_SITE_PACKAGES"
-export GRACE_PYTHON="$GRACE_VENV/bin/python"
+export GRACE_PYTHON="$GRACE_PYTHON_BIN"
 
 log "Validating bridge imports from the vsbtools venv"
-"$VSBTOOLS_VENV/bin/python" - <<'PY'
+"$VSBTOOLS_PYTHON" - <<'PY'
 import os
 import sys
 from pathlib import Path
@@ -436,7 +469,7 @@ if [[ ! -f "$NOTEBOOK_SRC" ]]; then
 fi
 NOTEBOOK_DST="$WORK_DIR/mg_generation_postprocessing_pipeline.ipynb"
 cp "$NOTEBOOK_SRC" "$NOTEBOOK_DST"
-"$VSBTOOLS_VENV/bin/python" - "$NOTEBOOK_DST" <<'PY'
+"$VSBTOOLS_PYTHON" - "$NOTEBOOK_DST" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -452,7 +485,7 @@ path.write_text(json.dumps(notebook, indent=1) + "\n")
 PY
 
 KERNEL_PREFIX="$STATE_DIR/jupyter_kernel_prefix"
-"$VSBTOOLS_VENV/bin/python" -m ipykernel install \
+"$VSBTOOLS_PYTHON" -m ipykernel install \
     --prefix "$KERNEL_PREFIX" \
     --name vsbtools-repro \
     --display-name "vsbtools reproducibility"
@@ -476,9 +509,11 @@ export PYG_WHEEL_URL="$PYG_WHEEL_URL"
 export VSBTOOLS_VENV="$VSBTOOLS_VENV"
 export SCOUT_MATTER_VENV="$SCOUT_VENV"
 export GRACE_VENV="$GRACE_VENV"
+export VSBTOOLS_PYTHON="$VSBTOOLS_PYTHON"
+export SCOUT_PYTHON="$SCOUT_PYTHON"
 export MATTERGEN_PYTHON_PATH="$MATTERGEN_PYTHON_PATH"
 export GRACE_PYTHON="$GRACE_PYTHON"
-export PATH="$VSBTOOLS_VENV/bin:\$PATH"
+export PATH="$(dirname "$VSBTOOLS_PYTHON"):\$PATH"
 export XDG_CONFIG_HOME="$XDG_CONFIG_HOME"
 export XDG_CACHE_HOME="$XDG_CACHE_HOME"
 export JUPYTER_CONFIG_DIR="$JUPYTER_CONFIG_DIR"
@@ -524,7 +559,7 @@ cat > "$LAUNCHER" <<EOF
 set -euo pipefail
 source "$ENV_FILE"
 cd "$WORK_DIR"
-exec "$VSBTOOLS_VENV/bin/jupyter-lab" \\
+exec "$VSBTOOLS_PYTHON" -m jupyter lab \\
     --notebook-dir "$WORK_DIR" \\
     "$NOTEBOOK_DST"
 EOF
@@ -540,7 +575,7 @@ cd "$WORK_DIR"
 executed_notebook="$WORK_DIR/mg_generation_postprocessing_pipeline.executed.ipynb"
 
 set +e
-"$VSBTOOLS_VENV/bin/jupyter-nbconvert" \\
+"$VSBTOOLS_PYTHON" -m jupyter nbconvert \\
     --to notebook \\
     --execute "$NOTEBOOK_DST" \\
     --output "\$(basename "\$executed_notebook")" \\

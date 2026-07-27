@@ -1,14 +1,47 @@
 from dataclasses import dataclass, field
 from itertools import combinations
 from typing import Any, List, Set, Iterable, Generator
+import getpass
+import json
 import os
+from pathlib import Path
 
 import pandas as pd
 from pymatgen.core import Structure
 
 _BaseRester = None
 
-_DEFAULT_MP_KEY = "g1nTPIwz3KjPNNFt7lwkPdFammLCE66v"
+_CONFIG_ENV_VAR = "VSBTOOLS_MP_API_KEY_FILE"
+
+
+def _default_key_path() -> Path:
+    """Return the per-user location for the Materials Project API key."""
+    configured = os.environ.get(_CONFIG_ENV_VAR)
+    if configured:
+        return Path(configured).expanduser()
+    config_home = os.environ.get("XDG_CONFIG_HOME") or os.environ.get("APPDATA")
+    root = Path(config_home).expanduser() if config_home else Path("~/.config").expanduser()
+    return root / "vsbtools" / "materials_project.json"
+
+
+def _load_saved_key(path: Path) -> str | None:
+    try:
+        value = json.loads(path.read_text(encoding="utf-8")).get("api_key")
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return None
+    return value.strip() if isinstance(value, str) and value.strip() else None
+
+
+def _save_key(path: Path, key: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"api_key": key}, indent=2) + "\n", encoding="utf-8")
+    if os.name != "nt":
+        path.chmod(0o600)
+
+
+def _is_authentication_error(error: Exception) -> bool:
+    text = str(error).casefold()
+    return any(marker in text for marker in ("401", "403", "unauthorized", "forbidden", "api key", "apikey"))
 
 
 @dataclass(slots=True)
@@ -16,11 +49,42 @@ class MPClient:
     """Materials Project v2 client (total-energy rows for ThermoDataset)."""
 
     api_key: str | None = None
+    key_path: Path | None = None
+    prompt_for_key: bool = True
     _mpr: Any = field(init=False, default=None, repr=False)
 
     # ------------------------------------------------------------------ #
     # Internals                                                          #
     # ------------------------------------------------------------------ #
+
+    def _key_file(self) -> Path:
+        return self.key_path or _default_key_path()
+
+    def _prompt_for_key(self, *, reason: str | None = None) -> str:
+        if not self.prompt_for_key:
+            detail = f" ({reason})" if reason else ""
+            raise RuntimeError(
+                "Materials Project API key is required" + detail
+                + ". Set MAPI_KEY or PMG_MAPI_KEY, pass api_key, or save one in "
+                + str(self._key_file())
+            )
+        if reason:
+            print(f"Materials Project authentication failed: {reason}", file=sys.stderr)
+        try:
+            key = getpass.getpass("Materials Project API key (input hidden): ").strip()
+        except EOFError as exc:
+            raise RuntimeError(
+                "Materials Project API key is required but this process cannot accept input. "
+                "Set MAPI_KEY or PMG_MAPI_KEY before running non-interactively."
+            ) from exc
+        if not key:
+            raise RuntimeError("Materials Project API key was not provided.")
+        _save_key(self._key_file(), key)
+        return key
+
+    def _resolve_api_key(self) -> str:
+        key = self.api_key or os.getenv("MAPI_KEY") or os.getenv("PMG_MAPI_KEY") or _load_saved_key(self._key_file())
+        return key if key else self._prompt_for_key()
 
     def _connect(self):
         global _BaseRester
@@ -30,9 +94,15 @@ class MPClient:
             except ImportError as err:
                 raise ImportError("Install `mp-api` to use MPClient.") from err
         if self._mpr is None:
-            key = self.api_key or os.getenv("MAPI_KEY") or _DEFAULT_MP_KEY
-            self._mpr = _BaseRester(api_key=key)
+            self._mpr = _BaseRester(api_key=self._resolve_api_key())
         return self._mpr
+
+    def _retry_after_authentication_failure(self, error: Exception) -> bool:
+        if self.api_key is not None or not _is_authentication_error(error):
+            return False
+        self._mpr = None
+        self.api_key = self._prompt_for_key(reason=str(error))
+        return True
 
     @staticmethod
     def _subspaces(elements: Set[str]) -> Generator[str, Any, None]:
@@ -50,6 +120,14 @@ class MPClient:
 
         Columns: id, formula (full), e_total (eV), natoms, structure, source
         """
+        try:
+            return self._query_once(elements)
+        except Exception as error:
+            if self._retry_after_authentication_failure(error):
+                return self._query_once(elements)
+            raise
+
+    def _query_once(self, elements: Iterable[str]) -> pd.DataFrame:
         rester = self._connect()
 
         thermo_docs = []
